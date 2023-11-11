@@ -30,9 +30,8 @@ SWEP.AttackSoundTable = "MetalSpearAttackSoundTable"
 
 SWEP.AttackTable = "PilumAttackTable"
 
-SWEP.Primary.Round = ("m9k_thrown_harpoon");
+SWEP.Primary.Round = ("begotten_javelin_pilum_thrown");
 
-SWEP.ConditionLoss = 50;
 SWEP.isJavelin = true;
 SWEP.SticksInShields = true;
 
@@ -93,6 +92,7 @@ function SWEP:FireJavelin()
 		javelin:SetPos(pos)
 		javelin:SetOwner(self.Owner)
 		javelin:Spawn()
+		javelin.AttackTable = self.AttackTable;
 		javelin.Owner = self.Owner
 		javelin:Activate()
 		eyes = self.Owner:EyeAngles()

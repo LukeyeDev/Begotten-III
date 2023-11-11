@@ -19,49 +19,46 @@ function PANEL:Init()
 	self.characterEquipmentFrames:SetImage("begotten/ui/equipment.png");
 	
 	self.categoryLocations = {
-		["Helms"] = {x = 110, y = 48, receiver = nil, occupier = nil},
-		["Armor"] = {x = 110, y = 157, receiver = nil, occupier = nil},
-		["Backpacks"] = {x = 110, y = 266, receiver = nil, occupier = nil},
-		["Charm1"] = {x = 110, y = 375, receiver = nil, occupier = nil},
-		["Primary"] = {x = 566, y = 48, receiver = nil, occupier = nil},
-		["Secondary"] = {x = 566, y = 157, receiver = nil, occupier = nil},
-		["Tertiary"] = {x = 566, y = 266, receiver = nil, occupier = nil},
-		["Charm2"] = {x = 566, y = 375, receiver = nil, occupier = nil},
+		["Helms"] = {x = 110, y = 48, receiverName = "Helms"},
+		["Armor"] = {x = 110, y = 157, receiverName = "Armor"},
+		["Backpacks"] = {x = 110, y = 266, receiverName = "Backpacks"},
+		["Charm1"] = {x = 110, y = 375, receiverName = "Charms"},
+		["Primary"] = {x = 566, y = 48, receiverName = "weaponSlot"},
+		["PrimaryOffhand"] = {x = 566, y = 48},
+		["Secondary"] = {x = 566, y = 157, receiverName = "weaponSlot"},
+		["SecondaryOffhand"] = {x = 566, y = 157},
+		["Tertiary"] = {x = 566, y = 266, receiverName = "weaponSlot"},
+		["TertiaryOffhand"] = {x = 566, y = 266},
+		["Charm2"] = {x = 566, y = 375, receiverName = "Charms"},
 	};
 	
 	for k, v in pairs(self.categoryLocations) do
-		v.receiver = vgui.Create('DPanel', self);
-	
-		if v.receiver then
-			v.receiver:SetSize(64, 64);
-			v.receiver:SetPos(v.x, v.y);
-			
-			local receiverName = k;
-			
-			if k == "Primary" or k == "Secondary" or k == "Tertiary" then
-				receiverName = "weaponSlot";
-			elseif k == "Charm1" or k == "Charm2" then
-				receiverName = "Charms";
-			end
-			
-			v.receiver:Receiver(receiverName, function(self, panels, dropped, menuIndex, x, y)
-				if (dropped) then
-					local panel = panels[1];
-					
-					if panel then
-						local parent = panel:GetParent();
+		if v.receiverName then
+			v.receiver = vgui.Create('DPanel', self);
+		
+			if v.receiver then
+				v.receiver:SetSize(64, 64);
+				v.receiver:SetPos(v.x, v.y);
+				
+				v.receiver:Receiver(v.receiverName, function(self, panels, dropped, menuIndex, x, y)
+					if (dropped) then
+						local panel = panels[1];
+						
+						if panel then
+							local parent = panel:GetParent();
 
-						if parent and parent.itemData and parent.itemTable then
-							if (parent.itemData.OnPress) then
-								parent.itemData.OnPress();
-								return;
-							end;
+							if parent and parent.itemData and parent.itemTable then
+								if (parent.itemData.OnPress) then
+									parent.itemData.OnPress();
+									return;
+								end;
 
-							Clockwork.kernel:HandleItemSpawnIconRightClick(parent.itemTable, spawnIcon);
+								Clockwork.kernel:HandleItemSpawnIconRightClick(parent.itemTable, spawnIcon);
+							end
 						end
 					end
-				end
-			end);
+				end);
+			end
 		end
 	end
 	
@@ -124,13 +121,13 @@ end;
 function PANEL:Rebuild()
 	self.inventoryList:Clear();
 	
-	if not self.equipmentIconList then
-		self.equipmentIconList = {};
+	if self.equipmentIconList then
+		for k, v in pairs(self.equipmentIconList) do
+			v:Remove();
+		end
 	end
-
-	for k, v in pairs(self.equipmentIconList) do
-		v:Remove();
-	end
+	
+	self.equipmentIconList = {};
 	
 	for k, v in pairs(self.categoryLocations) do
 		v.occupier = nil;
@@ -138,14 +135,13 @@ function PANEL:Rebuild()
 	
 	local coin = Clockwork.player:GetCash() or 0;
 	local cycle;
+	local clientInventory = Clockwork.inventory:GetClient();
+	local clothesItem = Clockwork.Client:GetClothesEquipped();
 	local playerModel = Clockwork.Client:GetModel();
 	local playerSkin = Clockwork.Client:GetSkin();
 	local playerBodygroups = {Clockwork.Client:GetBodygroup(0), Clockwork.Client:GetBodygroup(1)};
 	local headModel;
 	local weapons = {};
-	local weapon1;
-	local weapon2;
-	local weapon3;
 	
 	if IsValid(self.characterModel) then
 		if IsValid(self.characterModel.modelPanel.Entity) then
@@ -154,11 +150,14 @@ function PANEL:Rebuild()
 	end
 	
 	if string.find(playerModel, "models/begotten/heads") then
-		headModel = playerModel;
-		
-		local clothesItem = Clockwork.Client:GetClothesEquipped();
-		local factionTable = Clockwork.faction:FindByID(Clockwork.Client:GetFaction());
+		local factionTable = Clockwork.faction:FindByID(Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction());
 		local gender = string.lower(Clockwork.Client:GetGender());
+	
+		if cwSanity and Clockwork.Client:Sanity() <= 20 then
+			headModel = "models/begotten/heads/"..string.lower(gender).."_gorecap.mdl";
+		else
+			headModel = playerModel;
+		end
 
 		if clothesItem and clothesItem.group then
 			if clothesItem.genderless then
@@ -234,7 +233,7 @@ function PANEL:Rebuild()
 		end;
 	end;
 	
-	for k, v in pairs(Clockwork.inventory:GetClient()) do
+	for k, v in pairs(clientInventory) do
 		for k2, v2 in pairs(v) do
 			local itemCategory = v2("category");
 			
@@ -294,6 +293,7 @@ function PANEL:Rebuild()
 	
 	self.inventoryList:AddItem(self.itemList);
 
+	-- Need to clean this code up later.
 	if (#categories.equipment > 0) then
 		local charm_slots = {"Charm1", "Charm2"};
 		local slots = {"Primary", "Secondary", "Tertiary"};
@@ -316,8 +316,6 @@ function PANEL:Rebuild()
 				local equipmentIcon = vgui.Create("cwInventoryItem", self);
 				local equipmentPos = nil;
 				
-				table.insert(self.equipmentIconList, equipmentIcon);
-				
 				if self.itemData.condition and self.itemData.condition < 100 then
 					if self.itemData.condition <= 0 then
 						equipmentIcon.spawnIcon.brokenOverlay = vgui.Create("DImage", equipmentIcon.spawnIcon);
@@ -339,11 +337,26 @@ function PANEL:Rebuild()
 				if v2.category == "Throwables" or v2.category == "Weapons" or v2.category == "Melee" or v2.category == "Shields" or v2.category == "Firearms" or v2.category == "Javelins" or v2.category == "Lights" then
 					for i, slot in ipairs(slots) do
 						local slottedItem = Clockwork.Client.equipmentSlots[slot];
+						local offhandItem = Clockwork.Client.equipmentSlots[slot.."Offhand"];
 						
 						if slottedItem and slottedItem.itemID == v2.itemID then
 							equipmentPos = self.categoryLocations[slot];
 							self.categoryLocations[slot].occupier = equipmentIcon;
 							weapons[i] = v2;
+							
+							if offhandItem and equipmentIcon.spawnIcon.conditionBar then
+								equipmentIcon.spawnIcon.conditionBar:SetPos(4, 50);
+							end
+						end
+						
+						if offhandItem and offhandItem.itemID == v2.itemID then
+							equipmentPos = self.categoryLocations[slot.."Offhand"];
+							self.categoryLocations[slot.."Offhand"].occupier = equipmentIcon;
+							weapons[i + #slots] = v2;
+							
+							if equipmentIcon.spawnIcon.m_Image then
+								equipmentIcon.spawnIcon.m_Image:SetMirrored(true);
+							end
 						end
 					end
 				elseif v2.category == "Charms" then	
@@ -432,6 +445,9 @@ function PANEL:Rebuild()
 						end
 					end
 				end);
+				
+				equipmentIcon.itemID = v2.itemID;
+				table.insert(self.equipmentIconList, equipmentIcon);
 			end;
 		end;
 	end;
@@ -821,119 +837,94 @@ function PANEL:Rebuild()
 		end;
 	end;
 	
+	local attachments = {};
+
 	if weapons and not table.IsEmpty(weapons) then
-		for i = 1, #weapons do
+		for i = 1, 6 do
 			local weapon = weapons[i];
-			
-			if weapon and weapon.uniqueID and weapon.itemID then
-				local item = Clockwork.item:FindByID(weapon.uniqueID, weapon.itemID);
+
+			if weapon and weapon.isAttachment then
+				local attachment = {};
+				local attachmentBone = weapon.attachmentBone;
+				local offsetAngle = weapon.attachmentOffsetAngles;
+				local offsetVector = weapon.attachmentOffsetVector;
 				
-				if item then
-					if i == 1 then
-						weapon1 = {};
-						
-						if item.isAttachment then
-							weapon1.attachmentInfo = {};
-							weapon1.attachmentInfo.attachmentModel = item.model;
-							weapon1.attachmentInfo.attachmentBone = item.attachmentBone;
-							weapon1.attachmentInfo.attachmentOffsetAngles = item.attachmentOffsetAngles;
-							weapon1.attachmentInfo.attachmentOffsetVector = item.attachmentOffsetVector;
-							weapon1.attachmentInfo.attachmentSkin = item.attachmentSkin;
-							weapon1.attachmentInfo.bodygroup0 = item.bodygroup0;
-							weapon1.attachmentInfo.bodygroup1 = item.bodygroup1;
-							weapon1.attachmentInfo.bodygroup2 = item.bodygroup2;
-							weapon1.attachmentInfo.bodygroup3 = item.bodygroup3;
-						end
-					elseif i == 2 then
-						weapon2 = {};
-						
-						if item.isAttachment then
-							weapon2.attachmentInfo = {};
-							weapon2.attachmentInfo.attachmentModel = item.model;
-							weapon2.attachmentInfo.attachmentBone = item.attachmentBone;
-							weapon2.attachmentInfo.attachmentOffsetAngles = item.attachmentOffsetAngles;
-							weapon2.attachmentInfo.attachmentOffsetVector = item.attachmentOffsetVector;
-							weapon2.attachmentInfo.attachmentSkin = item.attachmentSkin;
-							weapon2.attachmentInfo.bodygroup0 = item.bodygroup0;
-							weapon2.attachmentInfo.bodygroup1 = item.bodygroup1;
-							weapon2.attachmentInfo.bodygroup2 = item.bodygroup2;
-							weapon2.attachmentInfo.bodygroup3 = item.bodygroup3;
-						end
-					elseif i == 3 then
-						weapon3 = {};
-						
-						if item.isAttachment then
-							weapon3.attachmentInfo = {};
-							weapon3.attachmentInfo.attachmentModel = item.model;
-							weapon3.attachmentInfo.attachmentBone = item.attachmentBone;
-							weapon3.attachmentInfo.attachmentOffsetAngles = item.attachmentOffsetAngles;
-							weapon3.attachmentInfo.attachmentOffsetVector = item.attachmentOffsetVector;
-							weapon3.attachmentInfo.attachmentSkin = item.attachmentSkin;
-							weapon3.attachmentInfo.bodygroup0 = item.bodygroup0;
-							weapon3.attachmentInfo.bodygroup1 = item.bodygroup1;
-							weapon3.attachmentInfo.bodygroup2 = item.bodygroup2;
-							weapon3.attachmentInfo.bodygroup3 = item.bodygroup3;
-						end
+				if weapon.slots and i > #weapon.slots then
+					-- Offhand
+					if string.find(attachmentBone, "_L_") then
+						attachmentBone = string.gsub(attachmentBone, "_L_", "_R_");
+					else
+						attachmentBone = string.gsub(attachmentBone, "_R_", "_L_");
+					end
+					
+					offsetVector = Vector(-offsetVector.x, offsetVector.y, offsetVector.z);
+					offsetAngle = Angle(-offsetAngle.pitch, offsetAngle.yaw, offsetAngle.roll);
+				end
+			
+				attachment.attachmentInfo = {};
+				attachment.attachmentInfo.attachmentModel = weapon.model;
+				attachment.attachmentInfo.attachmentBone = attachmentBone;
+				attachment.attachmentInfo.attachmentOffsetAngles = offsetAngle;
+				attachment.attachmentInfo.attachmentOffsetVector = offsetVector;
+				attachment.attachmentInfo.attachmentSkin = weapon.attachmentSkin;
+				attachment.attachmentInfo.bodygroup0 = weapon.bodygroup0;
+				attachment.attachmentInfo.bodygroup1 = weapon.bodygroup1;
+				attachment.attachmentInfo.bodygroup2 = weapon.bodygroup2;
+				attachment.attachmentInfo.bodygroup3 = weapon.bodygroup3;
+				
+				table.insert(attachments, attachment);
+			end
+		end
+	end
+	
+	self.characterModel.attachments = attachments;
+	self.characterModel:SetModelNew(playerModel);
+	
+	if IsValid(self.characterModel.modelPanel.Entity) then
+		if headModel then
+			if IsValid(self.characterModel.modelPanel.headModel) and self.characterModel.modelPanel.headModel:GetModel() ~= headModel then
+				self.characterModel.modelPanel.headModel:Remove();
+				self.characterModel.modelPanel.headModel = nil;
+			end
+			
+			if !IsValid(self.characterModel.modelPanel.headModel) then
+				self.characterModel.modelPanel.headModel = ClientsideModel(headModel, RENDERGROUP_OPAQUE);
+			end
+			
+			if IsValid(self.characterModel.modelPanel.headModel) then
+				self.characterModel.modelPanel.headModel.noDelete = true;
+				self.characterModel.modelPanel.headModel:SetParent(self.characterModel.modelPanel.Entity);
+				self.characterModel.modelPanel.headModel:AddEffects(EF_BONEMERGE);
+				self.characterModel.modelPanel.headModel:SetBodygroup(0, playerBodygroups[1]);
+				self.characterModel.modelPanel.headModel:SetBodygroup(1, playerBodygroups[2]);
+				self.characterModel.modelPanel.headModel:SetSkin(Clockwork.Client:GetSkin() or 0);
+				self.characterModel.modelPanel.headModel:SetNoDraw(true);
+			end
+		else
+			self.characterModel.modelPanel.Entity:SetBodygroup(0, playerBodygroups[1]);
+			self.characterModel.modelPanel.Entity:SetBodygroup(1, playerBodygroups[2]);
+			self.characterModel.modelPanel.Entity:SetSkin(Clockwork.Client:GetSkin() or 0);
+			
+			if IsValid(self.characterModel.modelPanel.headModel) then
+				self.characterModel.modelPanel.headModel:Remove();
+			end
+		end
+		
+		if clothes and clothes.bodygroupCharms then
+			for k, v in pairs(clothes.bodygroupCharms) do
+				if Clockwork.Client:GetCharmEquipped(k) then
+					if self.characterModel.modelPanel.Entity:GetBodygroup(v[1]) ~= v[2] then
+						self.characterModel.modelPanel.Entity:SetBodygroup(v[1], v[2]);
 					end
 				end
 			end
 		end
+		
+		self.characterModel.modelPanel.Entity:ResetSequence(self.characterModel.modelPanel.Entity:LookupSequence("idle_angry"));
+		self.characterModel.modelPanel.Entity:SetCycle(cycle or 0);
 	end
-	
-	self.characterModel.weapon1 = nil;
-	self.characterModel.weapon2 = nil;
-	self.characterModel.weapon3 = nil;
-	
-	if weapon1 then
-		self.characterModel.weapon1 = weapon1;
-	end
-	
-	if weapon2 then
-		self.characterModel.weapon2 = weapon2;
-	end
-	
-	if weapon3 then
-		self.characterModel.weapon3 = weapon3;
-	end
-	
-	self.characterModel:SetModelNew(playerModel);
-	
-	if IsValid(self.characterModel) then
-		if IsValid(self.characterModel.modelPanel.Entity) then
-			if headModel then
-				if IsValid(self.characterModel.modelPanel.headModel) and self.characterModel.modelPanel.headModel:GetModel() ~= headModel then
-					self.characterModel.modelPanel.headModel:Remove();
-					self.characterModel.modelPanel.headModel = nil;
-				end
-				
-				if !IsValid(self.characterModel.modelPanel.headModel) then
-					self.characterModel.modelPanel.headModel = ClientsideModel(headModel, RENDERGROUP_OPAQUE);
-				end
-				
-				if IsValid(self.characterModel.modelPanel.headModel) then
-					self.characterModel.modelPanel.headModel.noDelete = true;
-					self.characterModel.modelPanel.headModel:SetParent(self.characterModel.modelPanel.Entity);
-					self.characterModel.modelPanel.headModel:AddEffects(EF_BONEMERGE);
-					self.characterModel.modelPanel.headModel:SetBodygroup(0, playerBodygroups[1]);
-					self.characterModel.modelPanel.headModel:SetBodygroup(1, playerBodygroups[2]);
-					self.characterModel.modelPanel.headModel:SetSkin(Clockwork.Client:GetSkin() or 0);
-				end
-			else
-				self.characterModel.modelPanel.Entity:SetBodygroup(0, playerBodygroups[1]);
-				self.characterModel.modelPanel.Entity:SetBodygroup(1, playerBodygroups[2]);
-				self.characterModel.modelPanel.Entity:SetSkin(Clockwork.Client:GetSkin() or 0);
-				
-				if IsValid(self.characterModel.modelPanel.headModel) then
-					self.characterModel.modelPanel.headModel:Remove();
-				end
-			end
-			
-			self.characterModel.modelPanel.Entity:ResetSequence(self.characterModel.modelPanel.Entity:LookupSequence("idle_angry"));
-			self.characterModel.modelPanel.Entity:SetCycle(cycle or 0);
-		end
 
-		self.characterModel:SetVisible(true);
-	end
+	self.characterModel:SetVisible(true);
 
 	self.inventoryList:InvalidateLayout(true);
 	
@@ -1072,28 +1063,24 @@ function PANEL:Think()
 	local weight = self.itemTable("weight");
 	local description = self.itemTable("description");
 	local amount = self.itemData.amount or 0;
+	local spawnIcon = self.spawnIcon;
 	
-	if (self.spawnIcon.isSpawnIcon) then
-		self.spawnIcon:SetColor(color);
+	if (spawnIcon.isSpawnIcon) then
+		spawnIcon:SetColor(color);
 	end
 
 	if (self.itemTable.stackable) then
 		if (amount > 1) then
-			if self.spawnIcon then
-				if !IsValid(self.spawnIcon.amount) then
-					self.spawnIcon.amount = vgui.Create("DLabel", self.spawnIcon);
+			if spawnIcon then
+				if !IsValid(spawnIcon.amount) then
+					spawnIcon.amount = vgui.Create("DLabel", spawnIcon);
 				end
 				
-				self.spawnIcon.amount:SetText(amount);
-				self.spawnIcon.amount:SetFont("Decay_FormText");
-				self.spawnIcon.amount:SetTextColor(Color(160, 145, 145));
-				self.spawnIcon.amount:SizeToContents();
-				
-				if amount < 10 then
-					self.spawnIcon.amount:SetPos(52, 46);
-				else
-					self.spawnIcon.amount:SetPos(46, 46);
-				end
+				spawnIcon.amount:SetText(amount);
+				spawnIcon.amount:SetFont("Decay_FormText");
+				spawnIcon.amount:SetTextColor(Color(160, 145, 145));
+				spawnIcon.amount:SizeToContents();
+				spawnIcon.amount:SetPos(64 - spawnIcon.amount:GetWide(), 46);
 			end
 			
 			--[[local plural = self.itemTable("plural");
@@ -1110,8 +1097,8 @@ function PANEL:Think()
 			weight = weight * amount;
 		elseif (amount == 1) then
 			name = amount.." "..name]]--
-		elseif self.spawnIcon and self.spawnIcon.amount then
-			self.spawnIcon.amount:Remove();
+		elseif spawnIcon and spawnIcon.amount then
+			spawnIcon.amount:Remove();
 		end;
 	end;
 	
@@ -1127,7 +1114,7 @@ function PANEL:Think()
 	local model, skin = Clockwork.item:GetIconInfo(self.itemTable);
 	
 	if (model != self.cachedInfo.model or skin != self.cachedInfo.skin) then
-		self.spawnIcon:SetModel(model, skin);
+		spawnIcon:SetModel(model, skin);
 		self.cachedInfo.model = model
 		self.cachedInfo.skin = skin;
 	end;

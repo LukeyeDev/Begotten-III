@@ -84,6 +84,10 @@ function cwBeliefs:GetEntityMenuOptions(entity, options)
 	end;
 end;
 
+function cwBeliefs:CanPlayerDualWield()
+	return self:HasBelief({"man_become_beast", "murder_artform", "repentant", "witch_druid"}, true);
+end
+
 local bearTrapDist = (256 * 256);
 
 function cwBeliefs:AddEntityOutlines(outlines)
@@ -123,7 +127,7 @@ function cwBeliefs:AddEntityOutlines(outlines)
 					end
 				end
 
-				if isCOS then
+				if isCOS or self:HasBelief("embrace_the_darkness") then
 					if v:GetSharedVar("yellowBanner") == true then
 						if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= bannerDist) then
 							self:DrawPlayerOutline(v, outlines, Color(200, 200, 0, 255));

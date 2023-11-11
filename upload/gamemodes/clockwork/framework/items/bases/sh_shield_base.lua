@@ -89,6 +89,20 @@ function ITEM:OnPlayerUnequipped(player, extraData)
 		end
 	end
 	
+	if !player:IsNoClipping() and (!player.GetCharmEquipped or !player:GetCharmEquipped("urn_silence")) then
+		local useSound = self("useSound");
+		
+		if (useSound) then
+			if (type(useSound) == "table") then
+				player:EmitSound(useSound[math.random(1, #useSound)]);
+			else
+				player:EmitSound(useSound);
+			end;
+		elseif (useSound != false) then
+			player:EmitSound("begotten/items/first_aid.wav");
+		end;
+	end
+	
 	return Clockwork.equipment:UnequipItem(player, self);
 end;
 
@@ -99,6 +113,11 @@ end
 function ITEM:OnEquip(player)
 	if self:IsBroken() then
 		Schema:EasyText(player, "olive", "This shield is broken and cannot be used!");
+		return false;
+	end
+	
+	if player:GetShieldEquipped() then
+		Schema:EasyText(player, "olive", "You cannot equip more than one shield!");
 		return false;
 	end
 
@@ -148,9 +167,12 @@ function ITEM:OnUse(player, itemEntity)
 		local meleeItem = player.equipmentSlots[v];
 		
 		if meleeItem and meleeItem.canUseShields then
-			suitable_melee = meleeItem.itemID;
-			
-			break;
+			-- Check to make sure the weapon isn't being dual-wielded.
+			if !player.equipmentSlots[v.."Offhand"] then
+				suitable_melee = meleeItem.itemID;
+				
+				break;
+			end
 		end
 	end
 

@@ -27,6 +27,173 @@ local COMMAND = Clockwork.command:New("StorageTakeItem");
 	end;
 COMMAND:Register();
 
+local COMMAND = Clockwork.command:New("StorageTakeItems");
+	COMMAND.tip = "Take multiple items from storage. Not specifying an amount will take all items matching the specified uniqueID.";
+	COMMAND.text = "<string UniqueID> [number Amount] [string Sort]";
+	COMMAND.flags = CMD_DEFAULT;
+	COMMAND.arguments = 1;
+	COMMAND.optionalArguments = 2;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local storageTable = player:GetStorageTable();
+		local uniqueID = arguments[1];
+		local amount = tonumber(arguments[2]);
+		local sortString = arguments[3];
+		
+		if (storageTable and IsValid(storageTable.entity)) then
+			local target = storageTable.entity;
+			
+			if (storageTable.isOneSided) then
+				Clockwork.player:Notify(player, "You cannot give items to this container!");
+				return;
+			end;
+			
+			local items = Clockwork.inventory:GetItemsByID(storageTable.inventory, uniqueID);
+			
+			if !items or table.IsEmpty(items) then
+				Clockwork.player:Notify(player, "The storage does not contain any items of this type!");
+				return;
+			end
+			
+			local sequentialItems = {};
+			
+			for k, v in pairs(items) do
+				table.insert(sequentialItems, v);
+			end
+			
+			items = nil;
+			
+			if sortString == "bestCondition" then
+				table.sort(sequentialItems, function(a, b) return a:GetCondition() > b:GetCondition() end);
+			elseif sortString == "worstCondition" then
+				table.sort(sequentialItems, function(a, b) return a:GetCondition() < b:GetCondition() end);
+			end
+			
+			local successfulItems = {};
+			local playerInventory = player:GetInventory();
+			
+			for i = 1, math.min(amount or #sequentialItems, 250) do
+				local itemTable = sequentialItems[i];
+				local success = Clockwork.storage:TakeFrom(player, itemTable, true);
+				local fault;
+				
+				if success then
+					if (player:CanHoldWeight(itemTable.weight) and player:CanHoldSpace(itemTable.space)) then
+						if (itemTable.OnGiveToPlayer) then
+							itemTable:OnGiveToPlayer(player)
+						end
+
+						Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has gained a "..itemTable.name.." "..itemTable.itemID..".")
+
+						Clockwork.inventory:AddInstance(playerInventory, itemTable);
+					else
+						success = false;
+						fault = "You can only carry up to four times your non-overencumbered carrying capacity!";
+					end
+				end
+				
+				if !success then
+					if fault then
+						Schema:EasyText(player, "peru", fault);
+					end
+					
+					if i == 1 then
+						return;
+					else
+						break;
+					end
+				end
+				
+				hook.Run("PlayerTakeFromStorage", player, storageTable, itemTable)
+				
+				table.insert(successfulItems, itemTable);
+			end
+			
+			local players = {}
+			local inventory = Clockwork.storage:Query(player, "inventory");
+				
+			for k, v in pairs(_player.GetAll()) do
+				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
+					players[#players + 1] = v
+				end
+			end
+			
+			local definitions = {};
+			local signatures = {};
+			local itemTable = sequentialItems[1];
+			
+			for i, v in ipairs(successfulItems) do
+				local definition = item.GetDefinition(v, true)
+				local signature = item.GetSignature(v);
+				
+				-- idk why this is needed when InvGive doesnt need it but whatever
+				definition.index = v.uniqueID;
+					
+				table.insert(definitions, definition);
+				table.insert(signatures, signature);
+			end
+			
+			netstream.Start(player, "InvGiveItems", definitions);
+			
+			Clockwork.inventory:Rebuild(player);
+			
+			if (!target or !target:IsPlayer()) then
+				for i, v in ipairs(successfulItems) do
+					Clockwork.inventory:RemoveInstance(inventory, v);
+				end
+			else
+				local targetInventory = target:GetInventory()
+			
+				for i, v in ipairs(successfulItems) do
+					if (v.OnTakeFromPlayer) then
+						v:OnTakeFromPlayer(target)
+					end
+					
+					Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, target:Name().." has lost a "..v.name.." "..v.itemID..".")
+
+					--hook.Run("PlayerItemTaken", target, v);
+					
+					Clockwork.kernel:ForceUnequipItem(target, v.uniqueID, v.itemID);
+					Clockwork.inventory:RemoveInstance(targetInventory, v);
+					--netstream.Start(target, "InvTake", {v.index, v.itemID});
+				end
+				
+				netstream.Start(target, "InvTakeItems", signatures);
+				
+				Clockwork.inventory:Rebuild(target);
+			end
+				
+			for k, v in pairs(_player.GetAll()) do
+				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
+					players[#players + 1] = v
+				end
+			end
+			
+			netstream.Start(
+				players, "StorageTake", {itemList = signatures}
+			)
+
+			if (storageTable.OnTakeItem and storageTable.OnTakeItem(player, storageTable, itemTable)) then
+				Clockwork.storage:Close(player)
+			end
+
+			if (itemTable.OnStorageTake and itemTable:OnStorageTake(player, itemTable)) then
+				Clockwork.storage:Close(player)
+			end
+
+			if (target:IsPlayer()) then
+				Clockwork.storage:UpdateWeight(player, target:GetMaxWeight())
+				Clockwork.storage:UpdateSpace(player, target:GetMaxSpace())
+			end
+
+			hook.Run("PostPlayerTakeFromStorage", player, storageTable, itemTable)
+		else
+			Clockwork.player:Notify(player, "You do not have storage open!");
+		end;
+	end;
+COMMAND:Register();
+
 local COMMAND = Clockwork.command:New("Unequip");
 	COMMAND.tip = "Unequip a weapon.";
 	COMMAND.flags = CMD_DEFAULT;
@@ -117,6 +284,132 @@ local COMMAND = Clockwork.command:New("StorageGiveItem");
 			end;
 			
 			Clockwork.storage:GiveTo(player, itemTable);
+		else
+			Clockwork.player:Notify(player, "You do not have storage open!");
+		end;
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("StorageGiveItems");
+	COMMAND.tip = "Give multiple items to storage. Not specifying an amount will give all items matching the specified uniqueID.";
+	COMMAND.text = "<string UniqueID> [number Amount] [string Sort]";
+	COMMAND.flags = CMD_DEFAULT;
+	COMMAND.arguments = 1;
+	COMMAND.optionalArguments = 2;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local storageTable = player:GetStorageTable();
+		local uniqueID = arguments[1];
+		local amount = tonumber(arguments[2]);
+		local sortString = arguments[3];
+		
+		if (storageTable and IsValid(storageTable.entity)) then
+			local target = storageTable.entity;
+			
+			if (storageTable.isOneSided) then
+				Clockwork.player:Notify(player, "You cannot give items to this container!");
+				return;
+			end;
+			
+			local items = player:GetItemsByID(uniqueID);
+			
+			if !items or table.IsEmpty(items) then
+				Clockwork.player:Notify(player, "You do not have any items of this type!");
+				return;
+			end
+			
+			local sequentialItems = {};
+			
+			for k, v in pairs(items) do
+				table.insert(sequentialItems, v);
+			end
+			
+			items = nil;
+			
+			if sortString == "bestCondition" then
+				table.sort(sequentialItems, function(a, b) return a:GetCondition() > b:GetCondition() end);
+			elseif sortString == "worstCondition" then
+				table.sort(sequentialItems, function(a, b) return a:GetCondition() < b:GetCondition() end);
+			end
+			
+			local successfulItems = {};
+			
+			for i = 1, math.min(amount or #sequentialItems, 250) do
+				local itemTable = sequentialItems[i];
+				local success = Clockwork.storage:GiveTo(player, itemTable, true);
+				
+				if !success then
+					if i == 1 then
+						return;
+					else
+						break;
+					end
+				end
+				
+				table.insert(successfulItems, itemTable);
+			end
+			
+			local players = {}
+			local inventory = Clockwork.storage:Query(player, "inventory");
+				
+			for k, v in pairs(_player.GetAll()) do
+				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
+					players[#players + 1] = v
+				end
+			end
+			
+			local definitions = {};
+			local signatures = {};
+			local itemTable = sequentialItems[1];
+			
+			for i, v in ipairs(successfulItems) do
+				local definition = item.GetDefinition(v, true)
+				local signature = item.GetSignature(v);
+				
+				definition.index = nil
+					
+				table.insert(definitions, definition);
+				table.insert(signatures, signature);
+			end
+			
+			netstream.Start(
+				players, "StorageGive", {index = itemTable.index, itemList = definitions}
+			)
+			
+			local playerInventory = player:GetInventory();
+			
+			for i, v in ipairs(successfulItems) do
+				if (v.OnTakeFromPlayer) then
+					v:OnTakeFromPlayer(player)
+				end
+				
+				Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has lost a "..v.name.." "..v.itemID..".")
+
+				--hook.Run("PlayerItemTaken", player, v);
+				
+				Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+				Clockwork.inventory:RemoveInstance(playerInventory, v);
+			end
+
+			netstream.Start(player, "InvTakeItems", signatures);
+			
+			Clockwork.inventory:Rebuild(player);
+			
+			if (storageTable.OnGiveItem and storageTable.OnGiveItem(player, storageTable, itemTable)) then
+				Clockwork.storage:Close(player)
+			end
+
+			if (itemTable.OnStorageGive and itemTable:OnStorageGive(player, storageTable)) then
+				Clockwork.storage:Close(player)
+			end
+
+			if (target:IsPlayer()) then
+				Clockwork.storage:UpdateWeight(player, target:GetMaxWeight())
+				Clockwork.storage:UpdateSpace(player, target:GetMaxSpace())
+			end
+
+			hook.Run("PostPlayerGiveToStorage", player, storageTable, itemTable)
 		else
 			Clockwork.player:Notify(player, "You do not have storage open!");
 		end;
@@ -309,310 +602,6 @@ local COMMAND = Clockwork.command:New("OrderShipment");
 		else
 			local amount = (itemTable.cost * itemTable.batch) - player:GetCash();
 			Clockwork.player:Notify(player, "You need another "..Clockwork.kernel:FormatCash(amount, nil, true).."!");
-		end;
-	end;
-COMMAND:Register();
-
-local COMMAND = Clockwork.command:New("InvAction");
-	COMMAND.tip = "Run an inventory action on an item.";
-	COMMAND.text = "<string Action> <string UniqueID> [string ItemID]";
-	COMMAND.flags = bit.bor(CMD_DEFAULT, CMD_FALLENOVER);
-	COMMAND.arguments = 2;
-	COMMAND.optionalArguments = 3;
-
-	-- Called when the command has been run.
-	function COMMAND:OnRun(player, arguments)
-		local itemAction = string.lower(arguments[1]);
-		local itemTable = player:FindItemByID(arguments[2], tonumber(arguments[3]));
-		
-		if (itemTable) then
-			local customFunctions = itemTable.customFunctions;
-			
-			if (customFunctions) then
-				for k, v in pairs(customFunctions) do
-					if (string.lower(v) == itemAction) then
-						if (itemTable.OnCustomFunction) then
-							itemTable:OnCustomFunction(player, v);
-							return;
-						end;
-					end;
-				end;
-			end;
-
-			if (itemAction == "equipmelee") then
-				if (hook.Run("PlayerEquipItemWeapon", player, itemTable)) then
-					itemTable:Equip(player);
-				end;
-			elseif (itemAction == "repair") then
-				local itemCondition = itemTable:GetCondition();
-				
-				if itemCondition <= 0 then
-					if !cwBeliefs or !player:HasBelief("artisan") then
-						Clockwork.player:Notify(player, "You cannot repair broken items!");
-						return false;
-					end
-				end
-
-				if itemCondition < 100 then
-					if itemTable.repairItem then
-						local itemList = Clockwork.inventory:GetItemsAsList(player:GetInventory());
-						local repairItemTable;
-
-						for k, v in pairs (itemList) do
-							if v.uniqueID == itemTable.repairItem then
-								repairItemTable = v;
-								break;
-							end
-						end
-			
-						if (repairItemTable) then
-							if repairItemTable then
-								local replenishment = (repairItemTable.conditionReplenishment or 100) - ((100 - repairItemTable:GetCondition()) * (repairItemTable.conditionReplenishment / 100));
-								
-								itemTable:GiveCondition(math.min(replenishment, 100));
-								repairItemTable:TakeCondition((itemTable:GetCondition() - itemCondition) / (repairItemTable.conditionReplenishment / 100));
-								
-								if repairItemTable:GetCondition() <= 0 then
-									player:TakeItem(repairItemTable, true);
-									
-									Schema:EasyText(player, "olivedrab", "You have repaired your "..itemTable.name.." to "..tostring(math.Round(itemTable:GetCondition(), 2))..", using the last of the repair kit's parts in the process.");
-								else
-									Schema:EasyText(player, "green", "You have repaired your "..itemTable.name.." to "..tostring(math.Round(itemTable:GetCondition(), 2))..".");
-									Clockwork.inventory:Rebuild(player);
-								end
-							else
-								Clockwork.player:Notify(player, "You do not have an item you can repair this item with!");
-								return false;
-							end
-						end
-					end
-				else
-					Clockwork.player:Notify(player, "This item is already in perfect condition and cannot be repaired.");
-					return false;
-				end
-			elseif (itemAction == "breakdown") then
-				if (itemTable.components) then
-					if itemTable.components.breakdownType == "meltdown" then
-						if (player:HasItemByID("charcoal")) then
-							if !cwBeliefs or (cwBeliefs and player:HasBelief("smith")) then
-								local smithy_found = false;
-								
-								for i = 1, #cwRecipes.smithyLocations do
-									if player:GetPos():DistToSqr(cwRecipes.smithyLocations[i]) < (256 * 256) then
-										local itemCondition = itemTable:GetCondition();
-										
-										for j = 1, #itemTable.components.items do
-											local componentItem = item.CreateInstance(itemTable.components.items[j]);
-											local condition = itemCondition - math.random(15, 40);
-											
-											if condition > 0 then
-												componentItem:SetCondition(condition, true);
-												
-												player:GiveItem(componentItem);
-											end
-										end
-										
-										Clockwork.player:Notify(player, "You have melted down your "..itemTable.name.." into its component pieces.");
-										player:EmitSound("generic_ui/smelt_success_02.wav");
-										
-										if cwBeliefs then
-											player:HandleXP(cwBeliefs.xpValues["meltdown"]);
-										end
-										
-										local coal = player:FindItemByID("charcoal");
-										player:TakeItem(coal);
-										
-										player:TakeItem(itemTable, true);
-										smithy_found = true;
-										break;
-									end
-								end
-								
-								if not smithy_found then
-									Clockwork.player:Notify(player, "You must be standing near a smithy to melt down this item!");
-									return false;
-								end
-							else
-								Clockwork.player:Notify(player, "You must have the 'Smith' belief to melt down this item!");
-								return false;
-							end
-						else
-							Clockwork.player:Notify(player, "You need charcoal to melt down this item!");
-						end
-					elseif itemTable.components.breakdownType == "breakdown" then
-						local itemList = Clockwork.inventory:GetItemsAsList(player:GetInventory());
-						local breakdownItemTable;
-
-						for k, v in pairs (itemList) do
-							if v.uniqueID == "breakdown_kit" then
-								breakdownItemTable = v;
-								break;
-							end
-						end
-						
-						if breakdownItemTable then
-							local conditionTaken = math.max(1, math.Round((itemTable.weight * 3)));
-							local itemCondition = breakdownItemTable:GetCondition() or 100;
-							
-							--if conditionTaken <= itemCondition then
-								for i = 1, #itemTable.components.items do
-									local componentItem = item.CreateInstance(itemTable.components.items[i]);
-									local condition = (componentItem:GetCondition() or 100) - math.random(15, 40);
-									
-									if condition > 0 then
-										componentItem:SetCondition(condition, true);
-										
-										player:GiveItem(componentItem);
-									end
-								end
-							
-								Clockwork.player:Notify(player, "You have broken down your "..itemTable.name.." into its component pieces.");
-								player:EmitSound("generic_ui/takeall_03.wav");
-								
-								if cwBeliefs then
-									player:HandleXP(cwBeliefs.xpValues["breakdown"]);
-								end
-								
-								breakdownItemTable:TakeCondition(conditionTaken);
-								
-								if breakdownItemTable:GetData("condition") <= 0 then
-									player:TakeItem(breakdownItemTable, true);
-								end
-								
-								player:TakeItem(itemTable, true);
-							--else
-								--Clockwork.player:Notify(player, "You do not have enough workable tools left in your breakdown kit to break down this item!");
-							--end
-						else
-							Clockwork.player:Notify(player, "You do not have an item you can break down this item with!");
-							return false;
-						end
-					end
-				end
-			elseif (itemAction == "destroy") then
-				if (hook.Run("PlayerCanDestroyItem", player, itemTable)) then
-					item.Destroy(player, itemTable);
-				end;
-			elseif (itemAction == "drop") then
-				local position = player:GetEyeTraceNoCursor().HitPos;
-				
-				if (player:GetShootPos():Distance(position) <= 192) then
-					if (hook.Run("PlayerCanDropItem", player, itemTable, position)) then
-						item.Drop(player, itemTable, position);
-					end;
-				else
-					Clockwork.player:Notify(player, "You cannot drop the item that far away!");
-				end;
-			elseif (itemAction == "use") then
-				if (player:InVehicle() and itemTable.useInVehicle == false) then
-					Clockwork.player:Notify(player, "You cannot use this item in a vehicle!");
-					
-					return;
-				end;
-
-				if (hook.Run("PlayerCanUseItem", player, itemTable)) then
-					return item.Use(player, itemTable);
-				end;
-			elseif (itemAction == "examine") then
-				local itemCondition = itemTable:GetCondition();
-				local examineText = itemTable.description
-				local itemEngraving = itemTable:GetData("engraving");
-				local conditionTextCategories = {"Armor", "Firearms", "Helms", "Melee", "Shields", "Javelins"};
-
-				if (itemTable.GetEntityExamineText) then
-					examineText = itemTable:GetEntityExamineText(entity)
-				end
-				
-				if itemEngraving and itemEngraving ~= "" then
-					local itemKills = itemTable:GetData("kills");
-					
-					if itemKills and itemKills > 0 then
-						examineText = examineText.." It has \'"..itemEngraving.."\' engraved into it, alongside a tally mark of "..tostring(itemKills).." kills.";
-					else
-						examineText = examineText.." It has \'"..itemEngraving.."\' engraved into it.";
-					end
-				end
-				
-				if table.HasValue(conditionTextCategories, itemTable.category) then
-					if itemCondition >= 90 then
-						examineText = examineText.." It appears to be in immaculate condition.";
-					elseif itemCondition < 90 and itemCondition >= 60 then
-						examineText = examineText.." It appears to be in a somewhat battered condition.";
-					elseif itemCondition < 60 and itemCondition >= 30 then
-						examineText = examineText.." It appears to be in very poor condition.";
-					elseif itemCondition < 30 and itemCondition > 0 then
-						examineText = examineText.." It appears to be on the verge of breaking.";
-					elseif itemCondition <= 0 then
-						if itemTable:IsBroken() then
-							examineText = examineText.." It is completely destroyed and only worth its weight in scrap now.";
-						else
-							examineText = examineText.." It is broken yet still usable to some degree.";
-						end
-					end
-				elseif itemTable.category == "Shot" and itemTable.ammoMagazineSize then
-					local rounds = itemTable:GetAmmoMagazine();
-					
-					examineText = examineText.." The magazine has "..tostring(rounds).." "..itemTable.ammoName.." rounds loaded.";
-				end
-
-				Clockwork.player:Notify(player, examineText);
-			elseif (itemAction == "ammo") then
-				if (item.IsWeapon(itemTable)) then
-					local ammo = itemTable:GetData("Ammo");
-					
-					if ammo and #ammo > 0 then
-						if #ammo == 1 then
-							if itemTable.usesMagazine and string.find(ammo[1], "Magazine") then
-								local ammoItemID = string.gsub(string.lower(ammo[1]), " ", "_");
-								local magazineItem = item.CreateInstance(ammoItemID);
-								
-								if magazineItem and magazineItem.SetAmmoMagazine then
-									magazineItem:SetAmmoMagazine(1);
-									
-									player:GiveItem(magazineItem);
-								end
-							else
-								local ammoItemID = string.gsub(string.lower(ammo[1]), " ", "_");
-								
-								player:GiveItem(item.CreateInstance(ammoItemID));
-							end
-						elseif itemTable.usesMagazine then
-							local ammoItemID = string.gsub(string.lower(ammo[1]), " ", "_");
-							
-							local magazineItem = item.CreateInstance(ammoItemID);
-							
-							if magazineItem and magazineItem.SetAmmoMagazine then
-								magazineItem:SetAmmoMagazine(#ammo);
-								
-								player:GiveItem(magazineItem);
-							end
-						else
-							for i = 1, #ammo do
-								local round = ammo[i];
-								
-								if round then
-									local roundItemID = string.gsub(string.lower(round), " ", "_");
-									local roundItemInstance = item.CreateInstance(roundItemID);
-									
-									player:GiveItem(roundItemInstance);
-								end
-							end
-						end
-
-						itemTable:SetData("Ammo", {});
-					end
-				end
-			elseif (itemAction == "magazineammo") then
-				if (itemTable.category == "Shot" and itemTable.ammoMagazineSize) then
-					if itemTable.TakeFromMagazine then
-						itemTable:TakeFromMagazine(player);
-					end
-				end
-			else
-				hook.Run("PlayerUseUnknownItemFunction", player, itemTable, itemAction, arguments[4], arguments[5]);
-			end;
-		else
-			Clockwork.player:Notify(player, "You do not own this item!");
 		end;
 	end;
 COMMAND:Register();

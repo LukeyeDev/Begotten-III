@@ -1,4 +1,64 @@
 local ITEM = Clockwork.item:New("clothes_base");
+ITEM.name = "Armored Blade Druid Robes";
+ITEM.group = "goreicwarfighters/armoredbladedruid";
+ITEM.model = "models/begotten/headgroups_props/armoredbladedruid.mdl"
+ITEM.iconoverride = "materials/begotten/ui/itemicons/armored_blade_druid_robes.png"
+ITEM.category = "Armor"
+ITEM.conditionScale = 0.9
+ITEM.hitParticle = "MetalSpark";
+ITEM.protection = 50
+ITEM.type = "chainmail";
+ITEM.weight = 5;
+ITEM.weightclass = "Medium";
+ITEM.description = "Although traditionally regarded as weak, those born of the Mother do not find combat wanting, and as such are compelled to adorn their spiritual robes with armor. This set of armor has an enchantment to ward off the damage of firearms.";
+ITEM.useSound = "armormovement/body-armor-b4.WAV.mp3";
+ITEM.requireFaction = {"Goreic Warrior"};
+ITEM.excludeSubfactions = {"Clan Grock", "Clan Gore", "Clan Shagalax", "Clan Harald", "Clan Reaver"};
+
+ITEM.effectiveLimbs = {
+	[HITGROUP_GENERIC] = true,
+	[HITGROUP_CHEST] = true,
+	[HITGROUP_STOMACH] = true,
+	[HITGROUP_LEFTARM] = true,
+	[HITGROUP_RIGHTARM] = true,
+	[HITGROUP_LEFTLEG] = true,
+	[HITGROUP_RIGHTLEG] = true,
+	[HITGROUP_GEAR] = true
+}
+
+ITEM.damageTypeScales = {
+	[DMG_FALL] = -0.25, -- increases fall damage by 25%
+}
+
+ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
+ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.bulletScale = 0.25; -- reduces bullet damage by 75%
+
+ITEM.attributes = {"mothers_blessing", "increased_regeneration"};
+ITEM.components = {breakdownType = "breakdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "leather", "hide", "cloth", "cloth", "cloth"}};
+
+-- Called when a replacement is needed for a player.
+function ITEM:GetReplacement(player)
+
+end;
+
+ITEM.runSound = {
+	"armormovement/body-hauberk-1.wav.mp3",
+	"armormovement/body-hauberk-2.wav.mp3",
+	"armormovement/body-hauberk-3.wav.mp3",
+	"armormovement/body-hauberk-4.wav.mp3",
+	"armormovement/body-hauberk-5.wav.mp3",
+};
+
+ITEM.walkSound = {
+	"armormovement/body-hauberk-b4.wav.mp3",
+	"armormovement/body-hauberk-b5.wav.mp3",
+};
+
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("clothes_base");
 ITEM.name = "Blade Druid Robes";
 ITEM.group = "goreicwarfighters/bladedruid";
 ITEM.model = "models/begotten/headgroup_props/bladedruidrobes.mdl"
@@ -136,10 +196,10 @@ ITEM.damageTypeScales = {
 
 ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
 ITEM.pierceScale = 0.90; -- reduces pierce damage by 10%
-ITEM.slashScale = 0.75; -- reduces slash damage by 25%
+ITEM.slashScale = 0.70; -- reduces slash damage by 30%
 ITEM.bulletScale = 0.90; -- reduces bullet damage by 10%
 
-ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "hide", "hide", "leather", "cloth"}};
+ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "cloth", "cloth", "leather", "cloth"}};
 
 -- Called when a replacement is needed for a player.
 function ITEM:GetReplacement(player)
@@ -169,7 +229,7 @@ ITEM.iconoverride = "materials/begotten/ui/itemicons/gore_housecarl_armor.png"
 ITEM.category = "Armor"
 ITEM.conditionScale = 0.75
 ITEM.hitParticle = "MetalSpark";
-ITEM.protection = 70;
+ITEM.protection = 75;
 ITEM.weight = 8;
 ITEM.weightclass = "Heavy";
 ITEM.type = "chainmail";
@@ -195,9 +255,9 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.95; -- reduces blunt damage by 5%
+ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
 ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
-ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.slashScale = 0.65; -- reduces slash damage by 35%
 ITEM.bulletScale = 0.75; -- reduces bullet damage by 35%
 
 ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "steel_chunks", "steel_chunks", "leather", "leather", "leather", "cloth"}};
@@ -258,7 +318,7 @@ ITEM.bluntScale = 0.60; -- reduces blunt damage by 40%
 ITEM.stabilityScale = 0.50; -- reduces stability damage by 50%
 ITEM.slashScale = 0.95; -- reduces slash damage by 5%
 
-ITEM.components = {breakdownType = "meltdown", items = {"human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "cloth", "cloth"}};
+ITEM.components = {breakdownType = "breakdown", items = {"human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "cloth", "cloth"}};
 
 -- Called when a replacement is needed for a player.
 function ITEM:GetReplacement(player)
@@ -367,11 +427,11 @@ ITEM.damageTypeScales = {
 }
 
 ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.90; -- reduces pierce damage by 10%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
 ITEM.slashScale = 0.75; -- reduces slash damage by 25%
 ITEM.bulletScale = 0.90; -- reduces bullet damage by 10%
 
-ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "leather", "leather", "cloth", "cloth", "cloth"}};
+ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "leather", "cloth", "cloth", "cloth"}};
 
 -- Called when a replacement is needed for a player.
 function ITEM:GetReplacement(player)
@@ -523,14 +583,14 @@ ITEM.iconoverride = "materials/begotten/ui/itemicons/chosenarmor.png"
 ITEM.category = "Armor"
 ITEM.conditionScale = 0.75
 ITEM.hitParticle = "MetalSpark";
-ITEM.protection = 80;
+ITEM.protection = 85;
 ITEM.weight = 9;
 ITEM.weightclass = "Heavy";
 ITEM.type = "chainmail";
 ITEM.description = "Shagalaxian steel scale armor decorated with brass Familial sigils. It is armor that boasts the approval of both the Gods and the King.";
 ITEM.useSound = "armormovement/body-armor-b4.WAV.mp3";
 ITEM.requireFaction = {"Goreic Warrior"};
-ITEM.excludeSubfactions = {"Clan Grock", "Clan Reaver"};
+ITEM.excludeSubfactions = {"Clan Grock"};
 
 ITEM.requiredbeliefs = {"hauberk"};
 

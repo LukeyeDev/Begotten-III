@@ -1,5 +1,5 @@
 ENT.Type 			= "anim"
-ENT.PrintName		= ""
+ENT.PrintName		= "Pilum"
 ENT.Author			= ""
 ENT.Contact			= ""
 ENT.Purpose			= ""
@@ -60,20 +60,13 @@ if SERVER then
 				self.attacktable = GetTable(self.Owner:GetActiveWeapon().AttackTable);
 				self.itemTable = item.GetByWeapon(self.Owner:GetActiveWeapon());
 				self.SticksInShields = self.Owner:GetActiveWeapon().SticksInShields;
-				self.ConditionLoss = self.Owner:GetActiveWeapon().ConditionLoss;
 				
 				if !self.itemTable then
 					self.itemTable = item.CreateInstance(self.Owner:GetActiveWeapon());
 				end
 			end
 		else
-			if self:GetModel() == "models/demonssouls/weapons/cut javelin.mdl" then
-				self.itemTable = item.CreateInstance("begotten_javelin_iron_javelin");
-			elseif self:GetModel() == "models/props/begotten/melee/heide_lance.mdl" then
-				self.itemTable = item.CreateInstance("begotten_javelin_pilum");
-			elseif self:GetModel() == "models/begotten/weapons/training_spear.mdl" then
-				self.itemTable = item.CreateInstance("begotten_javelin_training_javelin");
-			end
+			self.itemTable = item.CreateInstance("begotten_javelin_pilum");
 		end
 
 		if (phys:IsValid()) then
@@ -98,9 +91,9 @@ if SERVER then
 		Sound("physics/metal/metal_grenade_impact_hard3.wav")};
 
 		self.FleshHit = { 
-		Sound("physics/flesh/flesh_impact_bullet1.wav"),
-		Sound("physics/flesh/flesh_impact_bullet2.wav"),
-		Sound("physics/flesh/flesh_impact_bullet3.wav")}
+		Sound("meleesounds/damage1.wav.mp3"),
+		Sound("meleesounds/damage2.wav.mp3"),
+		Sound("meleesounds/damage3.wav.mp3")}
 
 		self:GetPhysicsObject():SetMass(2)	
 
@@ -167,15 +160,7 @@ if SERVER then
 						if IsValid(entity) then
 							self.collided = true;
 							
-							if !cwBeliefs or !self.Owner:HasBelief("ingenuity_finisher") then
-								local conditionLoss = self.ConditionLoss or 34;
-								
-								if self.Owner:HasBelief("scour_the_rust") then
-									conditionLoss = conditionLoss * 0.5;
-								end
-								
-								self.itemTable:TakeCondition(conditionLoss);
-							end
+							self.itemTable:TakeCondition(100);
 							
 							entity:Spawn();
 							entity:SetAngles(self:GetAngles());
@@ -245,21 +230,12 @@ if SERVER then
 							if enemywep and enemywep:GetNWString("activeShield"):len() > 0 then
 								if self.SticksInShields then
 									should_stick = true;
-									self.ConditionLoss = 100;
 								end
 								
 								local shieldItem = Ent:GetShieldEquipped();
 
 								if (shieldItem) and !Ent.opponent then
-									if !cwBeliefs or !self.Owner:HasBelief("ingenuity_finisher") then
-										local conditionLoss = self.ConditionLoss or 34;
-										
-										if self.Owner:HasBelief("scour_the_rust") then
-											conditionLoss = conditionLoss * 0.5;
-										end
-										
-										self.itemTable:TakeCondition(conditionLoss);
-									end
+									self.itemTable:TakeCondition(100);
 								end
 							end
 						end
@@ -334,20 +310,12 @@ if SERVER then
 							if IsValid(entity) then
 								self.collided = true;
 								
-								if !cwBeliefs or !self.Owner:HasBelief("ingenuity_finisher") then
-									local conditionLoss = self.ConditionLoss or 34;
-									
-									if self.Owner:HasBelief("scour_the_rust") then
-										conditionLoss = conditionLoss * 0.5;
-									end
-									
-									self.itemTable:TakeCondition(conditionLoss);
-								end
+								self.itemTable:TakeCondition(100);
 								
 								entity:Spawn();
 								entity:SetAngles(self:GetAngles());
 								self:StopSound("weapons/throw_swing_03.wav");
-								entity:EmitSound("meleesounds/c2920_weapon_land.wav.mp3", 90)
+								entity:EmitSound(self.FleshHit[math.random(1, #self.FleshHit)])
 								Clockwork.entity:Decay(entity, 300);
 								entity.lifeTime = CurTime() + 300; -- so the item save plugin doesn't save it
 								
@@ -382,7 +350,6 @@ if SERVER then
 					javelin.attacktable = self.attacktable;
 					javelin.itemTable = self.itemTable;
 					javelin.SticksInShields =  self.SticksInShields;
-					javelin.ConditionLoss = self.ConditionLoss;
 					javelin.itemTable = self.itemTable;
 					javelin.deflected = true;
 					
@@ -420,7 +387,7 @@ if SERVER then
 				
 					if !Ent:GetNWBool("Parry") then
 						javelin:StopSound("weapons/throw_swing_03.wav");
-						javelin:EmitSound("meleesounds/c2920_weapon_land.wav.mp3", 90)
+						javelin:EmitSound(javelin.Hit[math.random(1, #javelin.Hit)])
 					end
 				
 					return;
@@ -437,21 +404,13 @@ if SERVER then
 							 
 							if IsValid(entity) then
 								self.collided = true;
-
-								if !cwBeliefs or !self.Owner:HasBelief("ingenuity_finisher") then
-									local conditionLoss = self.ConditionLoss or 34;
-									
-									if self.Owner:HasBelief("scour_the_rust") then
-										conditionLoss = conditionLoss * 0.5;
-									end
-									
-									self.itemTable:TakeCondition(conditionLoss);
-								end
+								
+								self.itemTable:TakeCondition(100);
 								
 								entity:Spawn();
 								entity:SetAngles(self:GetAngles());
 								self:StopSound("weapons/throw_swing_03.wav");
-								entity:EmitSound("meleesounds/c2920_weapon_land.wav.mp3", 90)
+								entity:EmitSound(self.FleshHit[math.random(1, #self.FleshHit)], 90)
 								Clockwork.entity:Decay(entity, 300);
 								entity.lifeTime = CurTime() + 300; -- so the item save plugin doesn't save it
 								

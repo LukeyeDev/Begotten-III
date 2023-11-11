@@ -250,7 +250,7 @@ function Schema:Think()
 		end
 		
 		if Schema.caughtByCheaple and Schema.cheapleLight then
-			local dynamicLight = DynamicLight("cheapleLight");
+			local dynamicLight = DynamicLight(Clockwork.Client:EntIndex());
 			
 			dynamicLight.Pos = Vector(260, 4995, -10915); 
 			dynamicLight.r = 255;
@@ -1359,10 +1359,6 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			category = string.sub(category, 12)
 		end
 		
-		if category == "Dual" then
-			category = "Dual Weapon";
-		end
-		
 		if category == "Fisted" then
 			category = "Fisted Weapon";
 		end
@@ -1517,11 +1513,11 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 				
 					if table.HasValue(itemTable.attributes, "lifeleech") then
-						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health", Color(110, 30, 30));
+						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30));
 					end
 				
 					if table.HasValue(itemTable.attributes, "rage") then
-						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%", Color(110, 30, 30));
+						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%.", Color(110, 30, 30));
 					end
 					
 					if table.HasValue(itemTable.attributes, "bell") then
@@ -1541,7 +1537,7 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					if weaponClass ~= "begotten_polearm_quarterstaff" then
 						frame:AddText("Has Counter Damage: Bonus against running enemies when attacked from the front.", Color(110, 30, 30));
 					end
-				elseif string.find(weaponClass, "begotten_dagger") or string.find(weaponClass, "begotten_dualdagger") then
+				elseif string.find(weaponClass, "begotten_dagger") then
 					frame:AddText("Has Backstab: Deal double damage to enemies' backs.", Color(110, 30, 30));
 					frame:AddText("Has Coup de Grace: Deal double damage and 100% AP damage to knocked over enemies.", Color(110, 30, 30));
 				end
@@ -1754,7 +1750,7 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 				if weaponStats["defense"].poiseresistance then
 					local percentage = math.min(weaponStats["defense"].poiseresistance / 50, 50);
 
-					frame:AddBar(12, {{text = tostring(weaponStats["defense"].poiseresistance).."%", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["defense"].poiseresistance).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
 				end
 				
 				if weaponStats["defense"].canparry then
@@ -1847,6 +1843,8 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			if weaponStats["attack"] and weaponStats["defense"] then
 				frame:AddText("Weapon Attributes: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 				
+				frame:AddText("Easily Repairable: Costs less melee repair kit condition to repair.", Color(110, 30, 30));
+				
 				if !weaponStats["defense"].candeflect then
 					frame:AddText("Cannot Deflect", Color(110, 30, 30));
 				end
@@ -1865,11 +1863,19 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 				
 					if table.HasValue(itemTable.attributes, "lifeleech") then
-						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health", Color(110, 30, 30));
+						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30));
 					end
 				
 					if table.HasValue(itemTable.attributes, "rage") then
-						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%", Color(110, 30, 30));
+						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%.", Color(110, 30, 30));
+					end
+					
+					if table.HasValue(itemTable.attributes, "malleable") then
+						frame:AddText("Malleable: Breaks on contact irrespective of any beliefs to prevent it from being picked up and thrown back.", Color(110, 30, 30));
+					end
+					
+					if table.HasValue(itemTable.attributes, "shieldbreaker") then
+						frame:AddText("Shieldbreaker: Deals extra condition damage to shields.", Color(110, 30, 30));
 					end
 				end
 			
@@ -1913,7 +1919,7 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		
 		return true;
 	elseif (category == "Shields") then
-		local damageTypes = {[2] = "Bullet", [4] = "Slash", [16] = "Pierce", [128] = "Blunt", [DMG_BUCKSHOT] = "Grapeshot", [DMG_SNIPER] = "Javelin"};
+		local damageTypes = {[2] = "Bullet", [4] = "Slash", [16] = "Pierce", [128] = "Blunt", [DMG_BUCKSHOT] = "Grapeshot"};
 		local shieldClass = itemTable.uniqueID;
 		local shieldStats = nil;
 
@@ -2052,7 +2058,7 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 				if shieldStats.poiseresistance then
 					local percentage = math.min(shieldStats.poiseresistance / 100, 100);
 
-					frame:AddBar(12, {{text = tostring(shieldStats.poiseresistance).."%", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(shieldStats.poiseresistance).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
 				end
 				
 				if shieldStats.canparry then

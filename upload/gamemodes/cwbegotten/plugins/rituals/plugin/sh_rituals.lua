@@ -31,19 +31,19 @@ RITUAL:Register()
 
 RITUAL = cwRituals.rituals:New("yellow_banner_of_quelling");
 	RITUAL.name = "(T2) Yellow Banner of Quelling";
-	RITUAL.description = "The children flee when they spot the invisible banner. Let the Satanic filth cower when they realize they are now chained to these mortal lands that they have blighted for so long. Performing this ritual prevents helljaunting in a large radius around you for 40 minutes. Be warned that the Children of Satan will be made aware of your presence!";
-	RITUAL.onerequiredbelief = {"man_become_beast", "one_with_the_druids", "daring_trout", "shedskin", "flagellant", "acolyte"}; -- Tier II Light/Family Shared Ritual
+	RITUAL.description = "The children flee when they spot the invisible banner. Let the Satanic filth cower when they realize they are now chained to these mortal lands that they have blighted for so long. Performing this ritual prevents helljaunting in a large radius around you for 30 minutes. It will also uncloak any cloaked characters in a smaller radius around you. Be warned that the Children of Satan will be made aware of your presence!";
+	RITUAL.onerequiredbelief = {"man_become_beast", "one_with_the_druids", "daring_trout", "shedskin", "flagellant", "acolyte"}; -- Tier II Light/Family Ritual
 	
-	RITUAL.requirements = {"purifying_stone", "up_catalyst", "down_catalyst"};
+	RITUAL.requirements = {"purifying_stone", "xolotl_catalyst", "down_catalyst"};
 
-	--RITUAL.corruptionCost = 5; -- Corruption incurred from performing rituals.
+	RITUAL.corruptionCost = 5; -- Corruption incurred from performing rituals.
 	RITUAL.ritualTime = 10; -- Time it takes for the ritual action bar to complete.
 	RITUAL.experience = 75; -- XP gained from performing the ritual.
 	
 	function RITUAL:OnPerformed(player)
 		player:SetSharedVar("yellowBanner", true);
 		
-		timer.Create("YellowBannerTimer_"..player:EntIndex(), 2400, 1, function()
+		timer.Create("YellowBannerTimer_"..player:EntIndex(), 1800, 1, function()
 			if IsValid(player) then
 				if player:GetSharedVar("yellowBanner", false) then
 					player:GetSharedVar("yellowBanner", false);
@@ -883,17 +883,17 @@ RITUAL:Register()
 
 RITUAL = cwRituals.rituals:New("ritual_of_shadow");
 	RITUAL.name = "(Unique) Ritual of Shadow";
-	RITUAL.description = "Although members of House Rekh-khet-sa cannot normally traverse the surface during daytime, there exists a ritual that can temporarily cloak them in darkness and shield them from light. Performing this ritual will prevent you from taking damage during daytime in the Wasteland for the next 30 minutes.";
+	RITUAL.description = "Although members of House Rekh-khet-sa cannot normally traverse the surface during daytime, there exists a ritual that can temporarily cloak them in darkness and shield them from light. Performing this ritual will prevent you from taking damage during daytime in the Wasteland for the next 40 minutes.";
 	RITUAL.requiredSubfaction = {"Rekh-khet-sa"}; -- Subfaction Ritual
 	
-	RITUAL.requirements = {"light_catalyst", "down_catalyst", "tortured_spirit"};
+	RITUAL.requirements = {"light_catalyst", "down_catalyst", "ice_catalyst"};
 	RITUAL.corruptionCost = 25;
 	RITUAL.ritualTime = 30;
 	
 	function RITUAL:OnPerformed(player)
 		player.ritualOfShadow = true;
 		
-		timer.Create("RitualOfShadowTimer_"..player:EntIndex(), 1800, 1, function()
+		timer.Create("RitualOfShadowTimer_"..player:EntIndex(), 2400, 1, function()
 			if IsValid(player) then
 				if player.ritualOfShadow then
 					player.ritualOfShadow = nil;
@@ -1062,7 +1062,7 @@ RITUAL = cwRituals.rituals:New("noble_stature");
 	RITUAL.description = "To show fright to a beast's snarl only invites its fangs. You will stand firm and tall, resolute in the face of savagery. Performing this ritual causes you to take 50% less damage and stability damage while standing completely still. This ritual lasts for 15 minutes.";
 	RITUAL.onerequiredbelief = {"flagellant", "acolyte"}; -- Tier II Faith of the Light Ritual
 	
-	RITUAL.requirements = {"purifying_stone", "holy_spirit", "light_catalyst"};
+	RITUAL.requirements = {"ice_catalyst", "down_catalyst", "light_catalyst"};
 	RITUAL.corruptionCost = 10;
 	RITUAL.ritualTime = 10;
 	RITUAL.experience = 50;
@@ -1348,7 +1348,7 @@ RITUAL:Register()
 
 RITUAL = cwRituals.rituals:New("soulscorch");
 	RITUAL.name = "(Unique) Soulscorch";
-	RITUAL.description = "Become a catalyst of mankind's extinction. When you are struck down, the Light will smite them thusly! Performing this ritual will cause you to radiate light for 5 minutes, and upon your death you will deal 200 points of damage to anyone not of the Faith of the Light (excluding Voltists) within talking distance. Note that this can not be used in safezones.";
+	RITUAL.description = "Become a catalyst of mankind's extinction. When you are struck down, the Light will smite them thusly! Performing this ritual will cause you to radiate light for 5 minutes, and upon your death you will deal an amount of damage corresponding to your sacrament level to anyone not of the Faith of the Light excluding Voltists (or half if they are) within talking distance. Note that this can not be used in safezones.";
 	RITUAL.onerequiredbelief = {"extinctionist"}; -- Unique Sol Orthodoxy Ritual
 	
 	RITUAL.requirements = {"light_catalyst", "holy_spirit", "light_catalyst"};
@@ -1472,7 +1472,8 @@ RITUAL = cwRituals.rituals:New("summon_demon");
 		if (trace.HitPos:Distance(player:GetShootPos()) <= 192) then
 			--Schema:EasyText(player, "maroon", "The ground opens up beneath you, and a creature of hell crawls out! What have you done?!");
 
-			local entity = ents.Create("npc_bgt_otis");
+			--local entity = ents.Create("npc_bgt_otis");
+			local entity = ents.Create("npc_bgt_eddie");
 			local playerFaith = player:GetFaith();
 			
 			ParticleEffect("teleport_fx",trace.HitPos, Angle(0,0,0), nil)

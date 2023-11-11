@@ -103,19 +103,22 @@ local COMMAND = Clockwork.command:New("Enlist")
 					end
 				
 					if istable(subfaction) then
-						if targetFaction == "Wanderer" then
+						if targetFaction == "Wanderer" or (targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger") then
 							Clockwork.dermaRequest:RequestConfirmation(target, "Gatekeeper Enlistment", player:Name().." has invited you to enlist in the Gatekeepers!", function()
 								targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
 								
-								if targetFaction == "Wanderer" and target:Alive() and Clockwork.faction:IsGenderValid("Gatekeeper", target:GetGender()) then
+								if (targetFaction == "Wanderer" or (targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger")) and target:Alive() and Clockwork.faction:IsGenderValid("Gatekeeper", target:GetGender()) then
 									local bSuccess, fault = Clockwork.faction:GetStored()["Gatekeeper"]:OnTransferred(target, Clockwork.faction:GetStored()[targetFaction]);
 									
 									if (bSuccess != false) then
-										if !target:GetSharedVar("kinisgerOverride") then
+										if target:GetFaction() ~= "Children of Satan" then
 											target:SetCharacterData("Faction", "Gatekeeper", true);
 											target:SetCharacterData("Subfaction", subfaction.name, true);
 										else
+											target:SetCharacterData("kinisgerOverride", "Gatekeeper");
 											target:SetSharedVar("kinisgerOverride", "Gatekeeper");
+											target:SetCharacterData("kinisgerOverrideSubfaction", subfaction.name);
+											target:SetSharedVar("kinisgerOverrideSubfaction", subfaction.name);
 										end
 										
 										if subfaction.name == "Praeventor" then
@@ -210,13 +213,17 @@ local COMMAND = Clockwork.command:New("Promote")
 					hook.Run("PlayerChangedRanks", target);
 					local notifyTarget = tobool(arguments[3]);
 					
-					if !target:GetSharedVar("kinisgerOverride") then
-						local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
-						
-						if subfaction then
+					local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
+					
+					if subfaction then
+						if target:GetSharedVar("kinisgerOverride") then
+							target:SetCharacterData("kinisgerOverrideSubfaction", subfaction);
+							target:SetSharedVar("kinisgerOverrideSubfaction", subfaction);
+						else
 							target:SetCharacterData("Subfaction", subfaction, true);
-							Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
 						end
+						
+						Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
 					end
 					
 					if (target == player) then
@@ -766,7 +773,7 @@ local COMMAND = Clockwork.command:New("CallCongregation");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("FuckerJoeAlarm");
-	COMMAND.tip = "Sound the Fucker Joe alarm. Fucker Joe is coming!!!!";
+	COMMAND.tip = "Sound the Fucker Joe alarm. Fucker Joe is coming!!!! This disables charswapping for alive non-admins for 10 minutes.";
 	COMMAND.access = "s";
 
 	-- Called when the command has been run.
@@ -791,6 +798,12 @@ local COMMAND = Clockwork.command:New("FuckerJoeAlarm");
 				end
 			end
 		end
+		
+		Schema.fuckerJoeActive = true;
+		
+		timer.Create("FuckerJoeAlarm", 600, 1, function()
+			Schema.fuckerJoeActive = nil;
+		end);
 	end;
 COMMAND:Register();
 
@@ -933,7 +946,8 @@ local COMMAND = Clockwork.command:New("RavenSpeakClan");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("RavenSpeakFaction");
-	COMMAND.tip = "Speak through your familiar, a Raven, to all members of the Goreic Warriors. You must be near the Great Tree in order to do this.";
+	COMMAND.tip = "Speak through your familiar, a Raven, to all members of the Goreic Warriors.";
+	--COMMAND.tip = "Speak through your familiar, a Raven, to all members of the Goreic Warriors. You must be near the Great Tree in order to do this.";
 	COMMAND.text = "<string Message>";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.arguments = 1;
@@ -943,9 +957,9 @@ local COMMAND = Clockwork.command:New("RavenSpeakFaction");
 	function COMMAND:OnRun(player, arguments)
 		local subfaction = player:GetSubfaction();
 		
-		if subfaction == "Clan Crast" then
-			if player:HasBelief("watchful_raven") then
-				if player:GetPos():WithinAABox(Vector(11622, -6836, 12500), Vector(8744, -10586, 11180)) then
+		if subfaction == "Clan Crast" or player:IsAdmin() then
+			if player:HasBelief("watchful_raven") or player:IsAdmin() then
+				--if player:GetPos():WithinAABox(Vector(11622, -6836, 12500), Vector(8744, -10586, 11180)) then
 					local message = "\""..table.concat(arguments, " ", 1).."\"";
 					
 					player:SendLua([[Clockwork.Client:EmitSound("npc/crow/die"..math.random(1, 2)..".wav", 70, 100)]]);
@@ -963,9 +977,9 @@ local COMMAND = Clockwork.command:New("RavenSpeakFaction");
 							end;
 						end;
 					end;
-				else
-					Schema:EasyText(player, "firebrick", "You must be near the Great Tree to send more ravens!");
-				end
+				--else
+					--Schema:EasyText(player, "firebrick", "You must be near the Great Tree to send more ravens!");
+				--end
 			else
 				Schema:EasyText(player, "firebrick", "You must have the 'Watchful is the Raven' belief to do this!");
 			end
@@ -1191,7 +1205,7 @@ local COMMAND = Clockwork.command:New("InvZipTie");
 				return;
 			end;
 
-			Clockwork.player:RunClockworkCommand(player, "InvAction", "use", itemTable("uniqueID"), tostring(itemTable("itemID")));
+			Clockwork.player:InventoryAction(player, "use", itemTable.uniqueID, itemTable.itemID);
 		else
 			Schema:EasyText(player, "peru", "You must wait another "..-math.ceil(curTime - player.nextZipTie).." seconds before attempting to tie someone again!");
 		end
@@ -1557,6 +1571,18 @@ function COMMAND:OnRun(player, arguments)
 		
 			if (weaponItem) then
 				weaponItem:SetCondition(condition, true);
+				
+				for k, v in pairs(player.equipmentSlots) do
+					if v:IsTheSameAs(weaponItem) then
+						local offhandItem = player.equipmentSlots[k.."Offhand"];
+						
+						if offhandItem then
+							offhandItem:SetCondition(condition, true);
+						end
+					
+						break;
+					end
+				end
 
 				if (player != target)	then
 					Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set "..target:Name().."'s weapon item condition to "..condition..".");
@@ -1867,7 +1893,7 @@ local COMMAND = Clockwork.command:New("ArchivesTake");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("HellJaunt");
-	COMMAND.tip = "Return to Hell using dark magic if you are a Child of Satan, although this act will leave you temporarily vulnerable to the influence of demons and will thus incur extreme corruption. Anyone held in your hands will also be teleported.";
+	COMMAND.tip = "Return to Hell using dark magic if you are a Child of Satan, although this act will leave you temporarily vulnerable to the influence of demons and will thus incur extreme corruption. Anyone held in your hands will also be teleported. You cannot helljaunt while overencumbered.";
 	COMMAND.flags = CMD_DEFAULT;
 
 	-- Called when the command has been run.
@@ -1879,6 +1905,12 @@ local COMMAND = Clockwork.command:New("HellJaunt");
 		
 			if Schema.hellJauntDisabled or (map ~= "rp_begotten3" and map ~= "rp_begotten_redux") then
 				Schema:EasyText(player, "peru", "Your connection with Hell appears to be severed and you cannot helljaunt!");
+				
+				return false;
+			end
+			
+			if player.OverEncumbered then
+				Schema:EasyText(player, "peru", "You cannot helljaunt while overencumbered!");
 				
 				return false;
 			end
@@ -1902,6 +1934,15 @@ local COMMAND = Clockwork.command:New("HellJaunt");
 									if v:GetPos():Distance(player:GetPos()) <= 2048 then
 										Schema:EasyText(player, "peru", "There is one with a yellow banner raised, chaining you to this mortal plane! Vanquish them or distance yourself greatly!");
 										Schema:EasyText(v, "peru", "You feel your yellow banner pulsate with energy as the helljaunt of "..player:Name().." is foiled!");
+										
+										local damageInfo = DamageInfo();
+										
+										damageInfo:SetDamageType(DMG_BURN);
+										damageInfo:SetInflictor(v);
+										damageInfo:SetAttacker(v);
+										damageInfo:SetDamage(3);
+										
+										player:TakeDamageInfo(damageInfo);
 										
 										return;
 									end

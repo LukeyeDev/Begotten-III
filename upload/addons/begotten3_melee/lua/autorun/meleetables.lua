@@ -420,14 +420,78 @@ function GetTable(uniqueID)
 	if (istable(uniqueID)) then
 		return uniqueID;
 	end;
+	
 	if (uniqueID) then
 		return tabs[uniqueID]
 	end;
 	
-	--printp("Invalid GetTable uniqueID: "..tostring(uniqueID));
+	--print("Invalid GetTable uniqueID: "..tostring(uniqueID));
 	
 	return {};
 end;
+
+function GetDualTable(uniqueID, offhandID)
+	local mergedTable = {};
+	local offhandTable;
+	local weaponTable;
+
+	if (istable(uniqueID)) then
+		weaponTable = uniqueID;
+	elseif (uniqueID) then
+		weaponTable = tabs[uniqueID];
+	end
+	
+	if weaponTable then
+		local mergedTable = {};
+		local offhandTable;
+
+		if (istable(offhandID)) then
+			offhandTable = offhandID;
+		elseif offhandID then
+			offhandTable = tabs[offhandID];
+		end
+		
+		if offhandTable then
+			mergedTable = table.FullCopy(weaponTable);
+		
+			if (isstring(uniqueID) and string.find(string.lower(uniqueID), "blocktable")) or uniqueID.poiseresistance then
+				mergedTable["guardblockamount"] = math.max(mergedTable["guardblockamount"], offhandTable["guardblockamount"]);
+				mergedTable["blockcone"] = math.max(mergedTable["blockcone"], offhandTable["blockcone"]);
+				mergedTable["poiseresistance"] = math.min(math.max(mergedTable["poiseresistance"], offhandTable["poiseresistance"]) + 1, 100);
+				mergedTable["parrydifficulty"] = math.min(math.max(mergedTable["parrydifficulty"], offhandTable["parrydifficulty"]) * 0.85, 100);
+				mergedTable["parrytakestamina"] = math.Round(math.max(mergedTable["parrytakestamina"], offhandTable["parrytakestamina"]) * 0.67);
+				
+				for i, v in ipairs(offhandTable["blockdamagetypes"]) do
+					if !table.HasValue(mergedTable, v) then
+						table.insert(mergedTable, v);
+					end
+				end
+				
+				if offhandTable["canparry"] then
+					mergedTable["canparry"] = true;
+				end
+				
+				if offhandTable["candeflect"] then
+					mergedTable["candeflect"] = true;
+				end
+
+				if offhandTable["partialbulletblock"] then
+					mergedTable["partialbulletblock"] = true;
+				end
+			else
+				mergedTable["delay"] = math.max(mergedTable["delay"], offhandTable["delay"]) * 0.98;
+			end
+			
+			return mergedTable;
+		end
+		
+		--print("Invalid GetDualTable offhandID: "..tostring(uniqueID));
+	end
+	
+	--print("Invalid GetDualTable uniqueID: "..tostring(uniqueID));
+	
+	return mergedTable;
+end
 
 local AttackTables = {};
 
@@ -518,7 +582,7 @@ AttackTables.ClaymoreAttackTable = {
 	["poisedamage"] = 25,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 8,
-	["delay"] = 1.35,
+	["delay"] = 1.45,
 	["striketime"] = 0.6,
 	["meleearc"] = 45,
 	["meleerange"] = 990,
@@ -662,7 +726,7 @@ AttackTables.SkylightSwordAttackTable = {
 };
 
 AttackTables.UnholySigilSwordAttackTable = {
-	["primarydamage"] = 50,
+	["primarydamage"] = 60,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -671,7 +735,7 @@ AttackTables.UnholySigilSwordAttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 20,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 30,
+	["poisedamage"] = 40,
 	["stabilitydamage"] = 25,
 	["takeammo"] = 8,
 	["delay"] = 1.6,
@@ -682,7 +746,7 @@ AttackTables.UnholySigilSwordAttackTable = {
 };
 
 AttackTables.UnholySigilSword_Fire_AttackTable = {
-	["primarydamage"] = 45,
+	["primarydamage"] = 50,
 	["dmgtype"] = 4,
 	["attacktype"] = "fire_swing",
 	["canaltattack"] = true,
@@ -691,7 +755,7 @@ AttackTables.UnholySigilSword_Fire_AttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 20,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 30,
+	["poisedamage"] = 40,
 	["stabilitydamage"] = 25,
 	["takeammo"] = 8,
 	["delay"] = 1.6,
@@ -702,7 +766,7 @@ AttackTables.UnholySigilSword_Fire_AttackTable = {
 };
 
 AttackTables.UnholySigilSword_Ice_AttackTable = {
-	["primarydamage"] = 45,
+	["primarydamage"] = 50,
 	["dmgtype"] = 4,
 	["attacktype"] = "ice_swing",
 	["canaltattack"] = true,
@@ -711,7 +775,7 @@ AttackTables.UnholySigilSword_Ice_AttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 20,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 30,
+	["poisedamage"] = 40,
 	["stabilitydamage"] = 25,
 	["takeammo"] = 8,
 	["delay"] = 1.6,
@@ -1012,15 +1076,15 @@ AttackTables.WingedSpearAttackTable = {
 };
 
 AttackTables.DualShardsAttackTable = {
-	["primarydamage"] = 40,
+	["primarydamage"] = 50,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
 	["altattackdamagemodifier"] = 0.8,
 	["altattackpoisedamagemodifier"] = 0.5,
 	["altmeleearc"] = 15,
-	["armorpiercing"] = 25,
-	["altarmorpiercing"] = 55,
+	["armorpiercing"] = 30,
+	["altarmorpiercing"] = 60,
 	["poisedamage"] = 20,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 5,
@@ -1058,12 +1122,12 @@ AttackTables.GlazicusAttackTable = {
 	["altattackdamagemodifier"] = 0.9,
 	["altattackpoisedamagemodifier"] = 0.3,
 	["altmeleearc"] = 15,
-	["armorpiercing"] = 17,
-	["altarmorpiercing"] = 35,
+	["armorpiercing"] = 25,
+	["altarmorpiercing"] = 40,
 	["poisedamage"] = 10,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 3,
-	["delay"] = 0.8,
+	["delay"] = 0.7,
 	["striketime"] = 0.3,
 	["meleearc"] = 35,
 	["meleerange"] = 650,
@@ -1475,7 +1539,7 @@ AttackTables.ElegantDaggerAttackTable = {
 };
 
 AttackTables.GoreShortswordAttackTable = {
-	["primarydamage"] = 30,
+	["primarydamage"] = 35,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -1484,7 +1548,7 @@ AttackTables.GoreShortswordAttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 15,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 13,
+	["poisedamage"] = 15,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 3,
 	["delay"] = 0.8,
@@ -1560,17 +1624,17 @@ AttackTables.ExileKnightSwordAttackTable = {
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
 	["altattackdamagemodifier"] = 0.8,
-	["altattackpoisedamagemodifier"] = 0.3,
+	["altattackpoisedamagemodifier"] = 0.25,
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 25,
 	["altarmorpiercing"] = 50,
-	["poisedamage"] = 22,
+	["poisedamage"] = 20,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 8,
 	["delay"] = 1.2,
 	["striketime"] = 0.6,
 	["meleearc"] = 45,
-	["meleerange"] = 950,
+	["meleerange"] = 940,
 	["punchstrength"] = Angle(0,1,0),
 };
 
@@ -1670,7 +1734,7 @@ AttackTables.CaestusAttackTable = {
 };
 
 AttackTables.ShortswordAttackTable = {
-	["primarydamage"] = 30,
+	["primarydamage"] = 35,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -1679,7 +1743,7 @@ AttackTables.ShortswordAttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 15,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 9,
+	["poisedamage"] = 10,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 3,
 	["delay"] = 0.7,
@@ -1988,7 +2052,7 @@ AttackTables.TrainingLongswordAttackTable = {
 	["armorpiercing"] = 0,
 	["altarmorpiercing"] = 0,
 	["poisedamage"] = 20,
-	["stabilitydamage"] = 15,
+	["stabilitydamage"] = 25,
 	["takeammo"] = 8,
 	["delay"] = 1.2,
 	["striketime"] = 0.6,
@@ -2026,7 +2090,7 @@ AttackTables.TrainingSpearAttackTable = {
 	["armorpiercing"] = 0,
 	["altarmorpiercing"] = nil,
 	["poisedamage"] = 15,
-	["stabilitydamage"] = 20,
+	["stabilitydamage"] = 25,
 	["takeammo"] = 3,
 	["delay"] = 0.9,
 	["striketime"] = 0.4,
@@ -2065,7 +2129,7 @@ AttackTables.TrainingSwordAttackTable = {
 	["armorpiercing"] = 0,
 	["altarmorpiercing"] = 0,
 	["poisedamage"] = 20,
-	["stabilitydamage"] = 10,
+	["stabilitydamage"] = 15,
 	["takeammo"] = 3,
 	["delay"] = 1,
 	["striketime"] = 0.4,
@@ -2269,7 +2333,7 @@ AttackTables.ReaverBattleAxeAttackTable = {
 };
 
 AttackTables.GoreSeaxAttackTable = {
-	["primarydamage"] = 32,
+	["primarydamage"] = 40,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -2277,7 +2341,7 @@ AttackTables.GoreSeaxAttackTable = {
 	["altattackpoisedamagemodifier"] = 0.3,
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 20,
-	["altarmorpiercing"] = 35,
+	["altarmorpiercing"] = 45,
 	["poisedamage"] = 10,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 3,
@@ -2289,7 +2353,7 @@ AttackTables.GoreSeaxAttackTable = {
 };
 
 AttackTables.FamilialSwordAttackTable = {
-	["primarydamage"] = 40,
+	["primarydamage"] = 45,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -2297,7 +2361,7 @@ AttackTables.FamilialSwordAttackTable = {
 	["altattackpoisedamagemodifier"] = 0.3,
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 20,
-	["altarmorpiercing"] = 45,
+	["altarmorpiercing"] = 50,
 	["poisedamage"] = 15,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 3,
@@ -2368,19 +2432,19 @@ AttackTables.GoreMaceAttackTable = {
 };
 
 AttackTables.ShardAttackTable = {
-	["primarydamage"] = 35,
+	["primarydamage"] = 45,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
 	["altattackdamagemodifier"] = 0.8,
 	["altattackpoisedamagemodifier"] = 0.3,
 	["altmeleearc"] = 15,
-	["armorpiercing"] = 18,
-	["altarmorpiercing"] = 40,
-	["poisedamage"] = 14,
+	["armorpiercing"] = 35,
+	["altarmorpiercing"] = 55,
+	["poisedamage"] = 15,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 5,
-	["delay"] = 0.9,
+	["delay"] = 0.85,
 	["striketime"] = 0.35,
 	["meleearc"] = 35,
 	["meleerange"] = 725,
@@ -2435,7 +2499,7 @@ AttackTables.DualScimitarsAttackTable = {
 	["altmeleearc"] = 15,
 	["armorpiercing"] = 15,
 	["altarmorpiercing"] = 35,
-	["poisedamage"] = 22,
+	["poisedamage"] = 25,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 5,
 	["delay"] = 0.93,
@@ -2474,10 +2538,10 @@ AttackTables.SatanicMaulAttackTable = {
 	["altattackpoisedamagemodifier"] = nil,
 	["armorpiercing"] = 75,
 	["altarmorpiercing"] = nil,
-	["poisedamage"] = 50,
-	["stabilitydamage"] = 50,
+	["poisedamage"] = 55,
+	["stabilitydamage"] = 55,
 	["takeammo"] = 8,
-	["delay"] = 1.7,
+	["delay"] = 1.65,
 	["striketime"] = 0.65,
 	["meleearc"] = 45,
 	["meleerange"] = 925,
@@ -2492,15 +2556,15 @@ AttackTables.SatanicLongswordAttackTable = {
 	["altattackdamagemodifier"] = 0.8,
 	["altattackpoisedamagemodifier"] = 0.3,
 	["altmeleearc"] = 15,
-	["armorpiercing"] = 20,
+	["armorpiercing"] = 25,
 	["altarmorpiercing"] = 40,
-	["poisedamage"] = 20,
+	["poisedamage"] = 25,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 8,
 	["delay"] = 1.2,
 	["striketime"] = 0.6,
 	["meleearc"] = 35,
-	["meleerange"] = 935,
+	["meleerange"] = 950,
 	["punchstrength"] = Angle(0,1,0),
 };
 
@@ -2707,12 +2771,12 @@ AttackTables.FrozenFatherlandAxeAttackTable = {
 	["canaltattack"] = false,
 	["altattackdamagemodifier"] = nil,
 	["altattackpoisedamagemodifier"] = nil,
-	["armorpiercing"] = 25,
+	["armorpiercing"] = 35,
 	["altarmorpiercing"] = nil,
-	["poisedamage"] = 35,
+	["poisedamage"] = 40,
 	["stabilitydamage"] = 0,
 	["takeammo"] = 8,
-	["delay"] = 1.55,
+	["delay"] = 1.6,
 	["striketime"] = 0.65,
 	["meleearc"] = 50,
 	["meleerange"] = 900,
@@ -2816,7 +2880,7 @@ AttackTables.SteelArmingSwordAttackTable = {
 };
 
 AttackTables.SatanicShortswordAttackTable = {
-	["primarydamage"] = 32,
+	["primarydamage"] = 40,
 	["dmgtype"] = 4,
 	["attacktype"] = "reg_swing",
 	["canaltattack"] = true,
@@ -2965,7 +3029,7 @@ AttackTables.EveningStarAttackTable = {
 	["delay"] = 1.45,
 	["striketime"] = 0.65,
 	["meleearc"] = 45,
-	["meleerange"] = 800,
+	["meleerange"] = 815,
 	["punchstrength"] = Angle(0,1,0),
 };
 
@@ -4167,7 +4231,7 @@ BlockTables.ExileKnightSwordBlockTable = {
 	["poiseresistance"] = 20,
 	["raisespeed"] = 1.75,
 	["instantraise"] = false,
-	["parrydifficulty"] = 0.2,
+	["parrydifficulty"] = 0.25,
 	["parrytakestamina"] = 15,
 	["canparry"] = true,
 	["candeflect"] = true,
@@ -5013,7 +5077,7 @@ BlockTables.SatanicLongswordBlockTable = {
 	["poiseresistance"] = 20,
 	["raisespeed"] = 1.75,
 	["instantraise"] = false,
-	["parrydifficulty"] = 0.2,
+	["parrydifficulty"] = 0.25,
 	["parrytakestamina"] = 15,
 	["canparry"] = true,
 	["candeflect"] = true,
@@ -5629,7 +5693,7 @@ BlockTables.shield1 = { -- Scrap Shield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 55)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_twindragon",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = true,
@@ -5724,7 +5788,7 @@ BlockTables.shield3 = { -- Car Door Shield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(-5, -15, 55)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_cardoor",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -5823,7 +5887,7 @@ BlockTables.shield5 = { -- Wooden Shield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "WoodenShieldSoundTable",
 	["partialbulletblock"] = true,
@@ -5872,7 +5936,7 @@ BlockTables.shield6 = { -- Iron Shield
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(0, -10, 45)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -5921,7 +5985,7 @@ BlockTables.shield7 = { -- Knight's Shield
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(-5, -10, 45)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -5970,7 +6034,7 @@ BlockTables.shield8 = { -- Spiked Shield
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(-5, -10, 45)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6020,7 +6084,7 @@ BlockTables.shield9 = { -- Sol Sentinel Shield
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(0, -10, 55)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6070,7 +6134,7 @@ BlockTables.shield10 = { -- Gore Guardian Shield
 	["blockeffectforward"] = 30,
 	["blockeffectpos"] = (Vector(0, -10, 55)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_drakekeeper",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6117,11 +6181,11 @@ BlockTables.shield11 = { -- Gatekeeper Shield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_twindragon",
 	["blocksoundtable"] = "WoodenShieldSoundTable",
 	["partialbulletblock"] = true,
-	["poiseresistance"] = 30,
+	["poiseresistance"] = 35,
 	["raisespeed"] = 1.75,
 	["instantraise"] = false,
 	["parrydifficulty"] = 0.2,
@@ -6163,7 +6227,7 @@ BlockTables.shield12 = { -- Warfighter Shield
 	["blockeffectforward"] = 30,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6209,7 +6273,7 @@ BlockTables.shield13 = { -- Dreadshield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_drakekeeper",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6255,15 +6319,15 @@ BlockTables.shield14 = { -- Clan Shield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "WoodenShieldSoundTable",
 	["partialbulletblock"] = true,
-	["poiseresistance"] = 25,
+	["poiseresistance"] = 30,
 	["raisespeed"] = 1.25,
 	["instantraise"] = false,
 	["parrydifficulty"] = 0.2,
-	["parrytakestamina"] = 12,
+	["parrytakestamina"] = 10,
 	["canparry"] = true,
 	["candeflect"] = true,
 	["ironsights"] = {
@@ -6304,7 +6368,7 @@ BlockTables.shield15 = { -- Voltshield
 	["blockeffectforward"] = 25,
 	["blockeffectpos"] = (Vector(0, -10, 55)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_twindragon",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = true,
@@ -6351,7 +6415,7 @@ BlockTables.shieldunique1 = { -- Red Wolf Skinshield (Unique)
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["blockanim"] = "a_sword_shield_block_pursuer",
 	["blocksoundtable"] = "MetalShieldSoundTable",
 	["partialbulletblock"] = false,
@@ -6396,7 +6460,7 @@ BlockTables.shieldunique2 = { -- Sol Shield (Unique)
 	["blockeffectforward"] = 35,
 	["blockeffectpos"] = (Vector(0, -10, 50)),
 	["blockcone"] = 220,
-	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_SNIPER, DMG_BUCKSHOT},
+	["blockdamagetypes"] = {DMG_SLASH, DMG_CLUB, DMG_VEHICLE, DMG_BULLET, DMG_BUCKSHOT},
 	["partialbulletblock"] = false,
 	["poiseresistance"] = 35,
 	["raisespeed"] = 0.75,

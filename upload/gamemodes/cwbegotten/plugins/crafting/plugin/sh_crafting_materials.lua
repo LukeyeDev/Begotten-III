@@ -346,6 +346,23 @@ ITEM = Clockwork.item:New();
 	
 ITEM:Register();
 
+ITEM = Clockwork.item:New();
+	ITEM.name = "The Golden Phallus";
+	ITEM.category = "Crafting Materials";
+	ITEM.model = "models/begotten/thegoldenphallus.mdl";
+	ITEM.weight = 2;
+	ITEM.uniqueID = "thegoldenphallus";
+	ITEM.description = "A phallic object cast in pure gold. It is engraved with the markings of a long dead Darklander Emperor. By tradition, his perverted exploits continue on eternal.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/"..ITEM.uniqueID..".png";
+	ITEM.stackable = false;
+
+	ITEM.components = {breakdownType = "meltdown", items = {"gold_ingot", "gold_ingot"}};
+
+	-- Called when a player drops the item.
+	function ITEM:OnDrop(player, position) end;
+	
+ITEM:Register();
+
 local ITEM = Clockwork.item:New();
 	ITEM.name = "Leather";
 	ITEM.category = "Crafting Materials";
@@ -355,6 +372,8 @@ local ITEM = Clockwork.item:New();
 	ITEM.description = "A patch of leather that can be used in the crafting of clothing or shields.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/"..ITEM.uniqueID..".png";
 	ITEM.stackable = true;
+
+	ITEM.components = {breakdownType = "breakdown", items = {"cloth", "cloth"}};
 	
 	ITEM.itemSpawnerInfo = {category = "Crafting Materials", rarity = 65};
 
