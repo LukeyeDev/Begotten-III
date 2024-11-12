@@ -8,12 +8,12 @@ local map = game.GetMap() == "rp_begotten3" or game.GetMap() == "rp_begotten_red
 
 -- Called when Clockwork has loaded all of the entities.
 function cwDueling:ClockworkInitPostEntity()
-	if (map) then
-		for k, v in pairs(DUELING_STATUES) do
+	if (map) and self.statues then
+		for k, v in pairs(self.statues) do
 			local statueEnt = ents.Create("cw_duelstatue");
 			
-			statueEnt:SetPos(DUELING_STATUES[k]["spawnPosition"]);
-			statueEnt:SetAngles(DUELING_STATUES[k]["spawnAngles"]);
+			statueEnt:SetPos(self.statues[k]["spawnPosition"]);
+			statueEnt:SetAngles(self.statues[k]["spawnAngles"]);
 			statueEnt:Spawn();
 		end
 	end;
@@ -65,7 +65,7 @@ end;
 
 function cwDueling:PlayerDisconnected(player)
 	if self:PlayerIsDueling(player) then
-		if IsValid(player.opponent) and !player.duelStatue then
+		if IsValid(player.opponent) and (!player.duelData or !player.duelData.duelStatue) then
 			--self:DuelAborted(player.opponent, player);
 			self:DuelCompleted(player.opponent, player);
 		end
@@ -73,6 +73,13 @@ function cwDueling:PlayerDisconnected(player)
 		self:PlayerExitsMatchmaking(player);
 	end
 end;
+
+-- Called to see if a player's character should be saved.
+function cwDueling:CanSaveCharacter(player)
+	if player.opponent then
+		return false;
+	end
+end
 
 -- Called when a player wants to fallover.
 function cwDueling:PlayerCanFallover(player)
@@ -122,3 +129,79 @@ function cwDueling:PlayerUse(player, entity)
 		return false;
 	end
 end;
+
+function cwDueling:PlayerEnteredDuel(player, arena, spawnPos, spawnAngles)
+	netstream.Start(player, "SetPlayerDueling", true);
+	Clockwork.limb:CacheLimbs(player, true);
+	
+	local duelData = {};
+	
+	duelData.cachedPos = player:GetPos();
+	duelData.cachedAngles = player:GetAngles();
+	duelData.cachedHP = player:Health();
+	
+	player.duelData = duelData;
+
+	if !player:Alive() then
+		player:Spawn();
+	end
+	
+	if player:IsRagdolled() then
+		Clockwork.player:SetRagdollState(player, RAGDOLL_NONE);
+	end
+	
+	player:ScreenFade(SCREENFADE.IN, Color(0, 0, 0, 255), 5, 0);
+	player:SetPos(spawnPos);
+	player:SetEyeAngles(spawnAngles);
+	player:SetHealth(player:GetMaxHealth());
+	player:Freeze(true);
+
+	if player:GetLocalVar("Hatred") then
+		player:SetLocalVar("Hatred", 75);
+	end
+	
+	-- Start battle music after players have faded in.
+	timer.Simple(3, function()
+		if IsValid(player) then
+			netstream.Start(player, "StartBattleMusicNoLimit");
+			player:Freeze(false);
+		end;
+	end);
+end
+
+function cwDueling:PlayerExitedDuel(player)
+	player:Freeze(false);
+	player:ScreenFade(SCREENFADE.IN, Color(0, 0, 0, 255 ), 5, 0);
+	player:SetLocalVar("freeze", 0);
+	
+	if !player:Alive() then
+		player:Spawn();
+	end
+	
+	if player:IsRagdolled() then
+		Clockwork.player:SetRagdollState(player, RAGDOLL_NONE);
+	end
+	
+	local duelData = player.duelData;
+
+	if duelData then
+		player:SetPos(duelData.cachedPos + Vector(0, 0, 8));
+		player:SetEyeAngles(duelData.cachedAngles);
+		
+		Clockwork.limb:RestoreLimbsFromCache(player);
+		
+		player:SetHealth(player.duelData.cachedHP);
+	end
+	
+	if player.distortedRingFiredDuel then
+		player.distortedRingFiredDuel = nil;
+	end
+	
+	if player:GetCharacterData("Hatred") then
+		player:SetLocalVar("Hatred", player:GetCharacterData("Hatred"));
+	end
+	
+	player.opponent = nil;
+	
+	netstream.Start(player, "SetPlayerDueling", false);
+end

@@ -87,7 +87,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -104,9 +104,19 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_warhammer"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.9, 1.799, -3.5), angle = Angle(10.519, 12.857, 174.156), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_warhammer"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.9, 1.799, -3.5), angle = Angle(10.519, 12.857, 174.156), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_warhammer"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.7, 0.689, -5.715), angle = Angle(1.169, -19.871, -171.818), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_warhammer"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.7, 0.689, -5.715), angle = Angle(1.169, -19.871, -171.818), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.VElementsDual = {
+	["v_left"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "Dummy16", rel = "", pos = Vector(0.8, -11.358, -0), angle = Angle(-14.445, -21.112, -85.556), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["v_right"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "Dummy01", rel = "", pos = Vector(1.48, -14.322, 0.8), angle = Angle(-3.333, -10, -90), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.WElementsDual = {
+	["w_left"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(3.7, 1.5, 4.715), angle = Angle(-7.169, -19.871, 0.818), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["w_right"] = { type = "Model", model = "models/begotten/weapons/warhammer.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.7, 0.689, -5.715), angle = Angle(1.169, -19.871, -171.818), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

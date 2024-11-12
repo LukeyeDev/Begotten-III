@@ -9,15 +9,15 @@ function playerMeta:HandleSenses()
 --[[	local senses = self:GetWeapon("cw_senses");
 
 	if (IsValid(senses) and !self.sensesOn and self:Alive() and !self:IsRagdolled()) then
-		self:SetNWBool("senses", true);
+		self:SetLocalVar("senses", true);
 self.sensesOn = true
-		Clockwork.datastream:Start(self, "Stunned", 1.5);
-		Clockwork.datastream:Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
+		netstream.Start(self, "Stunned", 1.5);
+		netstream.Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
 	else
-		self:SetNWBool("senses", false);
+		self:SetLocalVar("senses", false);
 self.sensesOn = nil
-		Clockwork.datastream:Start(self, "Stunned", 1.5);
-		Clockwork.datastream:Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
+		netstream.Start(self, "Stunned", 1.5);
+		netstream.Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
 	end;--]]
 end;
 
@@ -40,17 +40,17 @@ function playerMeta:SensesOn(bRightClick)
 		
 		if (nightVision or thermalVision) then
 			if (nightVision) then
-				if self:GetNWBool("hasThermal") then
-					self:SetNWBool("hasThermal", false);
+				if self:GetNetVar("hasThermal") then
+					self:SetLocalVar("hasThermal", false);
 				end
 			
-				self:SetNWBool("hasNV", true);
+				self:SetLocalVar("hasNV", true);
 			elseif (thermalVision) then
-				if self:GetNWBool("hasNV") then
-					self:SetNWBool("hasNV", false);
+				if self:GetNetVar("hasNV") then
+					self:SetLocalVar("hasNV", false);
 				end
 			
-				self:SetNWBool("hasThermal", true);
+				self:SetLocalVar("hasThermal", true);
 			end
 			
 			if !self.cwObserverMode then
@@ -61,15 +61,15 @@ function playerMeta:SensesOn(bRightClick)
 				end
 			end
 			
-			self:SetNWBool("senses", true);
+			self:SetLocalVar("senses", true);
 		else
-			Clockwork.datastream:Start(self, "BlackStunned", 1);
-			--Clockwork.datastream:Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
+			netstream.Start(self, "BlackStunned", 1);
+			--netstream.Start(self, "PlaySound", table.Random({"ambient/machines/teleport1.wav", "ambient/machines/teleport3.wav", "ambient/machines/teleport4.wav"}));
 			
 			timer.Simple(1, function()
-				if IsValid(self) then
-					Clockwork.datastream:Start(self, "PlaySound", "begotten/ambient/req/whoosh_02.wav");
-					self:SetNWBool("senses", true);
+				if IsValid(self) and ((self.HasBelief and self:HasBelief("creature_of_the_dark")) or (IsValid(self:GetActiveWeapon()) and self:GetActiveWeapon():GetClass() == "cw_senses")) then
+					netstream.Start(self, "PlaySound", "begotten/ambient/req/whoosh_02.wav");
+					self:SetLocalVar("senses", true);
 					self:SetDSP(114);
 				end
 			end);
@@ -81,32 +81,37 @@ end;
 
 -- A function to handle a player's senses.
 function playerMeta:SensesOff()
-	if self:GetNWBool("hasThermal") or self:GetNWBool("hasNV") then
-		if self:GetNWBool("hasThermal") then
-			self:SetNWBool("hasThermal", false);
+	if self:GetNetVar("hasThermal") or self:GetNetVar("hasNV") then
+		if self:GetNetVar("hasThermal") then
+			self:SetLocalVar("hasThermal", false);
 		end
 		
-		if self:GetNWBool("hasNV") then
-			self:SetNWBool("hasNV", false);
+		if self:GetNetVar("hasNV") then
+			self:SetLocalVar("hasNV", false);
 		end
 		
 		if !self.cwObserverMode and self:Alive() then
 			self:EmitSound("items/nvg_off.wav");
 		end
 		
-		self:SetNWBool("senses", false);
+		self:SetLocalVar("senses", false);
 		self:SetDSP(0);
-	elseif self:Alive() then
-		Clockwork.datastream:Start(self, "BlackStunned", 1);
-		
-		timer.Simple(1, function()
-			if IsValid(self) then
-				Clockwork.datastream:Start(self, "PlaySound", "begotten/ambient/hits/disappear.mp3");
-				self:SetNWBool("senses", false);
-				self:SetDSP(0);
-			end
-		end);
+	elseif self:GetNetVar("senses") then
+		if self:Alive() then
+			netstream.Start(self, "BlackStunned", 1);
+			
+			timer.Simple(1, function()
+				if IsValid(self) then
+					netstream.Start(self, "PlaySound", "begotten/ambient/hits/disappear.mp3");
+					self:SetLocalVar("senses", false);
+					self:SetDSP(0);
+				end
+			end);
+		else
+			self:SetLocalVar("senses", false);
+			self:SetDSP(0);
+		end
 	end
-	
+		
 	self.sensesOn = nil;
 end;

@@ -85,11 +85,11 @@ function playerMeta:Possess(possessor)
 		possessor:Spectate(OBS_MODE_IN_EYE);
 		possessor:SpectateEntity(self);
 		
-		self:SetSharedVar("currentlyPossessed", true);
+		self:SetNetVar("currentlyPossessed", true);
 		
 		Clockwork.chatBox:Add(self, nil, "itnofake", "As much as you struggle, you cannot fight off the entity that is now taking control of your body!");
 		
-		local max_poise = self:GetMaxPoise();
+		--local max_poise = self:GetMaxPoise();
 		local max_stability = self:GetMaxStability();
 		local max_stamina = self:GetMaxStamina();
 		
@@ -103,8 +103,8 @@ function playerMeta:Possess(possessor)
 		self:SetNWInt("Stamina", max_stamina);
 		self:SetCharacterData("stability", max_stability);
 		--self:SetCharacterData("meleeStamina", max_poise);
-		self:SetNWInt("meleeStamina", max_poise);
-		self:SetNWInt("freeze", 0);
+		--self:SetNWInt("meleeStamina", max_poise);
+		self:SetLocalVar("freeze", 0);
 		self:SetBloodLevel(5000);
 		self:StopAllBleeding();
 		Clockwork.limb:HealBody(self, 100);
@@ -121,12 +121,12 @@ function playerMeta:Possess(possessor)
 			self:StripWeapon("cw_senses");
 		end
 		
-		Clockwork.datastream:Start(possessor, "Possessing", self);
-		Clockwork.datastream:Start(possessor, "Stunned", 5); -- Replace with damnation or custom VFX later!
-		Clockwork.datastream:Start(self, "Possessed", possessor);
-		Clockwork.datastream:Start(self, "Stunned", 5); -- Replace with damnation or custom VFX later!
+		netstream.Start(possessor, "Possessing", self);
+		netstream.Start(possessor, "Stunned", 5); -- Replace with damnation or custom VFX later!
+		netstream.Start(self, "Possessed", possessor);
+		netstream.Start(self, "Stunned", 5); -- Replace with damnation or custom VFX later!
 		
-		Schema:EasyText(GetAdmins(), "tomato", possessor:Name().." has possessed '"..self:Name().."'.");
+		Schema:EasyText(Schema:GetAdmins(), "tomato", possessor:Name().." has possessed '"..self:Name().."'.");
 	end
 end
 
@@ -141,12 +141,12 @@ function playerMeta:PossessionFreakout()
 					v:HandleSanity(-25);
 				end
 				
-				Clockwork.datastream:Start(v, "PlaySound", "youbetterhide2.mp3");
+				netstream.Start(v, "PlaySound", "youbetterhide2.mp3");
 			end
 		end
 	end
 	
-	self:SetSharedVar("possessionFreakout", true);
+	self:SetNetVar("possessionFreakout", true);
 	self:Freeze(true);
 	
 	Clockwork.chatBox:Add(self, nil, "itnofake", "You feel something claw its way into your mind!");
@@ -170,7 +170,7 @@ function playerMeta:PossessionFreakout()
 	
 	timer.Simple(30, function()
 		if IsValid(self) then
-			self:SetSharedVar("possessionFreakout", false);
+			self:SetNetVar("possessionFreakout", false);
 			self:Freeze(false);
 			
 			if !self.possessor then
@@ -198,7 +198,7 @@ function playerMeta:Unpossess()
 		cwObserverMode:MakePlayerEnterObserverMode(self.possessor);
 		
 		if IsValid(self.possessor.victim) then
-			Schema:EasyText(GetAdmins(), "tomato", self.possessor:Name().." has stopped possessing '"..self.possessor.victim:Name().."'.");
+			Schema:EasyText(Schema:GetAdmins(), "tomato", self.possessor:Name().." has stopped possessing '"..self.possessor.victim:Name().."'.");
 		end
 		
 		self.possessor.victim = nil;
@@ -206,9 +206,9 @@ function playerMeta:Unpossess()
 	
 	self.possessor = nil;
 	
-	self:SetSharedVar("currentlyPossessed", false);
-	self:SetSharedVar("possessionFreakout", false);
-	Clockwork.datastream:Start(self, "Stunned", 5); -- Replace with damnation or custom VFX later!
+	self:SetNetVar("currentlyPossessed", false);
+	self:SetNetVar("possessionFreakout", false);
+	netstream.Start(self, "Stunned", 5); -- Replace with damnation or custom VFX later!
 	Clockwork.player:SetRagdollState(self, RAGDOLL_KNOCKEDOUT, 15);
 	Clockwork.chatBox:AddInTargetRadius(self, "me", "suddenly falls limp and drops to the ground!", self:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
 	self:EmitSound("possession/spiritsting.wav");
@@ -226,6 +226,6 @@ function playerMeta:Unpossess()
 end
 
 -- A function to get if the player is possessed.
-function playerMeta:IsPossessed()
-	return self:GetSharedVar("currentlyPossessed") or false;
+function playerMeta:IsPossessedByDemon()
+	return self:GetNetVar("currentlyPossessed") or false;
 end

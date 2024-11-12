@@ -109,7 +109,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -126,9 +126,19 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_gorefalchion"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.99, 1.299, -0.801), angle = Angle(-11.9, -167.144, -169.482), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_gorefalchion"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.99, 1.299, -0.801), angle = Angle(-11.9, -167.144, -169.482), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_gorefalchion"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.9, 1.2, 0.899), angle = Angle(-180, -19.871, -10.52), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_gorefalchion"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.9, 1.2, 0.899), angle = Angle(-180, -19.871, -10.52), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.VElementsDual = {
+	["v_left"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "Dummy16", rel = "", pos = Vector(0, -6.886, -0.1), angle = Angle(179, 0, -90), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["v_right"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "Dummy01", rel = "", pos = Vector(0.5, -9.886, 0.5), angle = Angle(179, 0, -90), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.WElementsDual = {
+	["w_left"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(2.6, 0.6, -1), angle = Angle(10.519, 174.156, -10.52), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["w_right"] = { type = "Model", model = "models/begotten/weapons/sword4.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1.25, -0.5), angle = Angle(-180, -26.883, -30.52), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

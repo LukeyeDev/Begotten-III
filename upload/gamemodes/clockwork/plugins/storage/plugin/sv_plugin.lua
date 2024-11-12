@@ -88,7 +88,9 @@ function cwStorage:SaveStorage()
 					bMoveable = physicsObject:IsMoveable();
 				end;
 				
-				storage[#storage + 1] = {
+				local saveTab = {};
+				
+				saveTab = {
 					name = v:GetNetworkedString("Name"),
 					model = model,
 					cash = v.cwCash,
@@ -103,6 +105,10 @@ function cwStorage:SaveStorage()
 					inventory = Clockwork.inventory:ToSaveable(v.cwInventory or {}),
 					isMoveable = bMoveable
 				};
+				
+				hook.Run("ModifyStorageSaveTable", v, saveTab);
+				
+				storage[#storage + 1] = saveTab;
 			end;
 		end;
 	end;
@@ -152,6 +158,8 @@ function cwStorage:LoadStorage()
 					entity:SetNWBool("hasPassword", true);
 					entity:SetNWBool("unlocked", false);
 				end
+				
+				hook.Run("ModifyLoadStorageEntityTab", entity, v);
 			end;
 		else
 			local entity = ents.Create("prop_physics");
@@ -193,12 +201,14 @@ function cwStorage:LoadStorage()
 			else
 				entity.cwLockTier = 3;
 			end;
+			
+			hook.Run("ModifyLoadStorageEntityTab", entity, v);
 		end;
 	end;
 end
 
 -- A function to open a container for a player.
-function cwStorage:OpenContainer(player, entity, weight)
+function cwStorage:OpenContainer(player, entity, weight, bForce)
 	local inventory
 	local cash = 0
 	local model = string.lower(entity:GetModel())
@@ -231,7 +241,7 @@ function cwStorage:OpenContainer(player, entity, weight)
 		name = entity:GetNetworkedString("Name")
 	end
 	
-	if hook.Run("PlayerCanOpenContainer", player, entity) == false then
+	if hook.Run("PlayerCanOpenContainer", player, entity, bForce) == false then
 		return false;
 	end
 	
@@ -298,7 +308,7 @@ function cwStorage:StartLockpick(player)
 			player:Freeze(true);
 			player.LockpickContainer = entity;
 			player.Lockpicking = true;
-			Clockwork.datastream:Start(player, "StartLockpick", {entity = entity, lockTier = lockstrength});
+			netstream.Start(player, "StartLockpick", {entity = entity, lockTier = lockstrength});
 		else
 			Schema:EasyText(player, "peru", "You cannot lockpick for another "..math.ceil(player.LockpickCooldown - CurTime()).." seconds!");
 		end;
@@ -320,10 +330,10 @@ function cwStorage:LockpickFail(player, timeout)
 	
 	player.LockpickContainer = nil;
 	player.Lockpicking = nil;
-	player.LockpickCooldown = curTime + 5;
+	player.LockpickCooldown = curTime + 1;
 	
 	if (IsValid(entity)) then
-		entity.LockpickCooldown = curTime + 5;
+		entity.LockpickCooldown = curTime + 1;
 	else
 		return;
 	end;
@@ -393,10 +403,12 @@ function cwStorage:FinishLockpick(player, entity)
 		local containerWeight = cwStorage.containerList[model][1];
 		
 		Schema:EasyText(player, "olivedrab", "You successfully lockpick the container.");
-		cwStorage:OpenContainer(player, entity, containerWeight);
+		cwStorage:OpenContainer(player, entity, containerWeight, true);
 		
 		if entity.cwPassword then
 			Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has opened the passworded container "..entity:GetNetworkedString("Name").." by lockpicking it!");
+		elseif entity.cwFactionLock then
+			Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has opened the faction locked container "..entity:GetNetworkedString("Name").." by lockpicking it!");
 		end
 		
 		if entity.cwLockType == "none" then
@@ -432,7 +444,7 @@ function cwStorage:TryKey(player, itemTable, entity)
 	local itemID = itemTable.itemID;
 	
 	if (tostring(itemID) == tostring(password)) then
-		Clockwork.datastream:Start(player, "CloseMenu");
+		netstream.Start(player, "CloseMenu");
 		local containerWeight = cwStorage.containerList[model][1];
 		cwStorage:OpenContainer(player, entity, containerWeight);
 		entity:EmitSound("buttons/lever6.wav", 70, 135)
@@ -482,11 +494,11 @@ function cwStorage:ApplyLock(player, itemTable, entity)
 			player.LockItem = itemTable;
 			player.CurrentLockType = lockType;
 			
-			Clockwork.datastream:Start(player, "LockInteract", {lockType, true, entity});
+			netstream.Start(player, "LockInteract", {lockType, true, entity});
 		end;
 	end);
 	
-	Clockwork.datastream:Start(player, "CloseMenu");
+	netstream.Start(player, "CloseMenu");
 end;
 
 -- A function to spawn a keycutting machine.
@@ -645,15 +657,15 @@ function cwStorage:HandleContainerLock(player, data)
 	player.LockSet = nil;
 end;
 
-Clockwork.datastream:Hook("StartLockpick", function(player, data)
+netstream.Hook("StartLockpick", function(player, data)
 	cwStorage:StartLockpick(player)
 end);
 
-Clockwork.datastream:Hook("LockpickFail", function(player, data)
+netstream.Hook("LockpickFail", function(player, data)
 	cwStorage:LockpickFail(player, data);
 end);
 
-Clockwork.datastream:Hook("SuccessfulPick", function(player, data)
+netstream.Hook("SuccessfulPick", function(player, data)
 	if (player.Lockpicking) then
 		if player.LockpickContainer and player.LockpickContainer.cwPassword then
 			player:EmitSound("weapons/357/357_reload"..table.Random({"1", "3", "4"})..".wav", 100);
@@ -667,8 +679,8 @@ Clockwork.datastream:Hook("SuccessfulPick", function(player, data)
 	end;
 end);
 
-Clockwork.datastream:Hook("AbortLockpick", function(player, data)
-	player.LockpickCooldown = CurTime() + 5;
+netstream.Hook("AbortLockpick", function(player, data)
+	player.LockpickCooldown = CurTime() + 1;
 	player:Freeze(false);
 	player.Lockpicking = nil;
 	player.ActiveContainer = nil;
@@ -680,15 +692,15 @@ Clockwork.datastream:Hook("AbortLockpick", function(player, data)
 	player.LockpickContainer = nil;
 end);
 
-Clockwork.datastream:Hook("FinishLockpick", function(player, data)
+netstream.Hook("FinishLockpick", function(player, data)
 	cwStorage:FinishLockpick(player, data)
 end);
 
-Clockwork.datastream:Hook("LockCombo", function(player, data)
+netstream.Hook("LockCombo", function(player, data)
 	cwStorage:HandleContainerLock(player, data);
 end);
 
-Clockwork.datastream:Hook("ContainerPassword", function(player, data)
+netstream.Hook("ContainerPassword", function(player, data)
 	local password = data[1];
 	local entity = data[2];
 	

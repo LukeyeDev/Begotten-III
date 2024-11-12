@@ -73,9 +73,9 @@ end
 -- A function to rebuild the panel.
 function PANEL:Rebuild()
 	local faction = Clockwork.Client:GetFaction();
-	local faith = Clockwork.Client:GetSharedVar("faith");
-	local subfaction = Clockwork.Client:GetSharedVar("subfaction");
-	local subfaith = Clockwork.Client:GetSharedVar("subfaith");
+	local faith = Clockwork.Client:GetNetVar("faith");
+	local subfaction = Clockwork.Client:GetNetVar("subfaction");
+	local subfaith = Clockwork.Client:GetNetVar("subfaith");
 	self.fire_found = false;
 	self.smithy_found = false;
 	
@@ -115,7 +115,7 @@ function PANEL:Rebuild()
 		self.categoryList:SetDrawBackground(false);
 		
 		self.weaponButton = vgui.Create("DButton", self)
-		self.weaponButton:SetText("Weapons");
+		self.weaponButton:SetText("Melees");
 		self.weaponButton:SetSize(256, 70);
 		self.weaponButton:SetTextColor(Color(160, 0, 0));
 		self.weaponButton:SetFont("nov_IntroTextSmallfaaaaa");
@@ -128,7 +128,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Weapons" then
-				self:BuildRecipeList("Weapons", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Weapons", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -153,7 +153,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Munitions" then
-				self:BuildRecipeList("Munitions", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Munitions", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -178,7 +178,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Armor" then
-				self:BuildRecipeList("Armor", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Armor", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -203,7 +203,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Cooking" then
-				self:BuildRecipeList("Cooking", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Cooking", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -228,7 +228,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Medical" then
-				self:BuildRecipeList("Medical", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Medical", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -253,7 +253,7 @@ function PANEL:Rebuild()
 			surface.PlaySound("begotten/ui/buttonclick.wav")
 			
 			if self.recipeListOpen ~= "Other" then
-				self:BuildRecipeList("Other", faction, faith, subfaction, subfaith);
+				self:BuildRecipeList("Other", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
 			end
 		end
 		
@@ -279,8 +279,8 @@ function PANEL:Rebuild()
 	
 	if (!self.recipeList) then
 		self.recipeList = vgui.Create("DPanelList", self);
-		self.recipeList:SetPos(7, 79);
-		self.recipeList:SetSize(768, 748);
+		self.recipeList:SetPos(7, 109);
+		self.recipeList:SetSize(768, 738);
 		self.recipeList:SetSpacing(1);
 		self.recipeList:SetDrawBackground(false);
 		self.recipeList:EnableVerticalScrollbar();
@@ -332,10 +332,26 @@ function PANEL:Rebuild()
 	end
 	
 	-- Default to weapons.
-	self:BuildRecipeList("Weapons", faction, faith, subfaction, subfaith);
+	self:BuildRecipeList("Weapons", faction, faith, subfaction, subfaith, (cwRecipes.recipeSearch and cwRecipes.recipeSearch or ""));
+
+	if (!self.recipeSearch) then
+		self.recipeSearch = self:Add("cwSearchBox");
+		self.recipeSearch:SetPos(7,79);
+		self.recipeSearch:SetWide(768);
+
+		if(cwRecipes.recipeSearch) then
+			self.recipeSearch:SetValue(cwRecipes.recipeSearch);
+		end
+
+		self.recipeSearch.OnChange = function()
+			cwRecipes.recipeSearch = string.gsub(self.recipeSearch:GetText() or "", "[^%w%s%-]", "");
+
+			self:BuildRecipeList(self.recipeListOpen, faction, faith, subfaction, subfaith, cwRecipes.recipeSearch);
+		end
+	end
 end
 
-function PANEL:BuildRecipeList(category, faction, faith, subfaction, subfaith)
+function PANEL:BuildRecipeList(category, faction, faith, subfaction, subfaith, searchTerm)
 	if IsValid(self.recipeList) then
 		self.recipeList:Clear();
 	
@@ -383,6 +399,10 @@ function PANEL:BuildRecipeList(category, faction, faith, subfaction, subfaith)
 						continue;
 					end
 				end
+
+				if (searchTerm and !string.find(string.lower(v.name), string.lower(searchTerm))) then
+					continue;
+				end
 			
 				self:AddRecipe(v);
 			end
@@ -397,7 +417,7 @@ function PANEL:UpdateSelectedRecipe(uniqueID)
 	
 	local recipeTable = cwRecipes.recipes.stored[uniqueID];
 	
-	self.rightSide.selectedRecipeLabel:SetText("Selected Recipe: "..recipeTable.name);
+	self.rightSide.selectedRecipeLabel:SetText("Selected Recipe: "..recipeTable.name.." ("..self.rightSide.craftAmount.."x)");
 	self.rightSide.selectedRecipeLabel:SizeToContents();
 	self.rightSide.selectedRecipeLabel:SetPos(370 - (self.rightSide.selectedRecipeLabel:GetSize() / 2), 330);
 end
@@ -467,14 +487,22 @@ function PANEL:Rebuild()
 	self.tierLabel = vgui.Create("DLabel", self);
 	
 	if requiredBeliefs then
-		for i = 1, #requiredBeliefs do
-			self.tierLabel:SetText("Requires Belief: '"..recipeData.requiredBeliefsNiceNames[i].."'");
-			
-			if cwBeliefs:HasBelief(requiredBeliefs[i]) then
-				self.tierLabel:SetTextColor(Color(25, 150, 25));
-			else
-				self.tierLabel:SetTextColor(Color(200, 25, 25));
-			end
+		local requiredBeliefNames = {};
+		
+		for i, v in ipairs(requiredBeliefs) do
+			table.insert(requiredBeliefNames, cwBeliefs:GetBeliefName(v));
+		end
+		
+		if cwBeliefs:HasBelief(requiredBeliefs) then
+			self.tierLabel:SetTextColor(Color(25, 150, 25));
+		else
+			self.tierLabel:SetTextColor(Color(200, 25, 25));
+		end
+		
+		if #requiredBeliefNames == 1 then
+			self.tierLabel:SetText("Requires Belief: '"..requiredBeliefNames[1].."'");
+		else
+			self.tierLabel:SetText("Requires Beliefs: '"..table.concat(requiredBeliefNames, "', '").."'");
 		end
 	end
 	
@@ -522,6 +550,7 @@ function PANEL:Rebuild()
 	
 	for k, v in SortedPairs(recipeData.requirements) do
 		self.itemData.itemTable = Clockwork.item:FindByID(k);
+
 		self.itemData.amount = v.amount or 1;
 		
 		local requiredItem = vgui.Create("cwRecipeItem", self);
@@ -578,6 +607,7 @@ function PANEL:Init()
 	function self.spawnIcon.DoClick(spawnIcon)
 		if (!self.nextCanClick or CurTime() >= self.nextCanClick) then
 			if self.mainItem then
+				self:GetParent():GetParent():GetParent():GetParent().rightSide.craftAmount = 1;
 				self:GetParent():GetParent():GetParent():GetParent():UpdateSelectedRecipe(self:GetParent().recipeData.uniqueID);
 
 				for _, v in ipairs(self:GetParent():GetParent():GetChildren()) do
@@ -625,7 +655,7 @@ function PANEL:Think()
 		spawnIcon:SetColor(color);
 	end
 
-	if (self.itemTable.stackable) then
+	--if (self.itemTable.stackable) then
 		if (amount > 1) then
 			if spawnIcon then
 				if !IsValid(spawnIcon.amount) then
@@ -656,7 +686,7 @@ function PANEL:Think()
 		elseif spawnIcon and spawnIcon.amount then
 			spawnIcon.amount:Remove();
 		end;
-	end;
+	--end;
 
 	local model, skin = Clockwork.item:GetIconInfo(self.itemTable);
 	
@@ -681,6 +711,8 @@ function PANEL:Init()
 	self.craftingSlotFrames:SetSize(740, 328);
 	self.craftingSlotFrames:SetPos(0, 20);
 	self.craftingSlotFrames:SetImage("begotten/ui/craftinggrid.png");
+
+	self.craftAmount = 1;
 	
 	self.craftingSlotLocations = {
 		[1] = {x = 222, y = 41, receiver = nil, occupier = nil},
@@ -703,12 +735,14 @@ function PANEL:Init()
 	
 	local width, height = self.craftButton:GetWide(), self.craftButton:GetTall()
 	local buttonMaterial = Material("begotten/ui/butt24.png")
+
+	local this = self;
 	
 	-- Called when the button is painted.
 	function self.craftButton.DoClick()
 		surface.PlaySound("begotten/ui/buttonclick.wav")
 		
-		cwRecipes:AttemptCraft(self:GetParent().selectedRecipe);
+		cwRecipes:AttemptCraft(this:GetParent().selectedRecipe, this.craftAmount);
 	end
 	
 	-- Called when the panel is painted.
@@ -716,6 +750,86 @@ function PANEL:Init()
 		surface.SetDrawColor(255, 255, 255, 255)
 		surface.SetMaterial(buttonMaterial)
 		surface.DrawTexturedRect(0, 0, width, height)
+	end
+
+	self.amtButtonP = self:Add("DButton");
+	self.amtButtonP:SetText("+");
+	self.amtButtonP:SetSize(32, 32);
+	self.amtButtonP:SetPos(502, 356);
+	self.amtButtonP:SetTextColor(Color(160, 0, 0));
+	self.amtButtonP:SetFont("nov_IntroTextSmallfaaaaa");
+
+	local width, height = self.amtButtonP:GetWide(), self.amtButtonP:GetTall();
+	local buttonMaterial = Material("begotten/ui/bgtbtn1.png");
+	
+	-- Called when the button is painted.
+	function self.amtButtonP.DoClick()
+		surface.PlaySound("begotten/ui/buttonclick.wav");
+
+		if(!this:GetParent().selectedRecipe) then return; end
+
+		local itemsNeeded = 0;
+
+		for i, v in pairs(cwRecipes.recipes.stored[this:GetParent().selectedRecipe].requirements) do
+			itemsNeeded = itemsNeeded + v.amount;
+
+		end
+
+		local targetCraftAmount = input.IsKeyDown(KEY_LSHIFT) and math.floor(9/itemsNeeded) or this.craftAmount+1;
+
+		if(itemsNeeded*(targetCraftAmount) > 9) then return; end
+		
+		this.craftAmount = targetCraftAmount;
+
+		this:GetParent():UpdateSelectedRecipe(this:GetParent().selectedRecipe);
+
+	end
+	
+	-- Called when the panel is painted.
+	function self.amtButtonP.Paint()
+		surface.SetDrawColor(255, 255, 255, 255);
+		surface.SetMaterial(buttonMaterial);
+		surface.DrawTexturedRect(0, 0, width, height);
+	end
+
+	self.amtButtonM = self:Add("DButton");
+	self.amtButtonM:SetText("-");
+	self.amtButtonM:SetSize(32, 32);
+	self.amtButtonM:SetPos(502, 394);
+	self.amtButtonM:SetTextColor(Color(160, 0, 0));
+	self.amtButtonM:SetFont("nov_IntroTextSmallfaaaaa");
+
+	local width, height = self.amtButtonM:GetWide(), self.amtButtonM:GetTall();
+	local buttonMaterial = Material("begotten/ui/bgtbtn1.png");
+	
+	-- Called when the button is painted.
+	function self.amtButtonM.DoClick()
+		surface.PlaySound("begotten/ui/buttonclick.wav");
+
+		if(!this:GetParent().selectedRecipe) then return; end
+
+		local itemsNeeded = 0;
+
+		for i, v in pairs(cwRecipes.recipes.stored[this:GetParent().selectedRecipe].requirements) do
+			itemsNeeded = itemsNeeded + v.amount;
+
+		end
+
+		local targetCraftAmount = input.IsKeyDown(KEY_LSHIFT) and 1 or this.craftAmount-1;
+
+		if(itemsNeeded*(this.craftAmount-1) > 9) then return; end
+		
+		this.craftAmount = math.max(this.craftAmount - 1, 1);
+
+		this:GetParent():UpdateSelectedRecipe(this:GetParent().selectedRecipe);
+
+	end
+	
+	-- Called when the panel is painted.
+	function self.amtButtonM.Paint()
+		surface.SetDrawColor(255, 255, 255, 255);
+		surface.SetMaterial(buttonMaterial);
+		surface.DrawTexturedRect(0, 0, width, height);
 	end
 	
 	if (!self.selectedRecipeLabel) then
@@ -726,7 +840,7 @@ function PANEL:Init()
 		else
 			local recipeTable = cwRecipes.recipes.stored[self:GetParent().selectedRecipe];
 			
-			self.selectedRecipeLabel:SetText("Selected Recipe: "..recipeTable.name);
+			self.selectedRecipeLabel:SetText("Selected Recipe: "..recipeTable.name.." ("..self.craftAmount.."x)");
 		end
 		
 		self.selectedRecipeLabel:SetTextColor(Color(200, 20, 20));
@@ -932,11 +1046,7 @@ function PANEL:Rebuild()
 
 	if (#categories.slotted > 0) then
 		for k, v in pairs(categories.slotted) do
-			table.sort(v.itemsList, function(a, b)
-				return a("name") < b("name");
-			end);
-
-			for k2, v2 in pairs(v.itemsList) do
+			for k2, v2 in SortedPairsByMemberValue(v.itemsList, "name") do
 				local slottedPos;
 				
 				for i = 1, #self.craftingSlotLocations do
@@ -1014,13 +1124,9 @@ function PANEL:Rebuild()
 
 	if (#categories.inventory > 0) then
 		for k, v in pairs(categories.inventory) do
-			table.sort(v.itemsList, function(a, b)
-				return a("itemID") < b("itemID");
-			end);
-			
 			local items = {};
 			
-			for k2, v2 in pairs(v.itemsList) do
+			for k2, v2 in SortedPairsByMemberValue(v.itemsList, "name") do
 				--[[if v2.stackable then
 					local amount = Clockwork.inventory:GetItemCountByID(Clockwork.inventory:GetClient(), v2("uniqueID"));
 					

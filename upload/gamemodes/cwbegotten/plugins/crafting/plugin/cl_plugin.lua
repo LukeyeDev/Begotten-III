@@ -3,14 +3,59 @@
 	written by: cash wednesday, DETrooper, gabs and alyousha35.
 --]]
 
+Clockwork.ConVars.CRAFTINGPILESPAWNESP = Clockwork.kernel:CreateClientConVar("cwCraftingPileSpawnESP", 0, false, true)
+
+netstream.Hook("CraftingPileSpawnESPInfo", function(data)
+	if data then
+		if data[1] then
+			cwRecipes.pileLocations = data[1];
+		end
+	end
+end);
+
+function cwRecipes:GetAdminESPInfo(info)
+	if (Clockwork.ConVars.CRAFTINGPILESPAWNESP and Clockwork.ConVars.CRAFTINGPILESPAWNESP:GetInt() == 1) then
+		if (self.pileLocations) then
+			if (table.IsEmpty(self.pileLocations)) then
+				self.pileLocations = nil;
+				
+				return;
+			end;
+			
+			for k, v in pairs (self.pileLocations) do
+				for i, v2 in ipairs(v) do
+					if (!v2 or !isvector(v2.pos)) then
+						self.pileLocations[k][i] = nil;
+						
+						continue;
+					end;
+
+					info[#info + 1] = {
+						position = v2.pos,
+						text = "Resource Pile Spawn ("..k..")";
+						color = Color(200, 200, 200);
+					};
+				end
+			end;
+		end;
+	end;
+end
+
+function cwRecipes:GetProgressBarInfoAction(action, percentage)
+	if (action == "crafting") then
+		local craftVerb = Clockwork.Client:GetNetVar("cwProgressBarVerb") or  "crafting";
+		local itemName = Clockwork.Client:GetNetVar("cwProgressBarItem") or "an item";
+		
+		return {text = "You are "..craftVerb.." "..itemName..". Click to cancel.", percentage = percentage, flash = percentage < 0}
+	end
+end
+
 -- A function to build the default crafting tooltip.
 function cwRecipes:BuildCraftingTooltip(frame, recipeTable)
-	--[[frame:AddText("pingas")
-	printp(frame)
-	printp(recipeTable)]]--
+
 end;
 
-function cwRecipes:AttemptCraft(uniqueID)
+function cwRecipes:AttemptCraft(uniqueID, amount)
 	local curTime = CurTime();
 	
 	if !self.nextCraftAttempt or self.nextCraftAttempt < curTime then
@@ -23,8 +68,8 @@ function cwRecipes:AttemptCraft(uniqueID)
 			local recipeTable = self.recipes.stored[uniqueID];
 			
 			if recipeTable then
-				if self:PlayerMeetsCraftingItemRequirements(recipeTable) then
-					netstream.Start("Craft", recipeTable.uniqueID, self.slottedItems);
+				if self:PlayerMeetsCraftingItemRequirements(recipeTable, amount) then
+					netstream.Start("Craft", recipeTable.uniqueID, self.slottedItems, amount);
 					
 					if (IsValid(Clockwork.Client.cwCraftingMenu)) then
 						Clockwork.Client.cwCraftingMenu:Close()
@@ -54,9 +99,9 @@ function cwRecipes:PlayerCanCraft(uniqueID)
 	local requiresHeatSource = recipeTable.requiresHeatSource;
 	local requiresSmithy = recipeTable.requiresSmithy;
 	local faction = Clockwork.Client:GetFaction();
-	local faith = Clockwork.Client:GetSharedVar("faith");
-	local subfaction = Clockwork.Client:GetSharedVar("subfaction");
-	local subfaith = Clockwork.Client:GetSharedVar("subfaith");
+	local faith = Clockwork.Client:GetNetVar("faith");
+	local subfaction = Clockwork.Client:GetNetVar("subfaction");
+	local subfaith = Clockwork.Client:GetNetVar("subfaith");
 	
 	if Clockwork.Client:IsRagdolled() or !Clockwork.Client:Alive() then
 		Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "Your character cannot craft at this moment!");
@@ -123,7 +168,7 @@ function cwRecipes:PlayerCanCraft(uniqueID)
 							end
 						end
 					
-						Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "You require the '"..recipeTable.requiredBeliefsNiceNames[i].."' belief to craft this recipe!");
+						Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "You require the '"..cwBeliefs:GetBeliefName(recipeTable.requiredBeliefs[i]).."' belief to craft this recipe!");
 						return false;
 					end
 				end
@@ -166,7 +211,7 @@ function cwRecipes:PlayerCanCraft(uniqueID)
 	return hasFlags;
 end;
 
-function cwRecipes:PlayerMeetsCraftingItemRequirements(recipeTable)
+function cwRecipes:PlayerMeetsCraftingItemRequirements(recipeTable, craftAmount)
 	if !cwRecipes.slottedItems or table.IsEmpty(cwRecipes.slottedItems) then
 		Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "You have no items selected to craft!");
 		return false;
@@ -200,23 +245,28 @@ function cwRecipes:PlayerMeetsCraftingItemRequirements(recipeTable)
 	
 	local temptab = table.Copy(slottedItems);
 
-	for k, v in pairs(requirements) do
-		for i = 1, v.amount do
-			local goods_found = false;
-			
-			for j = 1, #temptab do
-				if temptab[j].uniqueID == k then
-					table.remove(temptab, j);
-					goods_found = true;
-					break;
+	for i = 1, craftAmount do
+		for k, v in pairs(requirements) do
+			local amount = v.amount;
+
+			for i = 1, amount do
+				local goods_found = false;
+
+				for j = 1, #temptab do
+					if temptab[j].uniqueID == k or temptab[j].uniqueID == v.substitute then
+						table.remove(temptab, j);
+						goods_found = true;
+						break;
+					end
+				end
+
+				if not goods_found then
+					Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "The items inputted for crafting do not match the selected recipe's requirements!");
+					return false;
 				end
 			end
-				
-			if not goods_found then
-				Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "The items inputted for crafting do not match the selected recipe's requirements!");
-				return false;
-			end
 		end
+
 	end
 	
 	if #temptab > 0 then
@@ -251,3 +301,5 @@ function cwRecipes:GetAvailable()
 	
 	return available;
 end;
+
+Clockwork.setting:AddCheckBox("Admin ESP - Spawn Points", "Show resource pile spawn points.", "cwCraftingPileSpawnESP", "Click to toggle the resource spawner ESP.", function() return Clockwork.player:IsAdmin(Clockwork.Client) end);

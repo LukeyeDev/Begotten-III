@@ -35,8 +35,9 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.canUseShields = true;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks"}}; -- use "breakdown" for other type
-	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks"}};
+	ITEM.attributes = {"fire"};
 	ITEM.requireFaith = {"Faith of the Family"};
+	ITEM.requiredbeliefs = {"mother"};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
@@ -101,6 +102,7 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks"}}; -- use "breakdown" for other type
 	ITEM.attributes = {"ice"};
 	ITEM.requiredbeliefs = {"the_light"};
+	ITEM.kinisgerOverride = true;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
@@ -159,7 +161,9 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(2.83, 3.54, 0);
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"gold_ingot"}}; -- use "breakdown" for other type
+	ITEM.attributes = {"fire"};
 	ITEM.requiredbeliefs = {"the_light"};
+	ITEM.kinisgerOverride = true;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
@@ -180,6 +184,7 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "iron_chunks"}}; -- use "breakdown" for other type
 	ITEM.attributes = {"bell"};
 	ITEM.requiredbeliefs = {"strength", "repentant"};
+	ITEM.kinisgerOverride = true;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
@@ -199,6 +204,7 @@ local ITEM = Clockwork.item:New("weapon_base");
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks"}}; -- use "breakdown" for other type
 	ITEM.requiredbeliefs = {"strength"};
+	ITEM.onerequiredbelief = {"father", "mother", "old_son", "young_son", "sister"};
 	ITEM.requireFaith = {"Faith of the Family"};
 ITEM:Register();
 
@@ -239,5 +245,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks", "ice_catalyst", "wood", "wood"}}; -- use "breakdown" for other type
 	ITEM.attributes = {"ice"};
 	ITEM.requiredbeliefs = {"strength"};
+	ITEM.onerequiredbelief = {"father", "mother", "old_son", "young_son", "sister"};
 	ITEM.requireFaith = {"Faith of the Family"};
 ITEM:Register();

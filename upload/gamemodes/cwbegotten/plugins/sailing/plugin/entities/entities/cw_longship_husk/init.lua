@@ -19,6 +19,7 @@ function ENT:Initialize()
 	self:PhysicsInit(SOLID_VPHYSICS);
 	self:SetUseType(SIMPLE_USE);
 	self:SetSolid(SOLID_VPHYSICS);
+	self.longshipType = "longship";
 	
 	local physicsObject = self:GetPhysicsObject();
 	
@@ -42,8 +43,8 @@ end;
 
 function ENT:OnRemove()
 	if self.location and self.position then
-		if SHIP_LOCATIONS[self.location][self.position] then
-			SHIP_LOCATIONS[self.location][self.position].occupied = false;
+		if cwSailing.shipLocations[self.location][self.longshipType][self.position] then
+			cwSailing.shipLocations[self.location][self.longshipType][self.position].occupied = false;
 		end
 	end
 end;

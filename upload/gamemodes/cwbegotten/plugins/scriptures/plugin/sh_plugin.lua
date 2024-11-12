@@ -40,17 +40,23 @@ local ITEM = Clockwork.item:New(nil, true)
 				
 				if !table.HasValue(booksRead, self.uniqueID) then
 					--if cwBeliefs and player:HasBelief("scribe") then
-						player:HandleXP(cwBeliefs.xpValues["read"]);
+						local readXP = cwBeliefs.xpValues["read"] or 50;
+						
+						if player:GetFaction() ~= "Wanderer" then
+							readXP = math.Round(readXP / 2);
+						end
+						
+						player:HandleXP(readXP);
 					--end
 					
 					table.insert(booksRead, self.uniqueID);
 					
 					player:SetCharacterData("BooksRead", booksRead);
-					Clockwork.datastream:Start(player, "UpdateBooksRead", booksRead);
+					netstream.Start(player, "UpdateBooksRead", booksRead);
 				end
 				
 				player:EmitSound("begotten/items/note_turn.wav")
-				Clockwork.datastream:Start(player, "OpenBook", self("uniqueID"))
+				netstream.Start(player, "OpenBook", self("uniqueID"))
 			else
 				Schema:EasyText(player, "chocolate", "You cannot decipher the glyphs in this scripture!");
 			end
@@ -86,7 +92,7 @@ local ITEM = Clockwork.item:New(nil, true)
 								table.insert(booksCopied, self.uniqueID);
 								
 								player:SetCharacterData("BooksCopied", booksCopied);
-								Clockwork.datastream:Start(player, "UpdateBooksCopied", booksCopied);
+								netstream.Start(player, "UpdateBooksCopied", booksCopied);
 							
 								if cwBeliefs then
 									player:HandleXP(cwBeliefs.xpValues["copy"]);
@@ -155,7 +161,6 @@ local ITEM = Clockwork.item:New();
 	ITEM.model = "models/begotten/misc/quill.mdl";
 	ITEM.weight = 0.1;
 	ITEM.category = "Tools";
-	ITEM.business = true;
 	ITEM.stackable = true;
 	ITEM.description = "A small quill that can be used for writing by those who are sufficiently learned.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/quill.png"
@@ -178,7 +183,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 600, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -193,7 +198,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 600, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -208,7 +213,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 550, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 800, onGround = false};
 
 ITEM:Register()
 
@@ -223,7 +228,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_large.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 700, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1200, onGround = false};
 	
 ITEM:Register()
 
@@ -238,7 +243,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 450, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 800, onGround = false};
 
 ITEM:Register()
 
@@ -253,7 +258,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 650, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1100, onGround = false};
 
 ITEM:Register()
 
@@ -268,7 +273,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 650, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1200, onGround = false};
 
 ITEM:Register()
 
@@ -283,7 +288,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 650, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -298,7 +303,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 650, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -313,7 +318,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 650, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1200, onGround = false};
 
 ITEM:Register()
 
@@ -328,7 +333,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 550, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -343,7 +348,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 550, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -358,7 +363,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_large.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 700, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1250, onGround = false};
 	
 ITEM:Register()
 
@@ -373,7 +378,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Glazic"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/book_small.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 550, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
 
 ITEM:Register()
 
@@ -388,7 +393,7 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Darklander"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 2000, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 3000, onGround = false};
 
 ITEM:Register()
 
@@ -403,19 +408,17 @@ local ITEM = Clockwork.item:New("book_base")
 	ITEM.bookType = "Darklander"
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/scroll.png";
 	
-	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1000, onGround = false};
+	ITEM.itemSpawnerInfo = {category = "City Junk", rarity = 1500, onGround = false};
 
 ITEM:Register()
-
-Clockwork.item:Initialize(); -- This fixes shit for autorefresh I guess?
 
 if (SERVER) then
 	function cwScriptures:PlayerCharacterLoaded(player)
 		local booksCopied = player:GetCharacterData("BooksCopied", {});
 		local booksRead = player:GetCharacterData("BooksRead", {});
 		
-		Clockwork.datastream:Start(player, "UpdateBooksCopied", booksCopied);
-		Clockwork.datastream:Start(player, "UpdateBooksRead", booksRead);
+		netstream.Start(player, "UpdateBooksCopied", booksCopied);
+		netstream.Start(player, "UpdateBooksRead", booksRead);
 	end
 end
 
@@ -570,7 +573,7 @@ if (CLIENT) then
 		Clockwork.Client.BookPanel:Remove()
 	end
 	
-	Clockwork.datastream:Hook("OpenBook", function(data)
+	netstream.Hook("OpenBook", function(data)
 		local itemTable = Clockwork.item:FindByID(data)
 
 		if (itemTable and itemTable.bookInformation) then
@@ -589,13 +592,13 @@ if (CLIENT) then
 		end
 	end)
 	
-	Clockwork.datastream:Hook("UpdateBooksRead", function(data)
+	netstream.Hook("UpdateBooksRead", function(data)
 		if data then
 			cwScriptures.booksRead = data;
 		end
 	end)
 	
-	Clockwork.datastream:Hook("UpdateBooksCopied", function(data)
+	netstream.Hook("UpdateBooksCopied", function(data)
 		if data then
 			cwScriptures.booksCopied = data;
 		end

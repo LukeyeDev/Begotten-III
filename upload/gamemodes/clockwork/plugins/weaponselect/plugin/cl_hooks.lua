@@ -32,7 +32,7 @@ function cwWeaponSelect:HUDPaintImportant()
 			self.weaponDisplayAlpha = 0;
 		end;
 
-		if (IsValid(activeWeapon)) then
+		if (activeWeapon:IsValid()) then
 			if (self.weaponDisplayAlpha <= 0 and self.displayAlpha <= 0) then
 				return;
 			end;
@@ -215,7 +215,7 @@ end;
 
 -- Called when a player presses a bind at the top level.
 function cwWeaponSelect:TopLevelPlayerBindPress(player, bind, press)
-	if (CW_CONVAR_CINEMATICVIEW and CW_CONVAR_CINEMATICVIEW:GetInt() == 1) then
+	if (Clockwork.ConVars.CINEMATICVIEW and Clockwork.ConVars.CINEMATICVIEW:GetInt() == 1) then
 		if (!nextRemind or nextRemind < CurTime()) then
 			nextRemind = CurTime() + 10;
 			MsgC(colors["tomato"], "Cinematic view is currently enabled! Disable it to use weapon select!\n");
@@ -238,7 +238,7 @@ function cwWeaponSelect:TopLevelPlayerBindPress(player, bind, press)
 			weapons = Clockwork.Client:GetWeapons();
 		end
 		
-		if (!IsValid(activeWeapon)) then
+		if (!activeWeapon:IsValid()) then
 			return;
 		end;
 		

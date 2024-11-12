@@ -10,44 +10,45 @@ Clockwork.kernel:IncludePrefixed("sv_hooks.lua");
 
 function cwPossession:StartCommand(player, ucmd)
 	if IsValid(player) then
+		local plyTab = player:GetTable();
 		local possessor;
 		local victim;
 		
 		if SERVER then
-			possessor = player.possessor;
-			victim = player.victim;
+			possessor = plyTab.possessor;
+			victim = plyTab.victim;
 		else
-			if player.possessor then
-				possessor = player.possessor;
+			if plyTab.possessor then
+				possessor = plyTab.possessor;
 				victim = player;
-			elseif player.victim then
+			elseif plyTab.victim then
 				possessor = player;
-				victim = player.victim;
+				victim = plyTab.victim;
 			end
 		end
 		
 		if IsValid(victim) then 
 			if victim:Alive() then
-				player.attacking = ucmd:KeyDown(IN_ATTACK)
-				player.blocking = ucmd:KeyDown(IN_ATTACK2);
-				player.parrying = ucmd:KeyDown(IN_RELOAD)
-				player.changeStance = ucmd:KeyDown(IN_ATTACK2) and ucmd:KeyDown(IN_USE);
-				player.use = ucmd:KeyDown(IN_USE);
-				player.jumping = ucmd:KeyDown(IN_JUMP)
-				player.crouching = ucmd:KeyDown(IN_DUCK)
-				player.running = ucmd:KeyDown(IN_SPEED);
-				player.forward = ucmd:KeyDown(IN_FORWARD)
-				player.backward = ucmd:KeyDown(IN_BACK)
-				player.left = ucmd:KeyDown(IN_MOVELEFT)
-				player.right = ucmd:KeyDown(IN_MOVERIGHT)
-				player.movementForward = ucmd:GetForwardMove()
-				player.sidewaysMovement = ucmd:GetSideMove()
-				player.upMove = ucmd:GetUpMove()
-				player.MouseX = ucmd:GetMouseX()
-				player.MouseY = ucmd:GetMouseY()
+				plyTab.attacking = ucmd:KeyDown(IN_ATTACK)
+				plyTab.blocking = ucmd:KeyDown(IN_ATTACK2);
+				plyTab.parrying = ucmd:KeyDown(IN_RELOAD)
+				plyTab.changeStance = ucmd:KeyDown(IN_ATTACK2) and ucmd:KeyDown(IN_USE);
+				plyTab.use = ucmd:KeyDown(IN_USE);
+				plyTab.jumping = ucmd:KeyDown(IN_JUMP)
+				plyTab.crouching = ucmd:KeyDown(IN_DUCK)
+				plyTab.running = ucmd:KeyDown(IN_SPEED);
+				plyTab.forward = ucmd:KeyDown(IN_FORWARD)
+				plyTab.backward = ucmd:KeyDown(IN_BACK)
+				plyTab.left = ucmd:KeyDown(IN_MOVELEFT)
+				plyTab.right = ucmd:KeyDown(IN_MOVERIGHT)
+				plyTab.movementForward = ucmd:GetForwardMove()
+				plyTab.sidewaysMovement = ucmd:GetSideMove()
+				plyTab.upMove = ucmd:GetUpMove()
+				plyTab.MouseX = ucmd:GetMouseX()
+				plyTab.MouseY = ucmd:GetMouseY()
 				
 				if SERVER then
-					player.demonMove = ucmd
+					plyTab.demonMove = ucmd
 				end
 
 				ucmd:SetViewAngles(victim:EyeAngles())
@@ -100,36 +101,49 @@ function cwPossession:StartCommand(player, ucmd)
 				if possessor.changeStance then
 					local activeWeapon = player:GetActiveWeapon();
 					
-					if IsValid(activeWeapon) then
+					if activeWeapon:IsValid() then
 						local attacktable = GetTable(activeWeapon.AttackTable);
 
 						if (attackTable and attackTable["canaltattack"] == true) then
 							if !possessor.changeStanceTimer or possessor.changeStanceTimer <= curTime then
 								possessor.changeStanceTimer = curTime + 1;
 								
-								if player:GetNWBool("ThrustStance") == false then
-									if activeWeapon.CanSwipeAttack == true then
-										player:SetNWBool( "ThrustStance", true )
+								if !player:GetNetVar("ThrustStance") then
+									if activeWeapon.isJavelin then
+										player:PrintMessage(HUD_PRINTTALK, "*** Switched to melee stance.")
+										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to melee stance.")
+									elseif activeWeapon.CanSwipeAttack == true then
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to swiping stance.")
 										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to swiping stance.")
 									else
-										player:SetNWBool( "ThrustStance", true )
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 									end
+									
+									player:SetLocalVar("ThrustStance", true);
+									
+									if activeWeapon.OnMeleeStanceChanged then
+										activeWeapon:OnMeleeStanceChanged("thrust_swing");
+									end
 								else
-									if activeWeapon.CanSwipeAttack == true then
-										player:SetNWBool( "ThrustStance", false )
+									if activeWeapon.isJavelin then
+										player:PrintMessage(HUD_PRINTTALK, "*** Switched to throwing stance.")
+										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to throwing stance.")
+									elseif activeWeapon.CanSwipeAttack == true then
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 									elseif attacktable["dmgtype"] == 128 then
-										player:SetNWBool( "ThrustStance", false )
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to bludgeoning stance.")
 										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to bludgeoning stance.")
 									else
-										player:SetNWBool( "ThrustStance", false )
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to slashing stance.")
 										possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to slashing stance.")
+									end
+									
+									player:SetLocalVar("ThrustStance", false);
+									
+									if activeWeapon.OnMeleeStanceChanged then
+										activeWeapon:OnMeleeStanceChanged("reg_swing");
 									end
 								end
 							end
@@ -197,7 +211,7 @@ local COMMAND = Clockwork.command:New("DemonHeal");
 			if !player.nextDemonHeal or player.nextDemonHeal < curTime then
 				player.nextDemonHeal = curTime + 10;
 				
-				local max_poise = target:GetMaxPoise();
+				--local max_poise = target:GetMaxPoise();
 				local max_stability = target:GetMaxStability();
 				local max_stamina = target:GetMaxStamina();
 				
@@ -211,8 +225,8 @@ local COMMAND = Clockwork.command:New("DemonHeal");
 				target:SetCharacterData("stability", max_stability);
 				target:SetNWInt("stability", max_stability);
 				--target:SetCharacterData("meleeStamina", max_poise);
-				target:SetNWInt("meleeStamina", max_poise);
-				target:SetNWInt("freeze", 0);
+				--target:SetNWInt("meleeStamina", max_poise);
+				target:SetLocalVar("freeze", 0);
 				target:SetBloodLevel(5000);
 				target:StopAllBleeding();
 				Clockwork.limb:HealBody(target, 100);
@@ -513,7 +527,7 @@ function COMMAND:OnRun(player, arguments)
 		
 		if cwGore then
 			if (target:GetRagdollEntity()) then
-				cwGore:SplatCorpse(target:GetRagdollEntity(), 60);
+				cwGore:SplatCorpse(target:GetRagdollEntity(), 60, nil, true);
 			end;
 		end
 		
@@ -643,7 +657,7 @@ function COMMAND:OnRun(player, arguments)
 	else
 		Schema:EasyText(player, "grey", "No valid target argument found.");
 		if player:GetNetVar("tracktarget") then 
-			for k, v in pairs (_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				local steamID = v:SteamID();
 				if steamID == player:GetNetVar("tracktarget") then
 					
@@ -667,7 +681,7 @@ COMMAND.arguments = 0;
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
 	if player:GetNetVar("tracktarget") then 
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			local steamID = v:SteamID();
 			if steamID == player:GetNetVar("tracktarget") then
 				player:SetNetVar("trackedby", nil);
@@ -690,7 +704,7 @@ COMMAND.arguments = 0;
 function COMMAND:OnRun(player, arguments)
 	Schema:EasyText(player, "grey", "No valid target argument found.");
 	if player:GetNetVar("tracktarget") then 
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			local steamID = v:SteamID();
 			if steamID == player:GetNetVar("tracktarget") then
 				

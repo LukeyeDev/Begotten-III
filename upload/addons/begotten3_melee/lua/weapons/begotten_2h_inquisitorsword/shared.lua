@@ -33,6 +33,7 @@ SWEP.AltPlaybackRate = 0.65
 SWEP.AltIdleDelay = 0.75
 SWEP.PrimarySwingAnim = "a_heavy_2h_attack_slash_01"
 SWEP.MultiHit = 2;
+SWEP.isLongsword = true;
 
 --Sounds
 SWEP.AttackSoundTable = "HeavyMetalAttackSoundTable"
@@ -131,7 +132,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(5,25,5))
 	self:IdleAnimationDelay( 3, 3 )
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 function SWEP:IdleAnimationDelay( seconds, index )
@@ -155,9 +156,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_inquisitorsword"] = { type = "Model", model = "models/demonssouls/weapons/blueblood sword.mdl", bone = "RW_Weapon", rel = "", pos = Vector(2.299, 0, 19.221), angle = Angle(82.986, 0, 57.272), size = Vector(1.1, 1.1, 1.1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_inquisitorsword"] = { type = "Model", model = "models/demonssouls/weapons/blueblood sword.mdl", bone = "RW_Weapon", rel = "", pos = Vector(2.299, 0, 19.221), angle = Angle(82.986, 0, 57.272), size = Vector(1.1, 1.1, 1.1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_inquisitorsword"] = { type = "Model", model = "models/demonssouls/weapons/blueblood sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.5, 1.789, -12.988), angle = Angle(-92.338, 90, 40), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_inquisitorsword"] = { type = "Model", model = "models/demonssouls/weapons/blueblood sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.5, 1.789, -12.988), angle = Angle(-92.338, 90, 40), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

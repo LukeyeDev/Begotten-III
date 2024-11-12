@@ -4,14 +4,14 @@
 --]]
 
 function cwOxygen:PlayerCharacterInitialized(data)
-	local oxygen = Clockwork.Client:GetSharedVar("oxygen") or 100;
+	local oxygen = Clockwork.Client:GetNetVar("oxygen") or 100;
 	
 	self.oxygen = oxygen;
 end
 
 -- Called when the bars are needed.
 function cwOxygen:GetBars(bars)
-	local oxygen = Clockwork.Client:GetSharedVar("oxygen");
+	local oxygen = Clockwork.Client:GetNetVar("oxygen");
 	local frameTime = FrameTime();
 	
 	if (oxygen) then
@@ -27,7 +27,7 @@ function cwOxygen:GetBars(bars)
 	end;
 end;
 
-Clockwork.datastream:Hook("Drown", function(data)
+netstream.Hook("Drown", function(data)
 	if (data == true) then
 		Clockwork.Client:EmitSound("begotten/score6.mp3", 500);
 		Schema:AddBlackFade(10);

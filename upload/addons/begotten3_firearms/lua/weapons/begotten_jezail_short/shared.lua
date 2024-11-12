@@ -30,7 +30,7 @@ SWEP.DrawCrosshair			= true		-- set false if you want no crosshair
 SWEP.Weight				= 30			-- rank relative ot other weapons. bigger is better
 SWEP.AutoSwitchTo			= true		-- Auto switch to if we pick it up
 SWEP.AutoSwitchFrom			= true		-- Auto switch from if you pick up a better weapon
-SWEP.HoldType 				= "ar2"	-- how others view you carrying the weapon
+SWEP.HoldType 				= "smg"	-- how others view you carrying the weapon
 -- normal melee melee2 fist knife smg ar2 pistol rpg physgun grenade shotgun crossbow slam passive 
 -- you're mostly going to use ar2, smg, shotgun or pistol. rpg and crossbow make for good sniper rifles
 
@@ -52,7 +52,7 @@ SWEP.Primary.KickUp				= 30				-- Maximum up recoil (rise)
 SWEP.Primary.KickDown			= 0.8		-- Maximum down recoil (skeet)
 SWEP.Primary.KickHorizontal		= 0.6	-- Maximum up recoil (stock)
 SWEP.Primary.Automatic			= false		-- Automatic/Semi Auto
-SWEP.Primary.Ammo			= "ar2"	-- pistol, 357, smg1, ar2, buckshot, slam, SniperPenetratedRound, AirboatGun
+SWEP.Primary.Ammo			= "smg"	-- pistol, 357, smg1, ar2, buckshot, slam, SniperPenetratedRound, AirboatGun
 -- Pistol, buckshot, and slam always ricochet. Use AirboatGun for a light metal peircing shotgun pellets
 
 SWEP.Secondary.ScopeZoom			= 30
@@ -67,7 +67,7 @@ SWEP.ReticleScale 			= 0.75
 SWEP.ShellTime			= .35
 
 SWEP.Primary.NumShots	= 1		//how many bullets to shoot, use with shotguns
-SWEP.Primary.Damage		= 75	//base damage, scaled by game
+SWEP.Primary.Damage		= 100	//base damage, scaled by game
 SWEP.Primary.Spread		= .045	//define from-the-hip accuracy 1 is terrible, .0001 is exact)
 SWEP.Primary.IronAccuracy = .02 // has to be the same as primary.spread
 -- Because irons don't magically give you less pellet spread!
@@ -80,24 +80,15 @@ SWEP.IronSightsAng = Vector(0, 0, 0)
 SWEP.RunSightsPos = Vector(0, 0, -0.801)
 SWEP.RunSightsAng = Vector(-7.739, 33.064, -0.704)
 
-function SWEP:AdjustMouseSensitivity()
-
-	if self.Owner:KeyPressed(IN_ATTACK2) then
-		return 0.1
-	else
-		return 1
-	end
-	
-end
-
 SWEP.AmmoTypes = {
 	["Longshot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("v51_"..math.random(1,4)..".ogg");
+		SWEP.Primary.SoundLevel = 511;
 		SWEP.Primary.NumShots = 1;
-		SWEP.Primary.Damage = 75;
+		SWEP.Primary.Damage = 100;
 		SWEP.Primary.Spread = .1;
 		SWEP.Primary.IronAccuracy = .035;
-		SWEP.Primary.Ammo = "ar2";
+		SWEP.Primary.Ammo = "smg";
 		
 		SWEP.Primary.KickUp				= 30		-- Maximum up recoil (rise)
 		SWEP.Primary.KickDown			= 1		-- Maximum down recoil (skeet)
@@ -129,10 +120,11 @@ SWEP.AmmoTypes = {
 	end,
 	["Pop-a-Shot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("musket/musket1.wav");
+		SWEP.Primary.SoundLevel = 400;
 		SWEP.Primary.NumShots = 1;
-		SWEP.Primary.Damage = 37;
-		SWEP.Primary.Spread = .1;
-		SWEP.Primary.IronAccuracy = .05;
+		SWEP.Primary.Damage = 40;
+		SWEP.Primary.Spread = .08;
+		SWEP.Primary.IronAccuracy = .045;
 		SWEP.Primary.Ammo = "pistol";
 		
 		SWEP.Primary.KickUp				= 1		-- Maximum up recoil (rise)
@@ -152,10 +144,10 @@ SWEP.AmmoTypes = {
 				else
 					if SWEP.Owner:Crouching() then
 						SWEP.Primary.Spread = .03;
-						SWEP.Primary.IronAccuracy = .015;
+						SWEP.Primary.IronAccuracy = .01;
 					else
-						SWEP.Primary.Spread = .04;
-						SWEP.Primary.IronAccuracy = .02;
+						SWEP.Primary.Spread = .035;
+						SWEP.Primary.IronAccuracy = .015;
 					end
 				end
 			end
@@ -182,7 +174,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				--self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound)
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()

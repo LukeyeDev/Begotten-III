@@ -48,47 +48,6 @@ end
 
 --[[
 	@codebase Client
-	@details Called to determine if a player can use property.
-	@param Player The player that is trying to use property.
-	@param
-	@param Entity The entity that is being used.
-	@returns Bool Whether or not the player can use property.
---]]
-function GM:CanProperty(player, property, entity)
-	if (!IsValid(entity)) then
-		return false
-	end
-
-	local bIsAdmin = Clockwork.player:IsAdmin(player)
-
-	if (!player:Alive() or player:IsRagdolled() or !bIsAdmin) then
-		return false
-	end
-
-	return self.BaseClass:CanProperty(player, property, entity)
-end
-
---[[
-	@codebase Client
-	@details Called to determine if a player can drive.
-	@param Player The player trying to drive.
-	@param Entity The entity that the player is trying to drive.
-	@return Bool Whether or not the player can drive the entity.
---]]
-function GM:CanDrive(player, entity)
-	if (!IsValid(entity)) then
-		return false
-	end
-
-	if (!player:Alive() or player:IsRagdolled() or !Clockwork.player:IsAdmin(player)) then
-		return false
-	end
-
-	return self.BaseClass:CanDrive(player, entity)
-end
-
---[[
-	@codebase Client
 	@details Called when the directory is rebuilt.
 	@param <DPanel> The directory panel.
 --]]
@@ -226,6 +185,42 @@ function GM:GUIMouseReleased(code)
 	end
 end
 
+local last_use;
+
+function GM:KeyPress(player, key)
+	if (config.Get("use_opens_entity_menus"):Get()) then
+		if (key == IN_USE) then
+			local activeWeapon = player:GetActiveWeapon()
+
+			if (activeWeapon:IsValid() and activeWeapon:GetClass() == "weapon_physgun") then
+				if (player:KeyDown(IN_ATTACK)) then
+					return
+				end
+			end
+			
+			local trace = Clockwork.Client:GetEyeTraceNoCursor();
+			
+			if (IsValid(trace.Entity) and trace.HitPos:Distance(Clockwork.Client:GetShootPos()) <= 80) then
+				if trace.Entity:GetClass() == "cw_item" then
+					if !timer.Exists("ClockworkQuickUseTimer") then
+						last_use = CurTime();
+						
+						timer.Create("ClockworkQuickUseTimer", 0.25, 1, function()
+							local trace = Clockwork.Client:GetEyeTraceNoCursor();
+							
+							if (IsValid(trace.Entity) and trace.HitPos:Distance(Clockwork.Client:GetShootPos()) <= 80) then
+								if trace.Entity:GetClass() == "cw_item" then
+									Clockwork.entity:ForceMenuOption(trace.Entity, "Take", "cwItemTake");
+								end
+							end
+						end)
+					end
+				end
+			end
+		end
+	end
+end
+
 --[[
 	@codebase Client
 	@details Called when a key has been released.
@@ -236,13 +231,24 @@ function GM:KeyRelease(player, key)
 	if (config.Get("use_opens_entity_menus"):Get()) then
 		if (key == IN_USE) then
 			local activeWeapon = player:GetActiveWeapon()
-			local trace = Clockwork.Client:GetEyeTraceNoCursor()
 
-			if (IsValid(activeWeapon) and activeWeapon:GetClass() == "weapon_physgun") then
+			if (activeWeapon:IsValid() and activeWeapon:GetClass() == "weapon_physgun") then
 				if (player:KeyDown(IN_ATTACK)) then
 					return
 				end
 			end
+			
+			if last_use then 
+				last_use = nil;
+			
+				return 
+			end;
+			
+			if timer.Exists("ClockworkQuickUseTimer") then
+				timer.Remove("ClockworkQuickUseTimer");
+			end
+			
+			local trace = Clockwork.Client:GetEyeTraceNoCursor()
 
 			if (IsValid(trace.Entity) and trace.HitPos:Distance(Clockwork.Client:GetShootPos()) <= 80) then
 				Clockwork.EntityMenu = Clockwork.kernel:HandleEntityMenu(trace.Entity)
@@ -286,30 +292,30 @@ end
 	@details Called when the client initializes.
 --]]
 function GM:Initialize()
-	--CW_CONVAR_TWELVEHOURCLOCK = Clockwork.kernel:CreateClientConVar("cwTwelveHourClock", 0, true, true)
-	--CW_CONVAR_HEADBOBSCALE = Clockwork.kernel:CreateClientConVar("cwHeadbobScale", 1, true, true)
-	--CW_CONVAR_SHOWAURA = Clockwork.kernel:CreateClientConVar("cwShowCW", 1, true, true)
-	CW_CONVAR_SHOWLOG = Clockwork.kernel:CreateClientConVar("cwShowLog", 1, true, true)
-	--CW_CONVAR_SHOWHINTS = Clockwork.kernel:CreateClientConVar("cwShowHints", 1, true, true)
-	--CW_CONVAR_VIGNETTE = Clockwork.kernel:CreateClientConVar("cwShowVignette", 1, true, true)
+	--Clockwork.ConVars.TWELVEHOURCLOCK = Clockwork.kernel:CreateClientConVar("cwTwelveHourClock", 0, true, true)
+	--Clockwork.ConVars.HEADBOBSCALE = Clockwork.kernel:CreateClientConVar("cwHeadbobScale", 1, true, true)
+	--Clockwork.ConVars.SHOWAURA = Clockwork.kernel:CreateClientConVar("cwShowCW", 1, true, true)
+	Clockwork.ConVars.SHOWLOG = Clockwork.kernel:CreateClientConVar("cwShowLog", 1, true, true)
+	--Clockwork.ConVars.SHOWHINTS = Clockwork.kernel:CreateClientConVar("cwShowHints", 1, true, true)
+	--Clockwork.ConVars.VIGNETTE = Clockwork.kernel:CreateClientConVar("cwShowVignette", 1, true, true)
 
-	CW_CONVAR_ESPTIME = Clockwork.kernel:CreateClientConVar("cwESPTime", 1, true, true)
-	CW_CONVAR_ADMINESP = Clockwork.kernel:CreateClientConVar("cwAdminESP", 0, true, true)
-	CW_CONVAR_ESPBARS = Clockwork.kernel:CreateClientConVar("cwESPBars", 1, true, true)
-	CW_CONVAR_ITEMESP = Clockwork.kernel:CreateClientConVar("cwItemESP", 0, false, true)
-	CW_CONVAR_PROPESP = Clockwork.kernel:CreateClientConVar("cwPropESP", 0, false, true)
-	CW_CONVAR_SPAWNESP = Clockwork.kernel:CreateClientConVar("cwSpawnESP", 0, false, true)
-	CW_CONVAR_SALEESP = Clockwork.kernel:CreateClientConVar("cwSaleESP", 0, false, true)
-	CW_CONVAR_NPCESP = Clockwork.kernel:CreateClientConVar("cwNPCESP", 0, false, true)
-	CW_CONVAR_PEEK_ESP = Clockwork.kernel:CreateClientConVar("cwESPPeek", 1, true, true)
-	CW_CONVAR_PHYSDESCINSPECT = Clockwork.kernel:CreateClientConVar("cwPhysdescKey", 1, true, true);
+	Clockwork.ConVars.ESPTIME = Clockwork.kernel:CreateClientConVar("cwESPTime", 1, true, true)
+	Clockwork.ConVars.ADMINESP = Clockwork.kernel:CreateClientConVar("cwAdminESP", 0, true, true)
+	Clockwork.ConVars.ITEMESP = Clockwork.kernel:CreateClientConVar("cwItemESP", 0, false, true)
+	Clockwork.ConVars.PROPESP = Clockwork.kernel:CreateClientConVar("cwPropESP", 0, false, true)
+	Clockwork.ConVars.SPAWNESP = Clockwork.kernel:CreateClientConVar("cwSpawnESP", 0, false, true)
+	Clockwork.ConVars.SALEESP = Clockwork.kernel:CreateClientConVar("cwSaleESP", 0, false, true)
+	Clockwork.ConVars.NPCESP = Clockwork.kernel:CreateClientConVar("cwNPCESP", 0, false, true)
+	Clockwork.ConVars.PEEK_ESP = Clockwork.kernel:CreateClientConVar("cwESPPeek", 1, true, true)
+	Clockwork.ConVars.PHYSDESCINSPECT = Clockwork.kernel:CreateClientConVar("cwPhysdescKey", 1, true, true);
+	Clockwork.ConVars.TOOLTIPFOLLOW = Clockwork.kernel:CreateClientConVar("cwTooltipFollow", 1, true, true)
 
-	--CW_CONVAR_SHOWTIMESTAMPS = Clockwork.kernel:CreateClientConVar("cwShowTimeStamps", 0, true, true);
-	--CW_CONVAR_MAXCHATLINES = Clockwork.kernel:CreateClientConVar("cwMaxChatLines", 10, true, true);
-	--CW_CONVAR_SHOWOOC = Clockwork.kernel:CreateClientConVar("cwShowOOC", 1, true, true);
-	--CW_CONVAR_SHOWIC = Clockwork.kernel:CreateClientConVar("cwShowIC", 1, true, true);
-	CW_CONVAR_SHOWSERVER = Clockwork.kernel:CreateClientConVar("cwShowServer", 1, true, true);
-	--CW_CONVAR_SHOWAURA = Clockwork.kernel:CreateClientConVar("cwShowClockwork", 1, true, true);
+	--Clockwork.ConVars.SHOWTIMESTAMPS = Clockwork.kernel:CreateClientConVar("cwShowTimeStamps", 0, true, true);
+	--Clockwork.ConVars.MAXCHATLINES = Clockwork.kernel:CreateClientConVar("cwMaxChatLines", 10, true, true);
+	--Clockwork.ConVars.SHOWOOC = Clockwork.kernel:CreateClientConVar("cwShowOOC", 1, true, true);
+	--Clockwork.ConVars.SHOWIC = Clockwork.kernel:CreateClientConVar("cwShowIC", 1, true, true);
+	Clockwork.ConVars.SHOWSERVER = Clockwork.kernel:CreateClientConVar("cwShowServer", 1, true, true);
+	--Clockwork.ConVars.SHOWAURA = Clockwork.kernel:CreateClientConVar("cwShowClockwork", 1, true, true);
 
 	if (file.Exists("cwavatars.txt", "DATA")) then
 		Clockwork.AvatarsData = pon.decode(file.Read("cwavatars.txt", "DATA")) or {}
@@ -319,10 +325,10 @@ function GM:Initialize()
 
 	item.Initialize()
 	
-	--[[CW_CONVAR_DATETIME = Clockwork.kernel:CreateClientConVar("cwDateTime", 1, true, true)
+	--[[Clockwork.ConVars.DATETIME = Clockwork.kernel:CreateClientConVar("cwDateTime", 1, true, true)
 
 	if (!Clockwork.option:GetKey("top_bars")) then
-		CW_CONVAR_TOPBARS = Clockwork.kernel:CreateClientConVar("cwTopBars", 1, true, true)
+		Clockwork.ConVars.TOPBARS = Clockwork.kernel:CreateClientConVar("cwTopBars", 1, true, true)
 	else
 		Clockwork.setting:RemoveByConVar("cwTopBars")
 	end]]--
@@ -341,7 +347,7 @@ end
 function GM:ClockworkInitialized()
 	local logoFile = "clockwork/logo/002.png"
 
-	Clockwork.SpawnIconMaterial = Clockwork.kernel:GetMaterial("vgui/spawnmenu/hover")
+	--Clockwork.SpawnIconMaterial = Clockwork.kernel:GetMaterial("vgui/spawnmenu/hover")
 	Clockwork.DefaultGradient = surface.GetTextureID("gui/gradient_down")
 	Clockwork.GradientTexture = Clockwork.kernel:GetMaterial(Clockwork.option:GetKey("gradient")..".png")
 	Clockwork.ClockworkSplash = Clockwork.kernel:GetMaterial(logoFile)
@@ -360,15 +366,18 @@ function GM:ClockworkInitialized()
 
 	Clockwork.setting:AddSettings()
 
-	Clockwork.directory:SetCategoryTip("Clockwork", "Contains topics based on the Clockwork framework-.")
-	Clockwork.directory:SetCategoryTip("Chat Commands", "Contains a list of commands and their syntax.")
+	Clockwork.directory:SetCategoryTip("Admin", "Contains admin relevant information. Does not show to players.")
+	Clockwork.directory:SetCategoryTip("Admin Commands", "Contains a list of admin commands and their syntax.")
+	Clockwork.directory:SetCategoryTip("Flags", "Contains a list of character flags and their usage.")
+	Clockwork.directory:SetCategoryTip("Commands", "Contains a list of commands and their syntax.")
 
-	Clockwork.directory:AddCode("Clockwork", [[
+	Clockwork.directory:AddCode("Admin", [[
 		
-	]], true, "Clockwork")
+	]], true, "Admin")
 
-	Clockwork.directory:AddCategory("Plugins", "Clockwork")
-	Clockwork.directory:AddCategory("Flags", "Clockwork")
+	Clockwork.directory:AddCategory("Admin Commands", "Admin", true)
+	--Clockwork.directory:AddCategory("Plugins", "Admin", true)
+	Clockwork.directory:AddCategory("Flags", "Admin", true)
 
 	_G["ClockworkClientsideBooted"] = true
 end
@@ -577,7 +586,7 @@ end;
 -- Called when the view model view should be calculated.
 function GM:CalcViewModelView(weapon, viewModel, oldEyePos, oldEyeAngles, eyePos, eyeAngles)
 	if (IsValid(weapon)) then
-		local bWeaponRaised = Clockwork.player:GetWeaponRaised(LocalPlayer());
+		local bWeaponRaised = LocalPlayer():IsWeaponRaised(weapon);
 		
 		if (!LocalPlayer():HasInitialized() or !Clockwork.config:HasInitialized() or LocalPlayer():GetMoveType() == MOVETYPE_OBSERVER) then
 			bWeaponRaised = nil;
@@ -690,6 +699,7 @@ function GM:MenuClosed()
 		end
 	end
 
+	Clockwork.kernel:ClearToolTipPanels()
 	Clockwork.kernel:RemoveActiveToolTip()
 	Clockwork.kernel:CloseActiveDermaMenus()
 end
@@ -722,13 +732,14 @@ function GM:MenuItemsAdd(menuItems)
 	local systemName = Clockwork.option:GetKey("name_system")
 	local settingsName = Clockwork.option:GetKey("name_settings")
 	local scoreboardName = Clockwork.option:GetKey("name_scoreboard")
-	--local directoryName = Clockwork.option:GetKey("name_directory")
+	local directoryName = Clockwork.option:GetKey("name_directory")
 	--local inventoryName = Clockwork.option:GetKey("name_inventory")
 
-	menuItems:Add("Inventory", "cwInventory", "Manage your inventory.", nil, nil)
-	menuItems:Add("Settings", "cwSettings", "Configure the way CW works for you.", nil, nil)
-	menuItems:Add("System", "cwSystem", "Customize server settings.", nil, nil)
-	menuItems:Add("Scoreboard", "cwScoreboard", "See who's playing on the server.", nil, nil)
+	menuItems:Add("Inventory", "cwInventory", "Manage your inventory.")
+	menuItems:Add("Settings", "cwSettings", "Configure the way CW works for you.")
+	menuItems:Add("System", "cwSystem", "Customize server settings.")
+	menuItems:Add("Scoreboard", "cwScoreboard", "See who's playing on the server.")
+	menuItems:Add(directoryName, "cwDirectory", Clockwork.option:GetKey("description_directory"))
 	--menuItems:Add("Crafting", "DPanel", "Craft.", nil, nil)
 	--menuItems:Add("Rituals", "DPanel", "Do some twisted shit.", nil, nil)
 	--menuItems:Add("Attributes", "cwAttributes", "See your progress on skills.", nil, nil)
@@ -860,40 +871,6 @@ function GM:Tick()
 		end
 	end
 
-	--[[if (Clockwork.kernel:IsInfoMenuOpen() and !input.IsKeyDown(KEY_F1)) then
-		Clockwork.kernel:RemoveBackgroundBlur("InfoMenu")
-		Clockwork.kernel:CloseActiveDermaMenus()
-		Clockwork.InfoMenuOpen = false
-
-		if (IsValid(Clockwork.InfoMenuPanel)) then
-			Clockwork.InfoMenuPanel:SetVisible(false)
-			Clockwork.InfoMenuPanel:Remove()
-		end
-
-		timer.Simple(FrameTime() * 0.5, function()
-			Clockwork.kernel:RemoveActiveToolTip()
-		end)
-	end]]--
-
-	--[[local menuMusic = Clockwork.option:GetKey("menu_music")
-
-	if (menuMusic != "") then
-		if (IsValid(Clockwork.Client) and Clockwork.character:IsPanelOpen()) then
-			if (!Clockwork.MusicSound) then
-				Clockwork.MusicSound = CreateSound(Clockwork.Client, menuMusic)
-				Clockwork.MusicSound:PlayEx(0.3, 100)
-				Clockwork.MusicFading = false
-			end
-		elseif (Clockwork.MusicSound and !Clockwork.MusicFading) then
-			Clockwork.MusicSound:FadeOut(8)
-			Clockwork.MusicFading = true
-
-			timer.Simple(8, function()
-				Clockwork.MusicSound = nil
-			end)
-		end
-	end]]--
-
 	local worldEntity = game.GetWorld()
 
 	for k, v in pairs(Clockwork.NetworkProxies) do
@@ -925,7 +902,7 @@ function GM:InitPostEntity()
 		hook.Run("LocalPlayerCreated")
 	end
 
-	for k, v in ipairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		hook.Run("PlayerModelChanged", v, v:GetModel())
 	end
 
@@ -959,49 +936,51 @@ end
 
 -- Called when a player's move data is set up.
 function GM:SetupMove(player, moveData)
-	if player:IsRunning() and !player.accelerationFinished then
+	local plyTab = player:GetTable();
+
+	if player:IsRunning() and !plyTab.accelerationFinished then
 		local curTime = CurTime();
 		local run_speed = player:GetRunSpeed()
 		local walk_speed = player:GetWalkSpeed();
 		local final_speed = run_speed;
 		
-		if !player.startAcceleration then
-			player.startAcceleration = curTime;
+		if !plyTab.startAcceleration then
+			plyTab.startAcceleration = curTime;
 		end
 		
-		final_speed = Lerp(curTime - player.startAcceleration, walk_speed, run_speed);
+		final_speed = Lerp(curTime - plyTab.startAcceleration, walk_speed, run_speed);
 		
 		moveData:SetMaxClientSpeed(final_speed);
 		
 		if run_speed <= final_speed then
-			player.accelerationFinished = true;
-			player.startAcceleration = nil;
+			plyTab.accelerationFinished = true;
+			plyTab.startAcceleration = nil;
 		end
 		
-		player.decelerationFinished = false;
-		player.startDeceleration = nil;
+		plyTab.decelerationFinished = false;
+		plyTab.startDeceleration = nil;
 	elseif !player:IsRunning() then
-		if !player.decelerationFinished then
+		if plyTab.decelerationFinished == false then
 			local curTime = CurTime();
 			local run_speed = player:GetRunSpeed()
 			local walk_speed = player:GetWalkSpeed();
 			local final_speed = walk_speed;
 			
-			if !player.startDeceleration then
-				player.startDeceleration = curTime;
+			if !plyTab.startDeceleration then
+				plyTab.startDeceleration = curTime;
 			end
 			
-			final_speed = Lerp(curTime - player.startDeceleration, run_speed, walk_speed);
+			final_speed = Lerp(curTime - plyTab.startDeceleration, run_speed, walk_speed);
 			
 			moveData:SetMaxClientSpeed(final_speed);
 			
 			if run_speed >= final_speed then
-				player.decelerationFinished = true;
-				player.startDeceleration = nil;
+				plyTab.decelerationFinished = true;
+				plyTab.startDeceleration = nil;
 			end
 			
-			player.accelerationFinished = false;
-			player.startAcceleration = nil;
+			plyTab.accelerationFinished = false;
+			plyTab.startAcceleration = nil;
 		else
 			moveData:SetMaxClientSpeed(player:GetWalkSpeed());
 		end
@@ -1061,22 +1040,10 @@ function GM:HUDPaintForeground()
 		y = scrH - (scrH * 0.15);
 		
 		Clockwork.kernel:DrawBar(x, y, width, height, Color(102, 0, 0, 200), info.text or "Progress Bar", info.percentage or 100, 100, info.flash);
-	else
-		info = Clockwork.plugin:Call("GetPostProgressBarInfo");
-		
-		if (info) then
-			local width = (scrW / 2) - 64;
-			local height = 16;
-			local x, y = Clockwork.kernel:GetScreenCenter();
-			x = x - (scrW / 4);
-			y = scrH - (scrH * 0.15);
-			
-			Clockwork.kernel:DrawBar(x, y, width, height, Color(102, 0, 0, 200), info.text or "Progress Bar", info.percentage or 100, 100, info.flash);
-		end;
 	end;
 
 	if (Clockwork.player:IsAdmin(Clockwork.Client)) then
-		if (hook.Run("PlayerCanSeeAdminESP") or input.IsKeyDown(KEY_C) and CW_CONVAR_PEEK_ESP:GetInt() == 1) then
+		if (hook.Run("PlayerCanSeeAdminESP") or input.IsKeyDown(KEY_C) and Clockwork.ConVars.PEEK_ESP:GetInt() == 1) then
 			Clockwork.kernel:DrawAdminESP()
 		end
 	end
@@ -1130,6 +1097,28 @@ function GM:ItemNetworkDataUpdated(itemTable, newData)
 	end
 end
 
+local function TooltipRecurse(panel, panelToFind)
+	local children = panel:GetChildren();
+	
+	if !children or table.IsEmpty(children) then return end;
+
+	for k, v in pairs(children) do
+		if v == panelToFind then return v end;
+	
+		return TooltipRecurse(v);
+	end
+end
+
+local function IsChildOfTooltipRecurse(panel)
+	local parent = panel:GetParent();
+	
+	if !parent then return end;
+	
+	if parent.isTooltip then return parent end;
+	
+	return IsChildOfTooltipRecurse(parent);
+end
+
 -- Called after the VGUI has been rendered.
 function GM:PostRenderVGUI()
 	local cinematic = Clockwork.Cinematics[1];
@@ -1141,61 +1130,132 @@ function GM:PostRenderVGUI()
 	
 	local hoveredPanel = vgui.GetHoveredPanel();
 	
-	if (IsValid(hoveredPanel) and hoveredPanel.IsToolTip) then
-		if (!Clockwork.kernel.OldToolTipPanel or Clockwork.kernel.OldToolTipPanel != hoveredPanel) then
-			if (IsValid(Clockwork.kernel.OldToolTipPanel)) then
-				Clockwork.kernel:ClearToolTipPanel(Clockwork.kernel.OldToolTipPanel)
-			end;
-			
-			Clockwork.ActiveDermaToolTip = hoveredPanel
-			Clockwork.kernel.OldToolTipPanel = hoveredPanel
-		end;
-	elseif (IsValid(Clockwork.kernel.OldToolTipPanel) and !IsValid(Clockwork.kernel.CurrentOpenTooltip)) then
-		Clockwork.kernel:ClearToolTipPanel(Clockwork.kernel.OldToolTipPanel)
-	end;
-
-	local panel = Clockwork.kernel:GetActiveDermaToolTip() -- returns the panel with the tooltip.
+	if !IsValid(hoveredPanel) then return end;
 	
-	if (Clockwork.kernel.TooltipCooldown and Clockwork.kernel.TooltipCooldown > CurTime()) then
+	-- A lot of this is probably unoptimized but whatever.
+	if (!hoveredPanel.DermaToolTip and !hoveredPanel.isTooltip) then
+		if !table.IsEmpty(Clockwork.ActiveDermaToolTips) then
+			local panelToCheck = hoveredPanel;
+			local tooltipFound = false;
+			
+			while !tooltipFound do
+				if panelToCheck.isTooltip then
+					tooltipFound = true;
+					
+					break;
+				end
+				
+				panelToCheck = panelToCheck.parent or panelToCheck:GetParent();
+				
+				if !panelToCheck then
+					break;
+				end
+			end
+		
+			if !tooltipFound then
+				Clockwork.kernel:ClearToolTipPanels();
+				
+				return;
+			end
+			
+			if !Clockwork.ActiveDermaToolTips[#Clockwork.ActiveDermaToolTips].frozen then
+				Clockwork.kernel:ClearToolTipPanel(Clockwork.ActiveDermaToolTips[#Clockwork.ActiveDermaToolTips]);
+			end
+		end
+	end;
+	
+	if #Clockwork.ActiveDermaToolTips > 1 and !hoveredPanel.DermaToolTip then
+		for i, v in ipairs(Clockwork.ActiveDermaToolTips) do
+			if i < #Clockwork.ActiveDermaToolTips then
+				if IsChildOfTooltipRecurse(hoveredPanel) == v then
+					Clockwork.kernel:ClearToolTipPanel(Clockwork.ActiveDermaToolTips[i + 1]);
+					
+					break;
+				end
+			end
+		end
+	end
+
+	if (Clockwork.kernel.TooltipCooldown and Clockwork.kernel.TooltipCooldown > curTime) then
 		return;
 	end;
 
-	if (panel and IsValid(panel) and panel:IsVisible()) then
-		if (!panel.DermaToolTip) then
-			if (!self.preDelay) then
-				self.preDelay = curTime + 0.5;
-			elseif (self.preDelay < curTime) then
-				panel.DermaToolTip = Clockwork.kernel:SetupDermaToolTip(panel);
-				Clockwork.ActiveDermaToolTipPanel = panel.DermaToolTip;
-			end;
+	if hoveredPanel.GetMarkupToolTip and !hoveredPanel.DermaToolTip then
+		if (!hoveredPanel.preDelay) then
+			hoveredPanel.preDelay = curTime + 0.5;
+		elseif (hoveredPanel.preDelay < curTime) then
+			hoveredPanel.preDelay = curTime + 0.5;
+			hoveredPanel.DermaToolTip = Clockwork.kernel:SetupDermaToolTip(hoveredPanel);
+			
+			if #Clockwork.ActiveDermaToolTips > 1 then
+				for i = 1, #Clockwork.ActiveDermaToolTips do
+					local tooltip = Clockwork.ActiveDermaToolTips[#Clockwork.ActiveDermaToolTips - (i - 1)];
+					
+					if IsValid(tooltip) then
+						if !TooltipRecurse(tooltip, hoveredPanel.DermaToolTip) then
+							Clockwork.kernel:ClearToolTipPanel(tooltip);
+							
+							break;
+						end
+					end
+				end
+			end
+			
+			table.insert(Clockwork.ActiveDermaToolTips, hoveredPanel.DermaToolTip);
 		end;
-	elseif (Clockwork.ActiveDermaToolTipPanel and IsValid(Clockwork.ActiveDermaToolTipPanel)) then
-		Clockwork.ActiveDermaToolTipPanel:Remove();
-		Clockwork.ActiveDermaToolTipPanel = nil;
-	end
+	end;
 end
 
--- A function to clear the most recent tool tip.
+-- A function to clear a specific derma tooltip and its nested children.
 function Clockwork.kernel:ClearToolTipPanel(panel)
 	Clockwork.kernel.TooltipCooldown = CurTime() + 0.5;
 	
-	if (Clockwork.ActiveDermaToolTipPanel and IsValid(Clockwork.ActiveDermaToolTipPanel)) then
-		Clockwork.ActiveDermaToolTipPanel:Remove();
-		Clockwork.ActiveDermaToolTipPanel = nil;
-	end;
+	local found = false;
 	
-	if (Clockwork.CurrentOpenTooltip and IsValid(Clockwork.CurrentOpenTooltip)) then
-		Clockwork.CurrentOpenTooltip:Remove();
-		Clockwork.CurrentOpenTooltip = nil;
-	end;
+	for i, v in ipairs(Clockwork.ActiveDermaToolTips) do
+		if v == panel then
+			local parent = panel.parent;
+
+			if IsValid(parent) and parent.DermaToolTip then
+				parent.DermaToolTip = nil;
+			end
+			
+			panel:Remove();
+			
+			if !found then
+				found = i;
+			end
+			
+			break;
+		end
+	end
 	
-	if (panel.DermaToolTip and IsValid(panel.DermaToolTip)) then
-		panel.DermaToolTip:Remove();
-		panel.DermaToolTip = nil;
-	else
-		panel.DermaToolTip = nil;
-	end;
+	if found then
+		for i = found, #Clockwork.ActiveDermaToolTips do
+			Clockwork.ActiveDermaToolTips[i] = nil;
+		end
+	end
 end;
+
+-- A function to clear all active derma tooltips.
+function Clockwork.kernel:ClearToolTipPanels()
+	Clockwork.kernel.TooltipCooldown = CurTime() + 0.5;
+
+	for i, panel in ipairs(Clockwork.ActiveDermaToolTips) do
+		if IsValid(panel) then
+			local parent = panel.parent;
+
+			if IsValid(parent) and parent.DermaToolTip then
+				parent.DermaToolTip = nil;
+			end
+
+			panel:Remove();
+		end;
+	end
+	
+	Clockwork.ActiveDermaToolTips = {};
+end;
+
 -- A function to get a text's width.
 function GetFontWidth(font, text)
 	if (!font or !text) then
@@ -1227,28 +1287,10 @@ if (Clockwork.kernel.toolTips) then
 	end;
 end;
 
-concommand.Add("TooltipPanic", function()
-if (Clockwork.kernel.toolTips) then
-	for k, v in pairs (Clockwork.kernel.toolTips) do
-		if (IsValid(Clockwork.kernel.toolTips[k])) then
-			Clockwork.kernel.toolTips[k]:Remove();
-			Clockwork.kernel.toolTips[k] = nil;
-		end;
-	end;
-end;
-end);
-
 -- A function to set up a tool tip.
 function Clockwork.kernel:SetupDermaToolTip(parent)
 	if (!self.toolTips) then
 		self.toolTips = {};
-	else
-		for k, v in pairs (self.toolTips) do
-			if (IsValid(self.toolTips[k])) then
-				self.toolTips[k]:Remove();
-				self.toolTips[k] = nil;
-			end;
-		end;
 	end;
 	
 	if (IsValid(Clockwork.kernel.ActiveItemMenu)) then
@@ -1265,8 +1307,10 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 	frame:SetSize(scrW * 0.18, 500);
 	frame:SetTitle("");
 	frame:MakePopup();
+	frame:SetDrawOnTop(true);
 	frame.parent = parent;
 	frame.openable = parent.openable or false;
+	frame.isTooltip = true;
 
 	parent.tooltip = frame;
 	
@@ -1322,8 +1366,6 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 			if (self.parent.openCallback) then
 				self.parent:openCallback(self);
 			end;
-			
-			Clockwork.kernel.CurrentOpenTooltip = self;
 		end;
 	end;
 	
@@ -1341,19 +1383,62 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 	
 	-- Called when the frame is painted.
 	function frame:Paint(width, height)
-		derma.SkinHook("Paint", "Frame", self, w, h);
-		
+		derma.SkinHook("Paint", "Frame", self, width, height);
+
 		return true;
 	end;
 	
+	function frame:PaintOver(width, height)
+		local curTime = CurTime();
+		
+		draw.NoTexture() -- Otherwise we draw a transparent circle.
+		
+		local x = width - 21;
+		local y = 21;
+		
+		if self:GetTitle() and self:GetTitle() ~= "" then
+			x = width - 12;
+			y = 12;
+		end
+		
+		if !self.frozen then
+			if !self.frozenTime then
+				self.frozenTime = curTime + 3;
+			end
+			
+			local timeLeft = (self.frozenTime - curTime) / 3;
+
+			surface.SetDrawColor(10, 10, 10);
+			surface.DrawPartialOutlinedCircle(math.min((1 - timeLeft) * 100, 100), x, y, 11, 7);
+			surface.SetDrawColor(150, 20, 20);
+			surface.DrawPartialOutlinedCircle(math.min((1 - timeLeft) * 100, 100), x, y, 10, 4);
+			
+			--surface.SetDrawColor(20, 20, 20, 150);
+			--surface.DrawOutlinedRect(0, 0, width, height, 4);
+
+			if timeLeft <= 0 then
+				self.frozen = true;
+			end
+		else
+			if !self.circleAlpha then
+				self.circleAlpha = 255;
+			end
+			
+			self.circleAlpha = math.max(0, self.circleAlpha - (FrameTime() * 666));
+			
+			surface.SetDrawColor(10, 10, 10, self.circleAlpha);
+			surface.DrawOutlinedCircle(x, y, 11, 7);
+			surface.SetDrawColor(150, 20, 20, self.circleAlpha);
+			surface.DrawOutlinedCircle(x, y, 10, 4);
+		end
+	end
+	
 	-- Called every frame while the panel is active.
 	function frame:Think()
-		self:MoveToFront();
-		
-		local activeToolTip = Clockwork.kernel:GetActiveDermaToolTip();
+		local activeToolTips = Clockwork.kernel:GetActiveDermaToolTips();
 		local parent = self.parent;
-
-		if (IsValid(parent) and activeToolTip != parent) then
+		
+		if !IsValid(parent) or (parent.isTooltip and !table.HasValue(activeToolTips, parent)) then
 			Clockwork.kernel:ClearToolTipPanel(parent);
 			return;
 		end;
@@ -1385,7 +1470,18 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 		self:SetAlpha(self.alpha);
 		
 		local width, height = self:GetWide(), self:GetTall();
-		local x, y = gui.MouseX() + 8, gui.MouseY() + 8;
+		local x, y;
+		
+		if Clockwork.ConVars.TOOLTIPFOLLOW:GetInt() == 1 then
+			if self.frozen then
+				x, y = self:GetPos();
+			else
+				x, y = gui.MouseX() + 8, gui.MouseY() + 8;
+			end
+		else
+			x, y = parent:LocalToScreen(0, 0);
+			x = x + parent:GetWide();
+		end
 
 		if (y + height > scrH) then
 			y = math.Clamp(y - ((y + height) - scrH), 16, scrH) - 16;
@@ -1643,7 +1739,7 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 	end;
 	
 	-- A function to add a bar with multiple stages.
-	function frame:AddBar(height, barTable, title, titleColor, bHalf)
+	function frame:AddBar(height, barTable, title, titleColor, toolTip, bHalf)
 		local height = math.max(height, 12);
 		local oX, oY = 4, 0;
 		local yOffset = 4;
@@ -1715,7 +1811,7 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 		barBox:AddItem(barBackground);
 		
 		local overflow = {};
-		local barMaxSize = barBackground:GetWide() - 24;
+		local barMaxSize = barBackground:GetWide() - 4;
 
 		for k, v in ipairs (barTable) do
 			if (!v.color) then
@@ -1817,6 +1913,21 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 				barBox:AddItem(label);
 			end;
 		end;
+		
+		if toolTip then
+			local tooltipPanel = vgui.Create("Panel", barBox);
+			
+			tooltipPanel:SetSize(barBox:GetSize());
+			tooltipPanel.Paint = function() end;
+			
+			if isfunction(toolTip) then
+				Clockwork.kernel:CreateDermaToolTip(tooltipPanel);
+
+				tooltipPanel:SetToolTipCallback(toolTip)
+			else
+				tooltipPanel:SetTooltip(toolTip);
+			end
+		end
 
 		if bHalf then
 			self.barList:AddItem(barBox);
@@ -1845,10 +1956,27 @@ function Clockwork.kernel:SetupDermaToolTip(parent)
 			self:SetTall(self.pnlCanvas:GetTall());
 		end;
 		
-		for k, v in pairs (iconTable) do
-			local icon = vgui.Create("DImage", self);
+		for i, v in ipairs(iconTable) do
+			local icon;
+			
+			if v.button and isfunction(v.button) then
+				icon = vgui.Create("DImageButton", self);
+				
+				icon.DoClick = v.button
+				icon.DoRightClick = icon.DoClick;
+			else
+				icon = vgui.Create("DImage", self);
+			end
+			
 			icon:SetSize(height, height);
-			icon:SetImage(v);
+			icon:SetImage(v.icon);
+			
+			if v.tooltip and isfunction(v.tooltip) then
+				Clockwork.kernel:CreateDermaToolTip(icon);
+
+				icon:SetToolTipCallback(v.tooltip);
+			end
+			
 			iconBox:AddItem(icon);
 		end;
 		
@@ -2040,7 +2168,7 @@ end;
 
 -- Called to get whether the local player can see the admin ESP.
 function GM:PlayerCanSeeAdminESP()
-	return (CW_CONVAR_ADMINESP:GetInt() == 1);
+	return (Clockwork.ConVars.ADMINESP:GetInt() == 1);
 end
 
 -- Called when the local player attempts to get up.
@@ -2054,7 +2182,7 @@ function GM:PlayerCanSeeBars(class)
 		return
 	end
 	
-	--return tobool(CW_CONVAR_TOPBARS:GetInt())
+	--return tobool(Clockwork.ConVars.TOPBARS:GetInt())
 	return true
 end
 
@@ -2070,7 +2198,7 @@ end
 
 -- Called when the local player attempts to see the date and time.
 function GM:PlayerCanSeeDateTime()
-	--return tobool(CW_CONVAR_DATETIME:GetInt());
+	--return tobool(Clockwork.ConVars.DATETIME:GetInt());
 	
 	return false
 end
@@ -2103,6 +2231,8 @@ function GM:HUDDrawTargetID()
 			local traceEntity = trace.Entity
 			local fadeDistance = 1024;
 			
+			fadeDistance = hook.Run("ModifyTargetIDDistance", fadeDistance) or fadeDistance; 
+			
 			local curTime = UnPredictedCurTime()
 			
 			if (!self.TargetEntities) then
@@ -2115,8 +2245,8 @@ function GM:HUDDrawTargetID()
 						traceEntity.WrappedTable = nil;
 					end;
 					
-					if (traceEntity.SEXMONSTERTABLE) then
-						traceEntity.SEXMONSTERTABLE = nil;
+					if (traceEntity.physDescTable) then
+						traceEntity.physDescTable = nil;
 					end;
 
 					self.TargetEntities[traceEntity] = 1
@@ -2173,9 +2303,9 @@ function GM:HUDDrawTargetID()
 					if (player and Clockwork.Client != player) then
 						if (Clockwork.plugin:Call("ShouldDrawPlayerTargetID", player)) then
 							if (!Clockwork.player:IsNoClipping(player)) then
-								if (Clockwork.nextCheckRecognises and Clockwork.nextCheckRecognises[2] != player) then
-									Clockwork.Client:SetSharedVar("TargetKnows", true)
-								end
+								--[[if (Clockwork.nextCheckRecognises and Clockwork.nextCheckRecognises[2] != player) then
+									Clockwork.Client:SetNetVar("TargetKnows", true)
+								end]]--
 								
 								local playerEntity = nil
 								local position = Clockwork.plugin:Call("GetPlayerTypingDisplayPosition", player)
@@ -2190,9 +2320,9 @@ function GM:HUDDrawTargetID()
 								if (!position) then
 									local headBone = "ValveBiped.Bip01_Head1"
 									
-									if (string.find(playerEntity:GetModel(), "vortigaunt")) then
+									--[[if (string.find(playerEntity:GetModel(), "vortigaunt")) then
 										headBone = "ValveBiped.Head"
-									end
+									end]]--
 									
 									local headID = playerEntity:LookupBone(headBone)
 
@@ -2225,37 +2355,13 @@ function GM:HUDDrawTargetID()
 								
 								local screenPosition = position:ToScreen()
 								local x, y = screenPosition.x, screenPosition.y
-								local clientFaction = Clockwork.Client:GetFaction();
-								local playerFaction = player:GetFaction();
+								local teamColor = _team.GetColor(player:Team());
 								
 								if (Clockwork.player:DoesRecognise(player, RECOGNISE_PARTIAL)) then
-									local teamColor = _team.GetColor(player:Team());
-									local text = string.Explode("\n", Clockwork.plugin:Call("GetTargetPlayerName", player))
+									local text = string.Explode("\n", hook.Run("GetTargetPlayerName", player) or player:Name())
 									local newY
 									
-									if playerFaction == "Gatekeeper" and clientFaction ~= "Gatekeeper" and clientFaction ~= "Holy Hierarchy" then
-										local clothesItem = player:GetClothesEquipped();
-										
-										if !clothesItem or (clothesItem.faction and clothesItem.faction ~= playerFaction) then
-											teamColor = Color(200, 200, 200, 255);
-										end
-									elseif playerFaction == "Children of Satan" and clientFaction ~= "Children of Satan" then
-										if not string.find(player:GetModel(), "models/begotten/satanists") then
-											local kinisgerOverride = player:GetSharedVar("kinisgerOverride");
-											
-											if kinisgerOverride then
-												local classTable = Clockwork.class:GetStored()[kinisgerOverride];
-												
-												if classTable then
-													teamColor = _team.GetColor(classTable.index) or Color(200, 200, 200, 255);
-												else
-													teamColor = Color(200, 200, 200, 255);
-												end
-											else
-												teamColor = Color(200, 200, 200, 255);
-											end
-										end
-									end
+									teamColor = hook.Run("OverrideTeamColor", player, true) or teamColor;
 									
 									for k, v in pairs(text) do
 										newY = Clockwork.kernel:DrawInfo(v, x, y, teamColor, alpha)
@@ -2267,36 +2373,13 @@ function GM:HUDDrawTargetID()
 								else
 									local unrecognisedName, usedPhysDesc = Clockwork.player:GetUnrecognisedName(player)
 									local wrappedTable = {unrecognisedName}
-									local teamColor = _team.GetColor(player:Team())
 									
-									if playerFaction == "Gatekeeper" and clientFaction ~= "Gatekeeper" and clientFaction ~= "Holy Hierarchy" then
-										local clothesItem = player:GetClothesEquipped();
-										
-										if !clothesItem or (clothesItem.faction and clothesItem.faction ~= playerFaction) then
-											teamColor = Color(200, 200, 200, 255);
-										end
-									elseif playerFaction == "Children of Satan" and clientFaction ~= "Children of Satan" then
-										if not string.find(player:GetModel(), "models/begotten/satanists") then
-											local kinisgerOverride = player:GetSharedVar("kinisgerOverride");
-											
-											if kinisgerOverride then
-												local classTable = Clockwork.class:GetStored()[kinisgerOverride];
-												
-												if classTable then
-													teamColor = _team.GetColor(classTable.index) or Color(200, 200, 200, 255);
-												else
-													teamColor = Color(200, 200, 200, 255);
-												end
-											else
-												teamColor = Color(200, 200, 200, 255);
-											end
-										end
-									end
+									teamColor = hook.Run("OverrideTeamColor", player) or teamColor;
 									
 									local result;
 									local newY;
 
-									if CW_CONVAR_PHYSDESCINSPECT:GetInt() == 0 or input.IsKeyDown(KEY_X) then
+									if Clockwork.ConVars.PHYSDESCINSPECT:GetInt() == 0 or input.IsKeyDown(KEY_X) then
 										result = Clockwork.plugin:Call("PlayerCanShowUnrecognised", player, x, y, unrecognisedName, teamColor, alpha)
 									else
 										--result = "Press <X> to inspect this character.";
@@ -2329,7 +2412,7 @@ function GM:HUDDrawTargetID()
 								
 								local colorWhite = Color(255, 255, 255)
 								
-								if CW_CONVAR_PHYSDESCINSPECT:GetInt() == 0 or input.IsKeyDown(KEY_X) then
+								if Clockwork.ConVars.PHYSDESCINSPECT:GetInt() == 0 or input.IsKeyDown(KEY_X) then
 									Clockwork.TargetPlayerText.stored = {}
 									
 									Clockwork.plugin:Call("GetTargetPlayerText", player, Clockwork.TargetPlayerText)
@@ -2368,11 +2451,11 @@ function GM:HUDDrawTargetID()
 									y = Clockwork.kernel:DrawInfo("Press <X> to inspect this character.", x, y, colorWhite, alpha)
 								end
 								
-								if (!Clockwork.nextCheckRecognises or curTime >= Clockwork.nextCheckRecognises[1] or Clockwork.nextCheckRecognises[2] != player) then
-									Clockwork.datastream:Start("GetTargetRecognises", player)
+								--[[if (!Clockwork.nextCheckRecognises or curTime >= Clockwork.nextCheckRecognises[1] or Clockwork.nextCheckRecognises[2] != player) then
+									netstream.Start("GetTargetRecognises", player)
 									
 									Clockwork.nextCheckRecognises = {curTime + 2, player}
-								end
+								end]]--
 							end
 						end
 					--[[elseif (Clockwork.generator and Clockwork.generator:FindByID(class)) then
@@ -2489,64 +2572,47 @@ end
 	@class Clockwork
 	@returns Table The text, flash, and percentage of the progress bar.
 --]]
-function GM:GetProgressBarInfo()
-	local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true)
 
-	--[[if (!Clockwork.Client:Alive() and action == "spawn") then
+function GM:GetProgressBarInfo()
+	--[[local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true)
+
+	if (!Clockwork.Client:Alive() and action == "spawn") then
 		return {text = "You will be respawned shortly.", percentage = percentage, flash = percentage < 10}
 	else]]
 	
 	if Clockwork.Client:Alive() then
-		if !Clockwork.Client:IsRagdolled() then
+		local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true)
+		local ragdolled = Clockwork.Client:IsRagdolled();
+		
+		if ragdolled then
+			if (action == "unragdoll") then
+				if (Clockwork.Client:GetRagdollState() == RAGDOLL_FALLENOVER) then
+					return {text = "You are regaining stability.", percentage = percentage, flash = percentage < 10}
+				else
+					return {text = "You are regaining conciousness.", percentage = percentage, flash = percentage < 10}
+				end
+			else
+				local info = hook.Run("GetProgressBarInfoAction", action, percentage);
+				
+				if info then return info end;
+			
+				if (action != "unragdoll" and hook.Run("PlayerCanGetUp", action)) then
+					return {text = "Press 'jump' to get up.", percentage = 100}
+				end
+			end
+		elseif action then
+			local info = hook.Run("GetProgressBarInfoAction", action, percentage);
+			
+			if info then return info end;
+			
 			if (action == "lock") then
 				return {text = "The door is being locked.", percentage = percentage, flash = percentage < 10}
 			elseif (action == "unlock") then
 				return {text = "The door is being unlocked.", percentage = percentage, flash = percentage < 10}
-			elseif (action == "raise") then
-				local raiseText = "RAISING...";
-				
-				if (Clockwork.Client:IsWeaponRaised()) then
-					raiseText = "LOWERING..."
-				end;
-				
-				return {text = raiseText, percentage = percentage, flash = percentage < 10}
-			elseif (action == "pickupragdoll") then
-				return {text = "You are picking up a body. Click to cancel.", percentage = percentage, flash = percentage < 10}
-			elseif (action == "crafting") then
-				local craftVerb = Clockwork.Client:GetNWString("cwRecipesVerb", "crafting");
-				local itemName = Clockwork.Client:GetNWString("cwRecipesName", "an item");
-				
-				return {text = "You are "..craftVerb.." "..itemName..". Click to cancel.", percentage = percentage, flash = percentage < 0}
-			elseif (action == "ritualing") then
-				return {text = "You are performing a ritual. Click to cancel.", percentage = percentage, flash = percentage < 0}
-			elseif (action == "burn_longship") then
-				return {text = "You are setting the longship alight.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "extinguish_longship") then
-				return {text = "You are trying to put out the flames.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "repair_longship") then
-				return {text = "You are making repairs to the longship.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "turn_scrapfactory_valve") then
-				return {text = "You are turning the valve.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "hell_teleporting") then
-				return {text = "You are using dark magic to teleport to Hell.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "putting_on_armor") then
-				return {text = "You are putting on your armor. Click to cancel.", percentage = percentage, flash = percentage < 10};
-			elseif (action == "taking_off_armor") then
-				return {text = "You are taking off your armor. Click to cancel.", percentage = percentage, flash = percentage < 10};
 			end;
-		elseif (action == "unragdoll") then
-			if (Clockwork.Client:GetRagdollState() == RAGDOLL_FALLENOVER) then
-				return {text = "You are regaining stability.", percentage = percentage, flash = percentage < 10}
-			else
-				return {text = "You are regaining conciousness.", percentage = percentage, flash = percentage < 10}
-			end
-		elseif (Clockwork.Client:GetRagdollState() == RAGDOLL_FALLENOVER) then
-			local fallenOver = Clockwork.player:GetAction(Clockwork.Client) != "unragdoll"--Clockwork.Client:GetDTBool(BOOL_FALLENOVER)
 			
-			if (fallenOver and hook.Run("PlayerCanGetUp")) then
-				return {text = "Press 'jump' to get up.", percentage = 100}
-			end
-		end
+			return {text = "You are performing an action.", percentage = percentage};
+		end;
 	end;
 end
 
@@ -2631,14 +2697,16 @@ function GM:GetTargetPlayerText(player, targetPlayerText)
 	end
 
 	if (Clockwork.player:DoesRecognise(player, RECOGNISE_PARTIAL)) then
-		if (!player.SEXMONSTERTABLE) then
-			player.SEXMONSTERTABLE = {};
+		local plyTab = player:GetTable();
+		
+		if (!plyTab.physDescTable) then
+			plyTab.physDescTable = {};
 			Clockwork.kernel:WrapText(Clockwork.player:GetPhysDesc(player), targetIDTextFont, math.max(math.Round(ScrW() / 3.75), 512), physDescTable)
-			player.SEXMONSTERTABLE = table.Copy(physDescTable);
+			plyTab.physDescTable = table.Copy(physDescTable);
 		end;
 		
-		if (player.SEXMONSTERTABLE) then
-			for k, v in pairs(player.SEXMONSTERTABLE) do
+		if (plyTab.physDescTable) then
+			for k, v in pairs(plyTab.physDescTable) do
 				targetPlayerText:Add("PHYSDESC_"..k, v)
 			end
 		end;
@@ -2890,7 +2958,7 @@ function GM:GetPlayerScoreboardOptions(player, options, menu)
 end
 
 -- Called when information about a door is needed.
-function GM:GetDoorInfo(door, information)
+--[[function GM:GetDoorInfo(door, information)
 	local doorCost = config.Get("door_cost"):Get()
 	local owner = Clockwork.entity:GetOwner(door)
 	local text = Clockwork.entity:GetDoorText(door)
@@ -2938,7 +3006,7 @@ function GM:GetDoorInfo(door, information)
 			return "This door can be owned."
 		end
 	end
-end
+end]]--
 
 -- Called to get whether or not a post process is permitted.
 function GM:PostProcessPermitted(class)
@@ -3139,8 +3207,8 @@ function GM:PlayerAdjustHeadbobInfo(info)
 	local bisDrunk = Clockwork.player:GetDrunk()
 	local scale
 
-	--[[if (CW_CONVAR_HEADBOBSCALE) then
-		scale = math.Clamp(CW_CONVAR_HEADBOBSCALE:GetFloat(),0,1) or 1
+	--[[if (Clockwork.ConVars.HEADBOBSCALE) then
+		scale = math.Clamp(Clockwork.ConVars.HEADBOBSCALE:GetFloat(),0,1) or 1
 	else]]--
 		scale = 1
 	--end
@@ -3545,7 +3613,7 @@ function GM:HUDPaint()
 			end
 		end
 
-		if (config.GetVal("enable_vignette") --[[and CW_CONVAR_VIGNETTE:GetInt() == 1]]) then
+		if (config.GetVal("enable_vignette") --[[and Clockwork.ConVars.VIGNETTE:GetInt() == 1]]) then
 			hook.Run("DrawPlayerVignette")
 		end
 
@@ -3616,9 +3684,9 @@ function GM:DrawPlayerCrosshair(x, y, color)
 end
 
 -- Called when a player starts using voice.
-function GM:PlayerStartVoice(player)
+--[[function GM:PlayerStartVoice(player)
 	if (config.Get("local_voice"):Get()) then
-		if (player:IsRagdolled(RAGDOLL_FALLENOVER) or !player:Alive() or !Clockwork.player:HasFlags(player, "x")) then
+		if (player:GetRagdollState() == RAGDOLL_KNOCKEDOUT or !player:Alive()) then
 			return
 		end
 	end
@@ -3626,7 +3694,7 @@ function GM:PlayerStartVoice(player)
 	if (self.BaseClass and self.BaseClass.PlayerStartVoice) then
 		self.BaseClass:PlayerStartVoice(player)
 	end
-end
+end]]--
 
 -- Called to check if a player does have an flag.
 function GM:PlayerDoesHaveFlag(player, flag)
@@ -3637,7 +3705,7 @@ end
 
 -- Called to check if a player does recognise another player.
 function GM:PlayerDoesRecognisePlayer(player, status, isAccurate, realValue)
-	--[[if player:GetSharedVar("faceConcealed") then
+	--[[if player:GetNetVar("faceConcealed") then
 		return false;
 	end]]--
 	
@@ -3646,16 +3714,11 @@ end
 
 -- Called when a player's name should be shown as unrecognised.
 function GM:PlayerCanShowUnrecognised(player, x, y, color, alpha, flashAlpha)
-	--[[if player:GetSharedVar("faceConcealed") then
+	--[[if player:GetNetVar("faceConcealed") then
 		return "This character's face is concealed.";
 	end]]--
 	
 	return true
-end
-
--- Called when the target player's name is needed.
-function GM:GetTargetPlayerName(player)
-	return player:Name()
 end
 
 -- Called when a player begins typing.

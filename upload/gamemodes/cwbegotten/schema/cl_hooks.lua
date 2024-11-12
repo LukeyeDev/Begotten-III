@@ -15,9 +15,10 @@ local requiredWorkshopAddons = {
 	"2790936125",
 };
 
+-- Disabled these for now since gabs added their content to the Begotten III content.
 Schema.requiredMounts = {
-	["episodic"] = "Half-Life 2: Episode 1",
-	["ep2"] = "Half-Life 2: Episode 2",
+	--["episodic"] = "Half-Life 2: Episode 1",
+	--["ep2"] = "Half-Life 2: Episode 2",
 	["cstrike"] = "Counter-Strike: Source",
 };
 
@@ -50,36 +51,55 @@ function Schema:Initialize()
 end
 
 -- A function to start a sound.
-function Schema:StartSound(sound, volume, pitch, dsp)
-	if (!sound or type(sound) != "string") then
-		return;
-	end;
-	
-	if (Clockwork.Client.customSound) then
-		Clockwork.Client.customSound:Stop();
-		Clockwork.Client.customSound = nil;
-		
-		if (Clockwork.Client.customSoundOldDSP) then
-			Clockwork.Client.customSoundOldDSP = nil;
-		end;
-	end;
-	
-	local pitch = math.Clamp(tonumber(pitch), 30, 255) or 100;
-	local volume = tonumber(volume) or 1;
-	local dsp = tonumber(dsp) or 0;
-	
-	if (volume > 1) then
-		volume = volume / 100;
-	end;
-	
-	if (!Clockwork.Client.customSound) then
-		Clockwork.Client.customSound = CreateSound(Clockwork.Client, sound);
-		
-		if (Clockwork.Client.customSound and !Clockwork.Client.customSound:IsPlaying()) then
-			Clockwork.Client.customSound:SetDSP(dsp);
-			Clockwork.Client.customSound:PlayEx(volume, pitch);
-		end;
-	end;
+function Schema:StartSound(soundStr, volume, pitch, dsp)
+    if (!soundStr or type(soundStr) != "string") then
+        return;
+    end;
+    
+    if (Clockwork.Client.customSound) then
+        Clockwork.Client.customSound:Stop();
+        Clockwork.Client.customSound = nil;
+        
+        if (Clockwork.Client.customSoundOldDSP) then
+            Clockwork.Client.customSoundOldDSP = nil;
+        end;
+    end;
+    
+    local pitch = math.Clamp(tonumber(pitch), 30, 255) or 100;
+    local volume = tonumber(volume) or 1;
+    local dsp = tonumber(dsp) or 0;
+    
+    if (volume > 1) then
+        volume = volume / 100;
+    end;
+    
+    if (!Clockwork.Client.customSound) then
+        if not string.find(soundStr, "http") then
+            Clockwork.Client.customSound = CreateSound(Clockwork.Client, soundStr);
+            
+            if (Clockwork.Client.customSound and !Clockwork.Client.customSound:IsPlaying()) then
+                Clockwork.Client.customSound:SetDSP(dsp);
+                Clockwork.Client.customSound:PlayEx(volume, pitch);
+            end;
+        else
+            if pitch then
+                if tonumber(pitch or 0) > 1 then
+                    pitch = pitch / 100
+                end
+            end
+            sound.PlayURL(soundStr, "noplay noblock", function(station)
+                if (IsValid(station)) then
+                    Clockwork.Client.customSound = station
+
+                    station:SetPos(LocalPlayer():GetPos())
+
+                    station:SetVolume(volume)
+                    station:SetPlaybackRate(pitch)
+                    station:Play()
+                end
+            end)
+        end
+    end;
 end;
 
 -- A function to stop a sound.
@@ -268,7 +288,7 @@ function Schema:Think()
 	end
 end
 
-Clockwork.datastream:Hook("CheaplePos", function(data)
+netstream.Hook("CheaplePos", function(data)
 	if Clockwork.Client:HasTrait("followed") and Clockwork.Client:Alive() and not Schema.caughtByCheaple then
 		if IsValid(statichitman) and data then
 			statichitman:SetPos(data);
@@ -278,17 +298,17 @@ Clockwork.datastream:Hook("CheaplePos", function(data)
 	end
 end);
 
-Clockwork.datastream:Hook("PlayerCustomSoundCheck", function(data)
+netstream.Hook("PlayerCustomSoundCheck", function(data)
 	local soundPlaying = false;
 	
 	if (Clockwork.Client.customSound and Clockwork.Client.customSound:IsPlaying()) then
 		soundPlaying = true;
 	end;
 	
-	Clockwork.datastream:Start("ConfirmCustomSoundCheck", {soundPlaying});
+	netstream.Start("ConfirmCustomSoundCheck", {soundPlaying});
 end);
 
-Clockwork.datastream:Hook("StartCustomSound", function(data)
+netstream.Hook("StartCustomSound", function(data)
 	local sound = data[1];
 	local volume = data[2];
 	local pitch = data[3];
@@ -297,11 +317,11 @@ Clockwork.datastream:Hook("StartCustomSound", function(data)
 	Schema:StartSound(sound, volume, pitch, dsp)
 end);
 
-Clockwork.datastream:Hook("StopCustomSound", function(data)
+netstream.Hook("StopCustomSound", function(data)
 	Schema:StopSound();
 end);
 
-Clockwork.datastream:Hook("FadeOutCustomSound", function(data)
+netstream.Hook("FadeOutCustomSound", function(data)
 	if (type(data) == "table") then
 		data = data[1];
 	end;
@@ -309,21 +329,21 @@ Clockwork.datastream:Hook("FadeOutCustomSound", function(data)
 	Schema:FadeOut(data);
 end);
 
-Clockwork.datastream:Hook("CustomSoundChangeVolume", function(data)
+netstream.Hook("CustomSoundChangeVolume", function(data)
 	local newVolume = data[1];
 	local delta = data[2];
 
 	Schema:ChangeVolume(newVolume, delta);
 end);
 
-Clockwork.datastream:Hook("CustomSoundChangePitch", function(data)
+netstream.Hook("CustomSoundChangePitch", function(data)
 	local newPitch = data[1];
 	local delta = data[2];
 
 	Schema:ChangePitch(newPitch, delta);
 end);
 
-Clockwork.datastream:Hook("CustomSoundChangeDSP", function(data)
+netstream.Hook("CustomSoundChangeDSP", function(data)
 	local newDSP = data;
 	local reset = false;
 	
@@ -362,7 +382,7 @@ function Schema:EasyText(...)
 	Clockwork.chatBox:Add(nil, icon, unpack(args));
 end;
 
-Clockwork.datastream:Hook("EasyText", function(varargs)
+netstream.Hook("EasyText", function(varargs)
 	Schema:EasyText(unpack(varargs))
 end);
 
@@ -404,7 +424,7 @@ function Schema:PlayerFootstep(player, position, foot, soundString, volume, reci
 		return true;
 	end
 	
-	if (player:Crouching() and player:GetSharedVar("hasNimble")) or player:GetCharmEquipped("urn_silence") or player:GetColor().a <= 0 then
+	if (player:Crouching() and player:GetNetVar("hasNimble")) or player:GetCharmEquipped("urn_silence") or player:GetColor().a <= 0 then
 		return true;
 	end;
 
@@ -442,16 +462,17 @@ local animalModels = {
 	"models/animals/deer1.mdl",
 	"models/animals/goat.mdl",
 	"models/animals/bear.mdl",
+	"models/animal_ragd/piratecat_leopard.mdl",
 };
 
 -- Called when an entity's menu options are needed.
 function Schema:GetEntityMenuOptions(entity, options)
 	if Clockwork.Client:Alive() then
 		local curTime = CurTime();
-		local clientFaction = Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction();
+		local clientFaction = Clockwork.Client:GetNetVar("kinisgerOverride") or Clockwork.Client:GetFaction();
 	
 		if entity:IsPlayer() then
-			local entFaction = entity:GetSharedVar("kinisgerOverride") or entity:GetFaction();
+			local entFaction = entity:GetNetVar("kinisgerOverride") or entity:GetFaction();
 			
 			if clientFaction == "Goreic Warrior" and entFaction ~= "Goreic Warrior" and entity:GetNetVar("tied") != 0 then
 				for k, v in pairs(ents.FindInSphere(Clockwork.Client:GetPos(), 512)) do
@@ -474,7 +495,7 @@ function Schema:GetEntityMenuOptions(entity, options)
 			local player = Clockwork.entity:GetPlayer(entity);
 
 			if player then
-				local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+				local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 			
 				if clientFaction == "Goreic Warrior" and playerFaction ~= "Goreic Warrior" and player:GetNetVar("tied") != 0 then
 					for k, v in pairs(ents.FindInSphere(Clockwork.Client:GetPos(), 512)) do
@@ -501,7 +522,7 @@ function Schema:GetEntityMenuOptions(entity, options)
 				if table.HasValue(animalModels, entity:GetModel()) then
 					--local activeWeapon = Clockwork.Client:GetActiveWeapon();
 					
-					--if IsValid(activeWeapon) and string.find(activeWeapon:GetClass(), "begotten_dagger") then
+					--if activeWeapon:IsValid() and activeWeapon.isDagger then
 						options["Mutilate"] = "cwCorpseMutilate";
 						options["Skin"] = "cwCorpseSkin";
 					--else
@@ -539,7 +560,7 @@ function Schema:GetEntityMenuOptions(entity, options)
 			elseif model == "models/animals/bear.mdl" then
 				--local activeWeapon = Clockwork.Client:GetActiveWeapon();
 				
-				--if IsValid(activeWeapon) and string.find(activeWeapon:GetClass(), "begotten_dagger") then
+				--if activeWeapon:IsValid() and activeWeapon.isDagger then
 					options["Mutilate"] = "cwCorpseMutilate";
 					options["Skin"] = "cwCorpseSkin";
 				--[[else
@@ -581,6 +602,8 @@ function Schema:GetEntityMenuOptions(entity, options)
 				options["Tear Down"] = "cwTearDownSiegeLadder";
 			end
 		elseif (entity:GetClass() == "cw_bear_trap") then
+			options["Examine"] = "cwItemExamine";
+		
 			if entity:GetNWString("state") == "trap" then
 				if !cwBeliefs or Clockwork.Client:HasBelief("ingenious") then
 					options["Reset"] = "cwResetBearTrap";
@@ -596,28 +619,123 @@ function Schema:GetEntityMenuOptions(entity, options)
 	end;
 end;
 
--- Called when the post progress bar info is needed.
-function Schema:GetPostProgressBarInfo()
-	if (Clockwork.Client:Alive()) then
-		local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true);
+-- Called when a player's character screen info should be adjusted.
+function Schema:PlayerAdjustCharacterScreenInfo(character, info)
+	info.clothes = character.clothes;
+	info.helmet = character.helmet;
+	info.shield = character.shield;
+	info.kills = character.kills or 0;
+	info.kinisgerOverride = character.kinisgerOverride;
+	info.kinisgerOverrideSubfaction = character.kinisgerOverrideSubfaction;
+	info.rank = character.rank;
+	info.rankOverride = character.rankOverride;
+	info.faith = character.faith;
+	info.subfaith = character.subfaith;
+	info.location = character.location;
+end
 
-		if (action == "mutilating") then
-			return {text = "You are harvesting meat from a corpse. Click to cancel.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "skinning") then
-			return {text = "You are skinning an animal's corpse. Click to cancel.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "reloading") then
-			return {text = "You are reloading your weapon. Click to cancel.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "building") then
-			return {text = "You are erecting a siege ladder.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "bloodTest") then
-			return {text = "You are testing someone's blood for corruption. Click to cancel.", percentage = percentage, flash = percentage > 75};
-		end;
+-- Called when the post progress bar info is needed.
+function Schema:GetProgressBarInfoAction(action, percentage)
+	if (action == "mutilating") then
+		return {text = "You are harvesting meat from a corpse. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "skinning") then
+		return {text = "You are skinning an animal's corpse. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "reloading") then
+		local weaponName = Clockwork.Client:GetNetVar("cwProgressBarVerb") or "shot";
+		local ammoName = Clockwork.Client:GetNetVar("cwProgressBarItem") or "weapon";
+		
+		return {text = "You are reloading your "..weaponName.." with "..ammoName..". Click to cancel.", percentage = percentage, flash = percentage < 0}
+		--return {text = "You are reloading your weapon. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "building") then
+		return {text = "You are erecting a siege ladder. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "bloodTest") then
+		return {text = "You are testing someone's blood for corruption. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "hell_teleporting") then
+		return {text = "You are using dark magic to teleport to Hell. Click to cancel.", percentage = percentage, flash = percentage < 10};
 	end;
 end;
 
 function Schema:PlayerCanSeeDateTime()
     return false;
 end;
+
+function Schema:GetTargetPlayerName(player)
+	if Clockwork.Client:IsAdmin() and Clockwork.player:IsNoClipping(Clockwork.Client) then
+		return player:Name();
+	end
+
+	if player:GetSubfaction() == "Praeventor" then
+		local clientFaction = Clockwork.Client:GetFaction();
+		
+		if clientFaction ~= "Gatekeeper" and clientFaction ~= "Holy Hierarchy" then
+			return player:Name(true);
+		end
+	end
+	
+	return player:Name()
+end
+
+function Schema:OverrideTeamColor(player, bRecognized)
+	local clientFaction = Clockwork.Client:GetFaction();
+	local playerFaction = player:GetFaction();
+	local clothesItem = player:GetClothesEquipped();
+	local helmetItem = player:GetHelmetEquipped();
+	local teamColor;
+	
+	if Clockwork.Client:IsAdmin() and Clockwork.player:IsNoClipping(Clockwork.Client) then
+		return;
+	end
+
+	if bRecognized then
+		if playerFaction == "Gatekeeper" and clientFaction ~= "Gatekeeper" and clientFaction ~= "Holy Hierarchy" then
+			if player:GetSubfaction() == "Praeventor" then
+				if (!clothesItem or !clothesItem.faction or (clothesItem.faction and clothesItem.faction ~= playerFaction)) and (!helmetItem or !helmetItem.faction or (helmetItem.faction and helmetItem.faction ~= playerFaction)) then
+					teamColor = Color(200, 200, 200, 255);
+				end
+			end
+		elseif playerFaction == "Children of Satan" and clientFaction ~= "Children of Satan" then
+			if (!clothesItem or !clothesItem.faction or (clothesItem.faction and clothesItem.faction ~= playerFaction)) and (!helmetItem or !helmetItem.faction or (helmetItem.faction and helmetItem.faction ~= playerFaction)) then
+				local kinisgerOverride = player:GetNetVar("kinisgerOverride");
+				
+				if kinisgerOverride then
+					local classTable = Clockwork.class:GetStored()[kinisgerOverride];
+					
+					if classTable then
+						teamColor = _team.GetColor(classTable.index) or Color(200, 200, 200, 255);
+					else
+						teamColor = Color(200, 200, 200, 255);
+					end
+				else
+					teamColor = Color(200, 200, 200, 255);
+				end
+			end
+		end
+	else
+		if playerFaction == "Gatekeeper" and clientFaction ~= "Gatekeeper" and clientFaction ~= "Holy Hierarchy" then
+			if (!clothesItem or !clothesItem.faction or (clothesItem.faction and clothesItem.faction ~= playerFaction)) and (!helmetItem or !helmetItem.faction or (helmetItem.faction and helmetItem.faction ~= playerFaction)) then
+				teamColor = Color(200, 200, 200, 255);
+			end
+		elseif playerFaction == "Children of Satan" and clientFaction ~= "Children of Satan" then
+			if (!clothesItem or !clothesItem.faction or (clothesItem.faction and clothesItem.faction ~= playerFaction)) and (!helmetItem or !helmetItem.faction or (helmetItem.faction and helmetItem.faction ~= playerFaction)) then
+				local kinisgerOverride = player:GetNetVar("kinisgerOverride");
+				
+				if kinisgerOverride then
+					local classTable = Clockwork.class:GetStored()[kinisgerOverride];
+					
+					if classTable then
+						teamColor = _team.GetColor(classTable.index) or Color(200, 200, 200, 255);
+					else
+						teamColor = Color(200, 200, 200, 255);
+					end
+				else
+					teamColor = Color(200, 200, 200, 255);
+				end
+			end
+		end
+	end
+	
+	return teamColor;
+end
 
 -- Called when an entity's target ID HUD should be painted.
 function Schema:HUDPaintEntityTargetID(entity, info)
@@ -696,13 +814,13 @@ end;
 
 -- Called when the target's subfaction should be drawn.
 function Schema:DrawTargetPlayerSubfaction(target, alpha, x, y)
-	local playerSubfaction = Clockwork.Client:GetSharedVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetSharedVar("subfaction");
-	local targetSubfaction = target:GetSharedVar("kinisgerOverrideSubfaction") or target:GetSharedVar("subfaction");
+	local playerSubfaction = Clockwork.Client:GetNetVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetNetVar("subfaction");
+	local targetSubfaction = target:GetNetVar("kinisgerOverrideSubfaction") or target:GetNetVar("subfaction");
 	local subfactionText;
 	
 	if targetSubfaction and targetSubfaction ~= "" and targetSubfaction ~= "N/A" then
-		local playerFaction = Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction();
-		local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+		local playerFaction = Clockwork.Client:GetNetVar("kinisgerOverride") or Clockwork.Client:GetFaction();
+		local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 		local textColor = Color(150, 150, 150, 255);
 
 		if playerFaction == "Goreic Warrior" and targetFaction == "Goreic Warrior" then
@@ -732,14 +850,14 @@ function Schema:DrawTargetPlayerSubfaction(target, alpha, x, y)
 			if target:GetModel() == "models/begotten/satanists/lordvasso/male_56.mdl" then
 				subfactionText = "The chosen of Satan, the Dreadlord himself!";
 				textColor = Color(0, 255, 0, 255);
-			elseif Clockwork.Client:GetSharedVar("subfaction") == target:GetSharedVar("subfaction") or Clockwork.Client:GetSharedVar("subfaction") == "Kinisger" and target:GetSharedVar("kinisgerOverrideSubfaction") then
+			elseif Clockwork.Client:GetNetVar("subfaction") == target:GetNetVar("subfaction") or Clockwork.Client:GetNetVar("subfaction") == "Kinisger" and target:GetNetVar("kinisgerOverrideSubfaction") then
 				local brother = "brother";
 				
 				if target:GetGender() == GENDER_FEMALE then
 					brother = "sister";
 				end
 				
-				if target:GetSharedVar("kinisgerOverrideSubfaction") then
+				if target:GetNetVar("kinisgerOverrideSubfaction") then
 					subfactionText = "A "..brother.." of the Kinisger bloodline, masquerading as a "..targetSubfaction..".";
 				else
 					subfactionText = "A "..brother.." of the "..targetSubfaction.." bloodline.";
@@ -747,7 +865,7 @@ function Schema:DrawTargetPlayerSubfaction(target, alpha, x, y)
 				
 				textColor = Color(0, 255, 0, 255);
 			else
-				if target:GetSharedVar("kinisgerOverrideSubfaction") then
+				if target:GetNetVar("kinisgerOverrideSubfaction") then
 					subfactionText = "A member of the Kinisger bloodline, masquerading as a "..targetSubfaction..".";
 				else
 					subfactionText = "A member of the "..targetSubfaction.." bloodline.";
@@ -814,7 +932,7 @@ function Schema:DrawTargetPlayerSubfaction(target, alpha, x, y)
 						subfactionText = "A member of the Smog City pirates.";
 					end
 				end
-			elseif playerFaction ~= "Wanderer" then
+			elseif playerFaction ~= "Wanderer" and playerFaction == targetFaction then
 				if playerSubfaction == targetSubfaction then
 					subfactionText = "A fellow member of the "..targetSubfaction..".";
 					textColor = Color(0, 255, 0, 255);
@@ -833,11 +951,11 @@ end
 -- Called when the target's subfaction should be drawn.
 function Schema:DrawTargetPlayerLevel(target, alpha, x, y)
 	local playerFaction = Clockwork.Client:GetFaction();
-	local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+	local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 	local levelText;
 	
 	if playerFaction == "Children of Satan" and targetFaction ~= "Children of Satan" then
-		local level = target:GetSharedVar("level", 1)
+		local level = target:GetNetVar("level", 1)
 		local textColor = Color(255, 100, 100, 255);
 		
 		if level < 10 then
@@ -874,8 +992,9 @@ function Schema:DrawTargetPlayerLevel(target, alpha, x, y)
 		if levelText then
 			return Clockwork.kernel:DrawInfo(Clockwork.kernel:ParseData(levelText), x, y, textColor, alpha);
 		end
-	elseif Clockwork.Client:GetSharedVar("subfaction") == "Clan Reaver" and targetFaction ~= "Goreic Warrior" then
-		local level = target:GetSharedVar("level", 1)
+	--elseif Clockwork.Client:GetNetVar("subfaction") == "Clan Reaver" and targetFaction ~= "Goreic Warrior" then
+	elseif playerFaction == "Goreic Warrior" and targetFaction ~= "Goreic Warrior" then
+		local level = target:GetNetVar("level", 1)
 		local textColor = Color(255, 100, 100, 255);
 		
 		if level < 10 then
@@ -917,7 +1036,7 @@ end
 
 -- Called when a player's scoreboard options are needed.
 function Schema:GetPlayerScoreboardOptions(player, options, menu)
-	if (Clockwork.command:FindByID("CharSetCustomClass")) then
+	--[[if (Clockwork.command:FindByID("CharSetCustomClass")) then
 		if (Clockwork.player:HasFlags(Clockwork.Client, Clockwork.command:FindByID("CharSetCustomClass").access)) then
 			options["Custom Class"] = {};
 			options["Custom Class"]["Set"] = function()
@@ -926,13 +1045,13 @@ function Schema:GetPlayerScoreboardOptions(player, options, menu)
 				end);
 			end;
 			
-			if (player:GetNetVar("customClass") != "") then
+			if (player:GetNetVar("customClass")) then
 				options["Custom Class"]["Take"] = function()
 					Clockwork.kernel:RunCommand("CharTakeCustomClass", player:Name());
 				end;
 			end;
 		end;
-	end;
+	end;]]--
 	
 	if (Clockwork.command:FindByID("CharPermaKill")) then
 		if (Clockwork.player:HasFlags(Clockwork.Client, Clockwork.command:FindByID("CharPermaKill").access)) then
@@ -989,13 +1108,13 @@ end
 function Schema:GetScreenTextInfo()
 	local blackFadeAlpha = Clockwork.kernel:GetBlackFadeAlpha();
 	
-	if (Clockwork.Client:GetNetVar("permaKilled")) then
+	--[[if (Clockwork.Client:GetNetVar("permaKilled")) then
 		return {
 			alpha = blackFadeAlpha,
 			title = "THIS CHARACTER IS PERMANENTLY KILLED",
 			text = "Go to the character menu to make a new one."
 		};
-	elseif (Clockwork.Client:GetSharedVar("beingChloro")) then
+	else]]if (Clockwork.Client:GetNetVar("beingChloro")) then
 		return {
 			alpha = 255 - blackFadeAlpha,
 			title = "SOMEBODY IS USING CHLOROFORM ON YOU"
@@ -1015,19 +1134,19 @@ end;
 
 -- Called when the local player's character screen faction is needed.
 function Schema:GetPlayerCharacterScreenFaction(character)
-	if (character.customClass and character.customClass != "") then
+	--[[if (character.customClass and character.customClass != "") then
 		return character.customClass;
-	end;
+	end;]]--
 end;
 
 -- Called when the cinematic intro info is needed.
-function Schema:GetCinematicIntroInfo()
+--[[function Schema:GetCinematicIntroInfo()
 	return {
 		credits = "Designed and developed by "..self:GetAuthor()..".",
 		title = Clockwork.config:Get("intro_text_big"):Get(),
 		text = Clockwork.config:Get("intro_text_small"):Get()
 	};
-end;
+end;]]--
 
 function Schema:ModifyStatusEffects(tab)
 	if Clockwork.Client:HasTrait("clumsy") then
@@ -1071,6 +1190,34 @@ function Schema:ModifyStatusEffects(tab)
 	end
 end
 
+function Schema:GetAdminESPInfo(info)
+	if (Clockwork.ConVars.NPCSPAWNESP and Clockwork.ConVars.NPCSPAWNESP:GetInt() == 1) then
+		if (self.npcSpawns) then
+			if (table.IsEmpty(self.npcSpawns)) then
+				self.npcSpawns = nil;
+				
+				return;
+			end;
+			
+			for k, v in pairs (self.npcSpawns) do
+				for i, v2 in ipairs(v) do
+					if (!v2 or !isvector(v2.pos)) then
+						self.npcSpawns[k][i] = nil;
+						
+						continue;
+					end;
+
+					info[#info + 1] = {
+						position = v2.pos,
+						text = k;
+						color = Color(255, 150, 150);
+					};
+				end
+			end;
+		end;
+	end;
+end
+
 -- Called when a text entry has gotten focus.
 function Schema:OnTextEntryGetFocus(panel)
 	self.textEntryFocused = panel;
@@ -1092,8 +1239,8 @@ function Schema:PlayerDoesHaveFlag(player, flag) end;
 
 -- Called to check if a player does recognise another player.
 function Schema:PlayerDoesRecognisePlayer(target, status, isAccurate, realValue)
-	local playerFaction = Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction();
-	local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+	local playerFaction = Clockwork.Client:GetNetVar("kinisgerOverride") or Clockwork.Client:GetFaction();
+	local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 
 	if targetFaction == "Holy Hierarchy" then
 		return true;
@@ -1130,7 +1277,9 @@ function Schema:Tick()
 		RunConsoleCommand("mat_motion_blur_enabled", "1");
 	end
 	
+	RunConsoleCommand("r_3dsky", "1");
 	RunConsoleCommand("r_pixelfog", "1");
+	RunConsoleCommand("mat_monitorgamma_tv_enabled", "0");
 
 	-- Something is fucked with our SWEPs that is causing clientside models to build up and tank FPS.
 	if !self.nextClientsideModelCheck or curTime >= self.nextClientsideModelCheck then
@@ -1229,7 +1378,7 @@ function Schema:Tick()
 					end;
 					
 					if ((crowPosition - position):Length() > 2000) then
-						self.crows[k]:Remove();
+						v:Remove();
 						self.crows[k] = nil;
 					end;
 				else
@@ -1270,12 +1419,10 @@ function Schema:ChatBoxAdjustInfo(info) end;
 
 -- Called when a Clockwork ConVar has changed.
 function Schema:ClockworkConVarChanged(name, previousValue, newValue)
-	if Clockwork.player:IsAdmin(Clockwork.Client) then
-		if (name == "cwWakeupSequence" and newValue) then
-			if newValue == "0" then
-				if Clockwork.Client.LoadingText then
-					self:FinishWakeupSequence();
-				end
+	if (name == "cwWakeupSequence" and newValue) then
+		if newValue == "0" then
+			if Clockwork.Client.LoadingText then
+				self:FinishWakeupSequence();
 			end
 		end
 	end
@@ -1306,6 +1453,35 @@ function Schema:CanPaintChatbox()
 	end;
 end;
 
+local noDisplayClasses = {
+	"dwf",
+	"dw ",
+	"dwd",
+	"dar",
+	"rav",
+	"rs ",
+	"rsc",
+	"rsf",
+	"rel",
+	"re ",
+	"adm",
+	"ad ",
+	"su ",
+	"op ",
+};
+
+function Schema:ShouldNotDisplayTyping(text)
+	local prefix = config.Get("command_prefix"):Get()
+	
+	if string.sub(text, 1, 1) == prefix then
+		local stringsub = string.sub(text, 2, 4);
+		
+		if table.HasValue(noDisplayClasses, stringsub) then
+			return false;
+		end
+	end
+end
+
 -- Called to get whether the character menu should be created.
 function Schema:ShouldCharacterMenuBeCreated()
 	if Schema.contentVerified ~= "verified" then
@@ -1314,7 +1490,10 @@ function Schema:ShouldCharacterMenuBeCreated()
 				local addon = requiredWorkshopAddons[i];
 			
 				if !steamworks.IsSubscribed(addon) or !steamworks.ShouldMountAddon(addon) then
-					vgui.Create("cwContentNotification").missingWorkshop = true;
+					local contentPanel = vgui.Create("cwContentNotification");
+					
+					contentPanel.missingWorkshop = true;
+					contentPanel:Rebuild();
 					
 					Schema.contentVerified = "missing";
 					
@@ -1324,7 +1503,9 @@ function Schema:ShouldCharacterMenuBeCreated()
 			
 			for k, v in pairs(Schema.requiredMounts) do
 				if !IsMounted(k) then
-					vgui.Create("cwContentNotification");
+					local contentPanel = vgui.Create("cwContentNotification");
+					
+					contentPanel:Rebuild();
 					
 					Schema.contentVerified = "missing";
 					
@@ -1343,6 +1524,8 @@ end
 function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, condition, percentage, name, itemTable, x, y, width, height, frame, bShowWeight)
 	if (category == "Melee") then
 		local damageTypes = {[2] = "Bullet", [4] = "Slash", [16] = "Pierce", [128] = "Blunt"};
+		local meleeMax = GetTable("meleemax");
+		local meleeMin = GetTable("meleemin");
 		local weaponClass = itemTable.uniqueID;
 		local weaponStats = {["attack"] = nil, ["defense"] = nil};
 		local weaponTable;
@@ -1381,15 +1564,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.requiredbeliefs do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.requiredbeliefs[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if itemTable.onerequiredbelief and #itemTable.onerequiredbelief > 0 then
@@ -1398,15 +1594,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.onerequiredbelief do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.onerequiredbelief[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs (One Of The Following): ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 
 		if weaponTable then
@@ -1423,9 +1632,9 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 
 				if weaponStats["attack"].canaltattack then
 					if weaponTable.CanSwipeAttack then
-						frame:AddText("Alternate Attack: Swipe", Color(110, 30, 30));
+						frame:AddText("Alternate Attack: Swipe", Color(110, 30, 30), nil, 0.9);
 					else
-						frame:AddText("Alternate Attack: Thrust", Color(110, 30, 30));
+						frame:AddText("Alternate Attack: Thrust", Color(110, 30, 30), nil, 0.9);
 					end
 				end
 				
@@ -1443,141 +1652,181 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 					
 					if blockDamageTypes ~= "" then
-						frame:AddText("Blocks Damage Types: "..blockDamageTypes, Color(110, 30, 30));
+						frame:AddText("Blocks Damage Types: "..blockDamageTypes, Color(110, 30, 30), nil, 0.9);
 					end
 				end]]--
 			
 				--[[if weaponStats["defense"].canparry then
-					frame:AddText("Can Parry", Color(110, 30, 30));
+					frame:AddText("Can Parry", Color(110, 30, 30), nil, 0.9);
 				end]]--
 				
 				if itemTable.canUseShields then
-					frame:AddText("Can Use Shields", Color(110, 30, 30));
+					frame:AddText("Can Use Shields", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.isSacrifical then
-					frame:AddText("Causes Corruption To Wielder", Color(110, 30, 30));
+					frame:AddText("Causes Corruption To Wielder", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.isLongPolearm then
-					frame:AddText("Long Polearm: Up to +70% increased damage the further away the target is.", Color(110, 30, 30));
+					frame:AddText("Long Polearm: Up to +70% increased damage the further away the target is.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.isShortPolearm then
-					frame:AddText("Short Polearm: Up to +50% increased damage the further away the target is.", Color(110, 30, 30));
+					frame:AddText("Short Polearm: Up to +50% increased damage the further away the target is.", Color(110, 30, 30), nil, 0.9);
+				end
+				
+				if weaponTable.isLongsword then
+					frame:AddText("Swordplay: After deflecting or parrying an opponent, your next attack within 0.5s will have a faster striketime. This trait only works if you have 'Blademaster' unlocked.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if weaponTable.MultiHit then
-					frame:AddText("Multi-Hit: Can hit up to "..tostring(weaponTable.MultiHit).." targets in a single swing.", Color(110, 30, 30));
+					frame:AddText("Multi-Hit: Can hit up to "..tostring(weaponTable.MultiHit).." targets in a single swing.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.hasMinimumRange then
-					frame:AddText("Has Minimum Effective Range", Color(110, 30, 30));
+					frame:AddText("Has Minimum Effective Range", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.hasIncreasedDeflectionWindow then
-					frame:AddText("Increased deflection window (0.25s)", Color(110, 30, 30));
+					frame:AddText("Increased deflection window (0.25s)", Color(110, 30, 30), nil, 0.9);
 				end
 
 				if weaponStats["defense"].parrydifficulty and weaponStats["defense"].parrydifficulty > 0.2 then
-					frame:AddText("Has Increased Parry Window", Color(110, 30, 30));
+					frame:AddText("Has Increased Parry Window", Color(110, 30, 30), nil, 0.9);
+				end
+				
+				if itemTable.unrepairable then
+					frame:AddText("Unrepairable: This weapon cannot be repaired and will always take condition damage, irrespective of beliefs.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.attributes then
 					if table.HasValue(itemTable.attributes, "aoebuff") then
-						frame:AddText("Area of Effect Buff: +15% Attack Damage, -25% Received Damage, 1.5x Stamina Regen Rate, +2 Residual Sanity Gain, Immunity to Warcry Sanity & Disorientation Debuffs", Color(110, 30, 30));
+						frame:AddText("Area of Effect Buff: +15% Attack Damage, -25% Received Damage, 1.5x Stamina Regen Rate, +2 Residual Sanity Gain, Immunity to Warcry Sanity & Disorientation Debuffs", Color(110, 30, 30), nil, 0.9);
 					end
 				
 					if table.HasValue(itemTable.attributes, "concealable") then
-						frame:AddText("Concealable (Does Not Show On Person)", Color(110, 30, 30));
+						frame:AddText("Concealable (Does Not Show On Person)", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "conditionless") then
-						frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30));
+						frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "fear") then
-						frame:AddText("Fear: Characters of opposing factions will be disoriented and lose sanity when near you.", Color(110, 30, 30));
+						frame:AddText("Fear: Characters of opposing factions will be disoriented and lose sanity when near you.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "ice") then
-						frame:AddText("Frigid: Freezes enemies in a block of ice upon contact.", Color(110, 30, 30));
+						frame:AddText("Frigid: Freezes enemies in a block of ice upon contact.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "grounded") then
-						frame:AddText("Grounded: Cannot attack while sprinting.", Color(110, 30, 30));
+						frame:AddText("Grounded: Cannot attack while sprinting, but hitting enemies will discombobulate them, stopping them from sprinting for the next 3 seconds.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "fire") then
-						frame:AddText("Incendiary: Sets enemies alight upon contact.", Color(110, 30, 30));
+						frame:AddText("Incendiary: Sets enemies alight upon contact.", Color(110, 30, 30), nil, 0.9);
 					end
 				
 					if table.HasValue(itemTable.attributes, "lifeleech") then
-						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30));
+						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30), nil, 0.9);
 					end
 				
 					if table.HasValue(itemTable.attributes, "rage") then
-						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%.", Color(110, 30, 30));
+						frame:AddText("Rage (Shieldless): Movement speed is increased by 7%.", Color(110, 30, 30), nil, 0.9);
+					end
+					
+					if table.HasValue(itemTable.attributes, "shieldbreaker") then
+						frame:AddText("Shieldbreaker: Deals extra condition damage to shields.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "bell") then
-						frame:AddText("For Whom the Bell Tolls: Disorients any characters nearby with each holy strike.", Color(110, 30, 30));
+						frame:AddText("For Whom the Bell Tolls: Disorients any characters nearby with each holy strike.", Color(110, 30, 30), nil, 0.9);
 					end
 				end
 			
 				if weaponStats["attack"].dmgtype then
-					frame:AddText("Damage Type: "..damageTypes[weaponStats["attack"].dmgtype] or "Unknown", Color(110, 30, 30));
+					frame:AddText("Damage Type: "..damageTypes[weaponStats["attack"].dmgtype] or "Unknown", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if weaponStats["defense"].partialbulletblock then
-					frame:AddText("Has Bullet Resistance", Color(110, 30, 30));
+					frame:AddText("Has Bullet Resistance", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if string.find(weaponClass, "begotten_spear") or string.find(weaponClass, "begotten_polearm") then
 					if weaponClass ~= "begotten_polearm_quarterstaff" then
-						frame:AddText("Has Counter Damage: Bonus against running enemies when attacked from the front.", Color(110, 30, 30));
+						frame:AddText("Has Counter Damage: Bonus against running enemies when attacked from the front.", Color(110, 30, 30), nil, 0.9);
 					end
-				elseif string.find(weaponClass, "begotten_dagger") then
-					frame:AddText("Has Backstab: Deal double damage to enemies' backs.", Color(110, 30, 30));
-					frame:AddText("Has Coup de Grace: Deal double damage and 100% AP damage to knocked over enemies.", Color(110, 30, 30));
+				elseif weaponTable.isDagger then
+					frame:AddText("Has Backstab: Deal double damage to enemies' backs.", Color(110, 30, 30), nil, 0.9);
+					frame:AddText("Has Coup de Grace: Deal double damage and 100% AP damage to knocked over enemies. Each hit will slightly increase the time it takes for knocked over enemies to get up.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.requireFaction and not table.IsEmpty(itemTable.requireFaction) and itemTable.requireFaction[1] ~= "Wanderer" then
-					frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30));
+					frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.requireFaith and not table.IsEmpty(itemTable.requireFaith) then
-					frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30));
+					frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.requireSubfaction and not table.IsEmpty(itemTable.requireSubfaction) then
-					frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30));
+					frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.excludeFactions and not table.IsEmpty(itemTable.excludeFactions) then
-					frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30));
+					frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if Clockwork.Client:GetFaction() == "Goreic Warrior" and itemTable.excludeSubfactions and not table.IsEmpty(itemTable.excludeSubfactions) then
-					frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30));
+					frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				frame:AddText("Weapon Stats: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 				
 				if weaponStats["attack"].takeammo then
 					local percentage = math.min(weaponStats["attack"].takeammo / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Attack Cost", Color(110, 30, 30), nil, 1);
+						frame:AddText("The cost of each melee attack in stamina consumed. Can be affected by modifiers such as injuries or beliefs.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].takeammo).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Cost", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].takeammo).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Cost", Color(110, 30, 30), toolTip, true);
+				end
+				
+				if weaponStats["attack"].delay then
+					local max_value = meleeMax.delay;
+					local min_value = meleeMin.delay;
+					local percentage = 1 - ((weaponStats["attack"].delay - min_value) / (max_value - min_value));
+					local toolTip = function(frame)
+						frame:AddText("Attack Delay", Color(110, 30, 30), nil, 1);
+						frame:AddText("The delay before starting another attack after swinging.", Color(225, 200, 200), nil, 0.8);
+					end
+				
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].delay).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Delay", Color(110, 30, 30), toolTip, true);
+				end
+				
+				if weaponStats["attack"].striketime then
+					local max_value = meleeMax.striketime;
+					local min_value = meleeMin.striketime;
+					local percentage = 1 - ((weaponStats["attack"].striketime - min_value) / (max_value - min_value));
+					local toolTip = function(frame)
+						frame:AddText("Swing Speed", Color(110, 30, 30), nil, 1);
+						frame:AddText("The delay before your swing connects with any potential foes.", Color(225, 200, 200), nil, 0.8);
+					end
+				
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].striketime).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Swing Speed", Color(110, 30, 30), toolTip, true);
 				end
 			
-				if weaponStats["attack"].delay and weaponStats["attack"].striketime then
+				--[[if weaponStats["attack"].delay and weaponStats["attack"].striketime then
 					local min_value = 0.75;
 					local max_value = 3.5;
 					local attack_speed = weaponStats["attack"].delay + weaponStats["attack"].striketime;
 					local percentage = 1 - ((attack_speed - min_value) / (max_value - min_value));
 
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].delay + weaponStats["attack"].striketime).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Speed", Color(110, 30, 30), true);
-				end
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].delay + weaponStats["attack"].striketime).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Speed", Color(110, 30, 30), toolTip, true);
+				end]]--
 			
 				if weaponStats["attack"].armorpiercing then
 					local armorpiercing = weaponStats["attack"].armorpiercing;
@@ -1585,72 +1834,110 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					local originalAP = armorpiercing;
 					
 					if armorpiercing then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
 						if damagetype == DMG_CLUB then
-							armorpiercing = math.Round(armorpiercing * Lerp(condition / 100, 0.7, 1));
+							armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.7, 1));
 						else
-							armorpiercing = math.Round(armorpiercing * Lerp(condition / 100, 0.5, 1));
+							armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.5, 1));
 						end
-					end
-				
-					local percentage = math.min(armorpiercing / 100, 100);
-		
-					if armorpiercing < originalAP then
-						frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), true);
-					else
-						frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), true);
+					
+						local percentage = math.min(armorpiercing / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Armor-Piercing Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("Armor piercing damage reflects your weapon's ability to pierce the armor of your foes. Higher values mean that less of your weapon's primary damage will be negated by their armor.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						if armorpiercing < originalAP then
+							frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+						else
+							frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+						end
 					end
 				end
 			
-				if weaponStats["attack"].primarydamage then
+				if weaponStats["attack"].primarydamage and !weaponTable.isJavelin then
 					local damage = weaponStats["attack"].primarydamage;
 					local damagetype = weaponStats["attack"].dmgtype;
 					local originalDamage = damage;
 					
 					if damage then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
 						if damagetype == DMG_CLUB then
-							damage = math.Round(damage * Lerp(condition / 100, 0.75, 1));
+							damage = math.Round(damage * Lerp(scalar, 0.75, 1));
 						elseif damagetype == DMG_SLASH then
-							damage = math.Round(damage * Lerp(condition / 100, 0.4, 1));
-						elseif damagetype == DMG_VEHICLE then
-							damage = math.Round(damage * Lerp(condition / 100, 0.5, 1));
+							damage = math.Round(damage * Lerp(scalar, 0.4, 1));
+						else
+							damage = math.Round(damage * Lerp(scalar, 0.5, 1));
 						end
-					end
 
-					local percentage = math.min(damage / 100, 100);
-		
-					if damage < originalDamage then
-						frame:AddBar(12, {{text = tostring(damage).." / "..tostring(originalDamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Primary Damage", Color(110, 30, 30), true);
-					else
-						frame:AddBar(12, {{text = tostring(damage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Primary Damage", Color(110, 30, 30), true);
+						local percentage = math.min(damage / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Primary Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's health that your weapon does. Can be negated by armor proportional to your weapon's armor-piercing damage value.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						if damage < originalDamage then
+							frame:AddBar(12, {{text = tostring(damage).." / "..tostring(originalDamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Primary Damage", Color(110, 30, 30), toolTip, true);
+						else
+							frame:AddBar(12, {{text = tostring(damage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Primary Damage", Color(110, 30, 30), toolTip, true);
+						end
 					end
 				end
 				
 				if weaponStats["attack"].stabilitydamage then
 					local percentage = math.min(weaponStats["attack"].stabilitydamage / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Stability Damage", Color(110, 30, 30), nil, 1);
+						frame:AddText("The damage to your foe's stability that your weapon does. Dealing enough will temporarily knock your foe to the ground. Can be negated by enemy armor.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["attack"].poisedamage then
 					local percentage = math.min(weaponStats["attack"].poisedamage / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Stamina Damage", Color(110, 30, 30), nil, 1);
+						frame:AddText("The damage to your foe's stamina that your weapon does. Dealing stamina damage will reduce an enemy's staying power in a fight or their ability to flee. Can be negated by enemy shields.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Poise Damage", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stamina Damage", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["attack"].meleearc then
 					local percentage = math.min(weaponStats["attack"].meleearc / 60, 60);
+					local toolTip = function(frame)
+						frame:AddText("Weapon Arc", Color(110, 30, 30), nil, 1);
+						frame:AddText("Your weapon arc determines how wide of a swing your attacks have. Caution should be exercised with weapons that have a large arc, as friendlies may unintentionally be hit.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].meleearc).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Arc", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].meleearc).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Arc", Color(110, 30, 30), toolTip, true);
 				end
 
 				if weaponStats["attack"].meleerange then
 					local percentage = math.min((weaponStats["attack"].meleerange - 425) / (1500 - 425), (1500 - 425));
+					local toolTip = function(frame)
+						frame:AddText("Melee Range", Color(110, 30, 30), nil, 1);
+						frame:AddText("The melee range of your weapon determines how far you can strike. Some weapons such as polearms and spears have varied damage based on how far you are from a struck enemy as well.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].meleerange), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Range", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].meleerange), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Range", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["attack"].canaltattack then
 					--frame:AddSpacer(4, Color(40, 40, 40, 120));
+					
+					if weaponStats["attack"].alttakeammo then
+						local percentage = math.min(weaponStats["attack"].alttakeammo / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Cost", Color(110, 30, 30), nil, 1);
+							frame:AddText("The cost of each of the alternate stance's melee attack in stamina consumed. Can be affected by modifiers such as injuries or beliefs.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].alttakeammo).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Cost", Color(110, 30, 30), toolTip, true);
+					end
 					
 					if weaponStats["attack"].altarmorpiercing then
 						local armorpiercing = weaponStats["attack"].altarmorpiercing;
@@ -1664,19 +1951,25 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 						end
 						
 						if armorpiercing then
+							local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+						
 							if damagetype == DMG_CLUB then
-								armorpiercing = math.Round(armorpiercing * Lerp(condition / 100, 0.7, 1));
+								armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.7, 1));
 							else
-								armorpiercing = math.Round(armorpiercing * Lerp(condition / 100, 0.5, 1));
+								armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.5, 1));
 							end
-						end
 					
-						local percentage = math.min(armorpiercing / 100, 100);
-			
-						if armorpiercing < originalAP then
-							frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), true);
-						else
-							frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), true);
+							local percentage = math.min(armorpiercing / 100, 100);
+							local toolTip = function(frame)
+								frame:AddText("Alternate Armor-Piercing Damage", Color(110, 30, 30), nil, 1);
+								frame:AddText("Armor piercing damage reflects your weapon's alternate attack's ability to pierce the armor of your foes. Higher values mean that less of your weapon's primary damage will be negated by their armor.", Color(225, 200, 200), nil, 0.8);
+							end
+				
+							if armorpiercing < originalAP then
+								frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+							else
+								frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+							end
 						end
 					end
 				
@@ -1692,85 +1985,139 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 						end
 						
 						if damage then
+							local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+						
 							if damagetype == DMG_CLUB then
-								damage = math.Round(damage * Lerp(condition / 100, 0.75, 1));
+								damage = math.Round(damage * Lerp(scalar, 0.75, 1));
 							elseif damagetype == DMG_VEHICLE then
-								damage = math.Round(damage * Lerp(condition / 100, 0.5, 1));
+								damage = math.Round(damage * Lerp(scalar, 0.5, 1));
+							end
+					
+							local percentage = math.min((damage / 100) * weaponStats["attack"].altattackdamagemodifier, 100);
+							local toolTip = function(frame)
+								frame:AddText("Alternate Attack Damage", Color(110, 30, 30), nil, 1);
+								frame:AddText("The damage to your foe's health that your weapon's alternate attack does. Can be negated by armor proportional to your weapon's armor-piercing damage value.", Color(225, 200, 200), nil, 0.8);
+							end
+				
+							if damage < originalDamage then
+								frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)).." / "..tostring(math.Round(originalDamage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
+							else
+								frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
 							end
 						end
+					end
 					
-						local percentage = math.min((damage / 100) * weaponStats["attack"].altattackdamagemodifier, 100);
-			
-						if damage < originalDamage then
-							frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)).." / "..tostring(math.Round(originalDamage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), true);
-						else
-							frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), true);
+					if weaponStats["attack"].stabilitydamage and weaponStats["attack"].altattackstabilitydamagemodifier then
+						local percentage = math.min((weaponStats["attack"].stabilitydamage / 100) * weaponStats["attack"].altattackstabilitydamagemodifier, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Stability Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's stability that your weapon's alternate attack does. Dealing enough will temporarily knock your foe to the ground. Can be negated by enemy armor.", Color(225, 200, 200), nil, 0.8);
 						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage * weaponStats["attack"].altattackstabilitydamagemodifier), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Stability Damage", Color(110, 30, 30), toolTip, true);
 					end
 					
 					if weaponStats["attack"].poisedamage and weaponStats["attack"].altattackpoisedamagemodifier then
 						local percentage = math.min((weaponStats["attack"].poisedamage / 100) * weaponStats["attack"].altattackpoisedamagemodifier, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Stamina Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's stamina that your weapon's alternate attack does. Dealing stamina damage will reduce an enemy's staying power in a fight or their ability to flee. Can be negated by enemy shields.", Color(225, 200, 200), nil, 0.8);
+						end
 			
-						frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage * weaponStats["attack"].altattackpoisedamagemodifier), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Poise Damage", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage * weaponStats["attack"].altattackpoisedamagemodifier), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Stamina Damage", Color(110, 30, 30), toolTip, true);
 					end
 					
 					if weaponStats["attack"].altmeleearc then
 						local percentage = math.min(weaponStats["attack"].altmeleearc / 60, 60);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Weapon Arc", Color(110, 30, 30), nil, 1);
+							frame:AddText("Your alternate attack weapon arc determines how wide of a swing your alternate attacks have. Caution should be exercised with weapons that have a large arc, as friendlies may unintentionally be hit.", Color(225, 200, 200), nil, 0.8);
+						end
 			
-						frame:AddBar(12, {{text = tostring(weaponStats["attack"].altmeleearc).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Arc", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].altmeleearc).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Arc", Color(110, 30, 30), toolTip, true);
 					end
 
 					if weaponStats["attack"].meleerange then
 						local newRange = weaponStats["attack"].meleerange;
 						
-						if weaponTable.CanSwipeAttack then
-							newRange = math.Round(newRange * 0.8);
-						else
-							newRange = math.Round(newRange * 1.2);
+						if weaponStats["attack"].altmeleerange then
+							newRange = weaponStats["attack"].altmeleerange;
+						--[[else
+							if weaponTable.CanSwipeAttack then
+								newRange = math.Round(newRange * 0.8);
+							else
+								newRange = math.Round(newRange * 1.2);
+							end]]--
 						end
 						
-						local percentage = math.min((newRange - 425) / (1500 - 425), (1500 - 425));
+						if newRange ~= weaponStats["attack"].meleerange then
+							local percentage = math.min((newRange - 425) / (1500 - 425), (1500 - 425));
+							local toolTip = function(frame)
+								frame:AddText("Alternate Attack Melee Range", Color(110, 30, 30), nil, 1);
+								frame:AddText("The melee range of your weapon's alternate attack determines how far you can strike when in an alternate stance. Some weapons such as polearms and spears have varied damage based on how far you are from a struck enemy as well.", Color(225, 200, 200), nil, 0.8);
+							end
 			
-						frame:AddBar(12, {{text = tostring(newRange), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Range", Color(110, 30, 30), true);
+							frame:AddBar(12, {{text = tostring(newRange), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Range", Color(110, 30, 30), toolTip, true);
+						end
 					end
 				end
 				
 				if weaponStats["defense"].blockcone then
 					local percentage = math.min(weaponStats["defense"].blockcone / 270, 270);
+					local toolTip = function(frame)
+						frame:AddText("Block Cone", Color(110, 30, 30), nil, 1);
+						frame:AddText("The block cone of your weapon or shield determines at what angles blocking is effective, when facing toward a foe.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(weaponStats["defense"].blockcone).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", noDisplay = true}}, "Block Cone", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["defense"].blockcone).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", noDisplay = true}}, "Block Cone", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["defense"].guardblockamount then
 					local percentage = math.min(weaponStats["defense"].guardblockamount / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Block Cost (Minimum)", Color(110, 30, 30), nil, 1);
+						frame:AddText("The minimum block cost of your weapon or shield in stamina if an attack by an enemy foe causes any stamina damage at all.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(weaponStats["defense"].guardblockamount).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Cost (Minimum)", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["defense"].guardblockamount).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Cost (Minimum)", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["defense"].poiseresistance then
 					local percentage = math.min(weaponStats["defense"].poiseresistance / 50, 50);
+					local toolTip = function(frame)
+						frame:AddText("Block Stamina Damage Resistance", Color(110, 30, 30), nil, 1);
+						frame:AddText("The resistance of your weapon or shield to additional stamina damage beyond the minimum cost while blocking.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(weaponStats["defense"].poiseresistance).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["defense"].poiseresistance).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Stamina Damage Resistance", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["defense"].canparry then
 					if weaponStats["defense"].parrytakestamina then
 						local percentage = math.min(weaponStats["defense"].parrytakestamina / 40, 40);
+						local toolTip = function(frame)
+							frame:AddText("Parry Cost", Color(110, 30, 30), nil, 1);
+							frame:AddText("The stamina cost of attempting a parry. Successfully parrying a foe will refund half of this cost.", Color(225, 200, 200), nil, 0.8);
+						end
 
-						frame:AddBar(12, {{text = tostring(weaponStats["defense"].parrytakestamina).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Cost", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(weaponStats["defense"].parrytakestamina).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Cost", Color(110, 30, 30), toolTip, true);
 					end
 					
 					if weaponStats["defense"].parrydifficulty then
-						local percentage = 1 - math.min(weaponStats["defense"].parrydifficulty / 0.3, 0.3);
+						local percentage = math.Clamp(weaponStats["defense"].parrydifficulty / 0.3, 0, 1);
+						local toolTip = function(frame)
+							frame:AddText("Parry Window", Color(110, 30, 30), nil, 1);
+							frame:AddText("The time in seconds after parrying that your parry will be active. Higher values mean that parrying will be easier as the window will be larger.", Color(225, 200, 200), nil, 0.8);
+						end
 
-						frame:AddBar(12, {{text = tostring(weaponStats["defense"].parrydifficulty).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Window", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(weaponStats["defense"].parrydifficulty).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Window", Color(110, 30, 30), toolTip, true);
 					end
 				end
 			end
 		end
 		
 		return true;
-	elseif (category == "Javelins") then
+	elseif (category == "Throwables") then
 		local damageTypes = {[2] = "Bullet", [4] = "Slash", [16] = "Pierce", [128] = "Blunt", [1073741824] = "Pierce"};
 		local weaponClass = itemTable.uniqueID;
 		local weaponStats = {["attack"] = nil, ["defense"] = nil};
@@ -1785,8 +2132,8 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			category = string.sub(category, 12)
 		end
 		
-		if category == "Javelins" then
-			category = "Javelin";
+		if category == "Throwables" then
+			category = "Throwable";
 		end
 		
 		frame:AddText(name.." - "..category, Color(180, 20, 20), "nov_IntroTextSmallDETrooper", 1.15);
@@ -1803,15 +2150,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.requiredbeliefs do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.requiredbeliefs[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if itemTable.onerequiredbelief and #itemTable.onerequiredbelief > 0 then
@@ -1820,15 +2180,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.onerequiredbelief do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.onerequiredbelief[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs (One Of The Following): ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 
 		if weaponTable then
@@ -1843,76 +2216,342 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			if weaponStats["attack"] and weaponStats["defense"] then
 				frame:AddText("Weapon Attributes: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 				
-				frame:AddText("Easily Repairable: Costs less melee repair kit condition to repair.", Color(110, 30, 30));
+				frame:AddText("Easily Repairable: Costs less melee repair kit condition to repair.", Color(110, 30, 30), nil, 0.9);
+				frame:AddText("Ranged Weapon: You will be disarmed upon taking damage with this weapon.", Color(110, 30, 30), nil, 0.9);
+				frame:AddText("Variable Damage: Damage will be increased or decreased depending on the distance of the target. Targets further away will receive more damage.", Color(110, 30, 30), nil, 0.9);
 				
 				if !weaponStats["defense"].candeflect then
-					frame:AddText("Cannot Deflect", Color(110, 30, 30));
+					frame:AddText("Cannot Deflect", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.isSacrifical then
-					frame:AddText("Causes Corruption To Wielder", Color(110, 30, 30));
+					frame:AddText("Causes Corruption To Wielder", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.attributes then
+					if table.HasValue(itemTable.attributes, "concealable") then
+						frame:AddText("Concealable (Does Not Show On Person)", Color(110, 30, 30), nil, 0.9);
+					end
+				
 					if table.HasValue(itemTable.attributes, "ice") then
-						frame:AddText("Frigid: Freezes enemies in a block of ice upon contact.", Color(110, 30, 30));
+						frame:AddText("Frigid: Freezes enemies in a block of ice upon contact.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "fire") then
-						frame:AddText("Incendiary: Sets enemies alight upon contact.", Color(110, 30, 30));
+						frame:AddText("Incendiary: Sets enemies alight upon contact.", Color(110, 30, 30), nil, 0.9);
 					end
 				
 					if table.HasValue(itemTable.attributes, "lifeleech") then
-						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30));
+						frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health.", Color(110, 30, 30), nil, 0.9);
 					end
 				
 					if table.HasValue(itemTable.attributes, "rage") then
-						frame:AddText("Rage (Shieldless): Movement speed is increased by 10%.", Color(110, 30, 30));
+						frame:AddText("Rage (Shieldless): Movement speed is increased by 7%.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "malleable") then
-						frame:AddText("Malleable: Breaks on contact irrespective of any beliefs to prevent it from being picked up and thrown back.", Color(110, 30, 30));
+						frame:AddText("Malleable: Breaks on contact irrespective of any beliefs to prevent it from being picked up and thrown back.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "shieldbreaker") then
-						frame:AddText("Shieldbreaker: Deals extra condition damage to shields.", Color(110, 30, 30));
+						frame:AddText("Shieldbreaker: Deals extra condition damage to shields.", Color(110, 30, 30), nil, 0.9);
 					end
 				end
 			
 				if weaponStats["attack"].dmgtype then
-					frame:AddText("Damage Type: "..damageTypes[weaponStats["attack"].dmgtype] or "Unknown", Color(110, 30, 30));
+					frame:AddText("Damage Type: "..damageTypes[weaponStats["attack"].dmgtype] or "Unknown", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				frame:AddText("Weapon Stats: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 				
 				if weaponStats["attack"].takeammo then
 					local percentage = math.min(weaponStats["attack"].takeammo / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Attack Cost", Color(110, 30, 30), nil, 1);
+						frame:AddText("The cost of each javelin toss in stamina consumed. Can be affected by modifiers such as injuries or beliefs.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].takeammo).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Cost", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].takeammo).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Attack Cost", Color(110, 30, 30), toolTip, true);
 				end
-			
+				
 				if weaponStats["attack"].armorpiercing then
-					local percentage = math.min(weaponStats["attack"].armorpiercing / 100, 100);
-		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), true);
-				end
+					local armorpiercing = weaponStats["attack"].armorpiercing;
+					local damagetype = weaponStats["attack"].dmgtype;
+					local originalAP = armorpiercing;
+					
+					if armorpiercing then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
+						if damagetype == DMG_CLUB then
+							armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.7, 1));
+						else
+							armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.5, 1));
+						end
+					
+						local percentage = math.min(armorpiercing / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Armor-Piercing Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("Armor piercing damage reflects your weapon's ability to pierce the armor of your foes. Higher values mean that less of your weapon's primary damage will be negated by their armor. For javelins, this applies to both the projectile and melee stance damage. However, condition loss will only affect melee damage.", Color(225, 200, 200), nil, 0.8);
+						end
 			
-				if weaponStats["attack"].primarydamage then
-					local percentage = math.min(weaponStats["attack"].primarydamage / 100, 100);
-		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].primarydamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Primary Damage", Color(110, 30, 30), true);
+						if armorpiercing < originalAP then
+							frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+						else
+							frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+						end
+					end
+				end
+				
+				if weaponStats["attack"].mimimumdistancedamage then
+					local damagetype = weaponStats["attack"].dmgtype;
+					local mimimumdistancedamage = weaponStats["attack"].mimimumdistancedamage;
+					local originalDamage = mimimumdistancedamage;
+					
+					if mimimumdistancedamage then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
+						if damagetype == DMG_CLUB then
+							mimimumdistancedamage = math.Round(mimimumdistancedamage * Lerp(scalar, 0.75, 1));
+						elseif damagetype == DMG_SLASH then
+							mimimumdistancedamage = math.Round(mimimumdistancedamage * Lerp(scalar, 0.4, 1));
+						else
+							mimimumdistancedamage = math.Round(mimimumdistancedamage * Lerp(scalar, 0.5, 1));
+						end
+
+						local percentage = math.min(mimimumdistancedamage / 200, 200);
+						local toolTip = function(frame)
+							frame:AddText("Minimum Projectile Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The minimum amount of damage your projectile can deal. This would be dealt with a point-blank hit, and would gradually increase the further away the target is.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						if mimimumdistancedamage < originalDamage then
+							frame:AddBar(12, {{text = tostring(mimimumdistancedamage).." / "..tostring(originalDamage).." (Point-Blank)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Minimum Projectile Damage", Color(110, 30, 30), toolTip, true);
+						else
+							frame:AddBar(12, {{text = tostring(mimimumdistancedamage).." (Point-Blank)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Minimum Projectile Damage", Color(110, 30, 30), toolTip, true);
+						end
+					end
+				end
+				
+				if weaponStats["attack"].maximumdistancedamage then
+					local damagetype = weaponStats["attack"].dmgtype;
+					local maximumdistancedamage = weaponStats["attack"].maximumdistancedamage;
+					local originalDamage = maximumdistancedamage;
+					
+					if maximumdistancedamage then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
+						if damagetype == DMG_CLUB then
+							maximumdistancedamage = math.Round(maximumdistancedamage * Lerp(scalar, 0.75, 1));
+						elseif damagetype == DMG_SLASH then
+							maximumdistancedamage = math.Round(maximumdistancedamage * Lerp(scalar, 0.4, 1));
+						else
+							maximumdistancedamage = math.Round(maximumdistancedamage * Lerp(scalar, 0.5, 1));
+						end
+
+						local percentage = math.min(maximumdistancedamage / 200, 200);
+						local toolTip = function(frame)
+							frame:AddText("Maximum Projectile Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The maximum amount of damage your projectile can deal. The maximum distance can be reached at about 40 feet from your target, and any distance beyond that will grant no additional damage.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						if maximumdistancedamage < originalDamage then
+							if string.find(weaponClass, "begotten_javelin_throwing_axe") or string.find(weaponClass, "begotten_javelin_throwing_dagger") then
+									frame:AddBar(12, {{text = tostring(maximumdistancedamage).." / "..tostring(originalDamage).." (At 30 Feet)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Maximum Projectile Damage", Color(110, 30, 30), toolTip, true);
+								else
+									frame:AddBar(12, {{text = tostring(maximumdistancedamage).." / "..tostring(originalDamage).." (At 40 Feet)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Maximum Projectile Damage", Color(110, 30, 30), toolTip, true);
+								end
+						else
+							if string.find(weaponClass, "begotten_javelin_throwing_axe") or string.find(weaponClass, "begotten_javelin_throwing_dagger") then
+								frame:AddBar(12, {{text = tostring(maximumdistancedamage).." (At 30 Feet)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Maximum Projectile Damage", Color(110, 30, 30), toolTip, true);
+							else
+								frame:AddBar(12, {{text = tostring(maximumdistancedamage).." (At 40 Feet)", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Maximum Projectile Damage", Color(110, 30, 30), toolTip, true);
+							end
+						end
+					end
 				end
 				
 				if weaponStats["attack"].stabilitydamage then
 					local percentage = math.min(weaponStats["attack"].stabilitydamage / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Stability Damage", Color(110, 30, 30), nil, 1);
+						frame:AddText("The damage to your foe's stability that your weapon does. Dealing enough will temporarily knock your foe to the ground. Can be negated by enemy armor. For javelins, this scales by distance; targets further away will take considerably more stability damage, and targets up close will take considerably less stability damage. At maximum range, the projectile will deal double this stability damage.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponStats["attack"].poisedamage then
 					local percentage = math.min(weaponStats["attack"].poisedamage / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Stamina Damage", Color(110, 30, 30), nil, 1);
+						frame:AddText("The damage to your foe's stamina that your weapon does. Dealing stamina damage will reduce an enemy's staying power in a fight or their ability to flee. Can be negated by enemy shields.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Poise Damage", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stamina Damage", Color(110, 30, 30), toolTip, true);
+				end
+				
+				if weaponStats["attack"].canaltattack then
+					--frame:AddSpacer(4, Color(40, 40, 40, 120));
+					
+					if weaponStats["attack"].alttakeammo then
+						local percentage = math.min(weaponStats["attack"].alttakeammo / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Cost", Color(110, 30, 30), nil, 1);
+							frame:AddText("The cost of each of the alternate stance's melee attack in stamina consumed. Can be affected by modifiers such as injuries or beliefs.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].alttakeammo).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Cost", Color(110, 30, 30), toolTip, true);
+					end
+					
+				if weaponStats["attack"].primarydamage then -- Uses the "primarydamage" value but only applies to the melee attack of throwable weapons
+					local damage = weaponStats["attack"].primarydamage;
+					local damagetype = weaponStats["attack"].dmgtype;
+					local originalDamage = damage;
+					
+					if damage then
+						local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+					
+						if damagetype == DMG_CLUB then
+							damage = math.Round(damage * Lerp(scalar, 0.75, 1));
+						elseif damagetype == DMG_SLASH then
+							damage = math.Round(damage * Lerp(scalar, 0.4, 1));
+						else
+							damage = math.Round(damage * Lerp(scalar, 0.5, 1));
+						end
+
+						local percentage = math.min(damage / 100, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's health that your melee attack does. Can be negated by armor proportional to your weapon's armor-piercing damage value.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						if damage < originalDamage then
+							frame:AddBar(12, {{text = tostring(damage).." / "..tostring(originalDamage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
+						else
+							frame:AddBar(12, {{text = tostring(damage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
+						end
+					end
+				end
+					
+					if weaponStats["attack"].altarmorpiercing then
+						local armorpiercing = weaponStats["attack"].altarmorpiercing;
+						local damagetype;
+						local originalAP = armorpiercing;
+						
+						if weaponTable.CanSwipeAttack then
+							damagetype = DMG_CLUB;
+						else
+							damagetype = DMG_VEHICLE;
+						end
+						
+						if armorpiercing then
+							local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+						
+							if damagetype == DMG_CLUB then
+								armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.7, 1));
+							else
+								armorpiercing = math.Round(armorpiercing * Lerp(scalar, 0.5, 1));
+							end
+					
+							local percentage = math.min(armorpiercing / 100, 100);
+							local toolTip = function(frame)
+								frame:AddText("Alternate Armor-Piercing Damage", Color(110, 30, 30), nil, 1);
+								frame:AddText("Armor piercing damage reflects your weapon's alternate attack's ability to pierce the armor of your foes. Higher values mean that less of your weapon's primary damage will be negated by their armor.", Color(225, 200, 200), nil, 0.8);
+							end
+				
+							if armorpiercing < originalAP then
+								frame:AddBar(12, {{text = tostring(armorpiercing).." / "..tostring(originalAP), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+							else
+								frame:AddBar(12, {{text = tostring(armorpiercing), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Armor-Piercing Damage", Color(110, 30, 30), toolTip, true);
+							end
+						end
+					end
+				
+					if weaponStats["attack"].primarydamage and weaponStats["attack"].altattackdamagemodifier then
+						local damage = weaponStats["attack"].primarydamage;
+						local damagetype;
+						local originalDamage = damage;
+						
+						if weaponTable.CanSwipeAttack then
+							damagetype = DMG_CLUB;
+						else
+							damagetype = DMG_VEHICLE;
+						end
+						
+						if damage then
+							local scalar = Lerp(condition / 90, 0, 1); -- Make it so damage does not start deterioriating until below 90% condition.
+						
+							if damagetype == DMG_CLUB then
+								damage = math.Round(damage * Lerp(scalar, 0.75, 1));
+							elseif damagetype == DMG_VEHICLE then
+								damage = math.Round(damage * Lerp(scalar, 0.5, 1));
+							end
+						
+							local percentage = math.min((damage / 100) * weaponStats["attack"].altattackdamagemodifier, 100);
+							local toolTip = function(frame)
+								frame:AddText("Alternate Attack Damage", Color(110, 30, 30), nil, 1);
+								frame:AddText("The damage to your foe's health that your weapon's alternate attack does. Can be negated by armor proportional to your weapon's armor-piercing damage value.", Color(225, 200, 200), nil, 0.8);
+							end
+				
+							if damage < originalDamage then
+								frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)).." / "..tostring(math.Round(originalDamage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
+							else
+								frame:AddBar(12, {{text = tostring(math.Round(damage * weaponStats["attack"].altattackdamagemodifier)), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Damage", Color(110, 30, 30), toolTip, true);
+							end
+						end
+					end
+					
+					if weaponStats["attack"].stabilitydamage and weaponStats["attack"].altattackstabilitydamagemodifier and weaponStats["attack"].altattackstabilitydamagemodifier != 0 then
+						local percentage = math.min((weaponStats["attack"].stabilitydamage / 100) * weaponStats["attack"].altattackstabilitydamagemodifier, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Stability Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's stability that your weapon's alternate attack does. Dealing enough will temporarily knock your foe to the ground. Can be negated by enemy armor.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].stabilitydamage * weaponStats["attack"].altattackstabilitydamagemodifier), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Stability Damage", Color(110, 30, 30), toolTip, true);
+					end
+					
+					if weaponStats["attack"].poisedamage and weaponStats["attack"].altattackpoisedamagemodifier then
+						local percentage = math.min((weaponStats["attack"].poisedamage / 100) * weaponStats["attack"].altattackpoisedamagemodifier, 100);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Stamina Damage", Color(110, 30, 30), nil, 1);
+							frame:AddText("The damage to your foe's stamina that your weapon's alternate attack does. Dealing stamina damage will reduce an enemy's staying power in a fight or their ability to flee. Can be negated by enemy shields.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].poisedamage * weaponStats["attack"].altattackpoisedamagemodifier), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Stamina Damage", Color(110, 30, 30), toolTip, true);
+					end
+					
+					if weaponStats["attack"].altmeleearc then
+						local percentage = math.min(weaponStats["attack"].altmeleearc / 60, 60);
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Weapon Arc", Color(110, 30, 30), nil, 1);
+							frame:AddText("Your alternate attack weapon arc determines how wide of a swing your alternate attacks have. Caution should be exercised with weapons that have a large arc, as friendlies may unintentionally be hit.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(weaponStats["attack"].altmeleearc).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Arc", Color(110, 30, 30), toolTip, true);
+					end
+
+					if weaponStats["attack"].meleerange then
+						local newRange = weaponStats["attack"].meleerange;
+						
+						if weaponStats["attack"].altmeleerange then
+							newRange = weaponStats["attack"].altmeleerange;
+						--[[else
+							if weaponTable.CanSwipeAttack then
+								newRange = math.Round(newRange * 0.8);
+							else
+								newRange = math.Round(newRange * 1.2);
+							end]]--
+						end
+						
+						local percentage = math.min((newRange - 425) / (1500 - 425), (1500 - 425));
+						local toolTip = function(frame)
+							frame:AddText("Alternate Attack Melee Range", Color(110, 30, 30), nil, 1);
+							frame:AddText("The melee range of your weapon's alternate attack determines how far you can strike when in an alternate stance. Some weapons such as polearms and spears have varied damage based on how far you are from a struck enemy as well.", Color(225, 200, 200), nil, 0.8);
+						end
+			
+						frame:AddBar(12, {{text = tostring(newRange), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Alternate Attack Weapon Range", Color(110, 30, 30), toolTip, true);
+					end
 				end
 			end
 		end
@@ -1922,8 +2561,16 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		local damageTypes = {[2] = "Bullet", [4] = "Slash", [16] = "Pierce", [128] = "Blunt", [DMG_BUCKSHOT] = "Grapeshot"};
 		local shieldClass = itemTable.uniqueID;
 		local shieldStats = nil;
+		
+		category = "Shield";
+		
+		if itemTable.requiredbeliefs then
+			if table.HasValue(itemTable.requiredbeliefs, "defender") then
+				category = "Great Shield";
+			end
+		end
 
-		frame:AddText(name.." - Shield", Color(180, 20, 20), "nov_IntroTextSmallDETrooper", 1.15);
+		frame:AddText(name.." - "..category, Color(180, 20, 20), "nov_IntroTextSmallDETrooper", 1.15);
 		frame:AddText(itemTable("description"), Color(180, 170, 170), "nov_IntroTextSmallDETrooper", 0.8);
 		
 		if (bShowWeight) then
@@ -1937,15 +2584,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.requiredbeliefs do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.requiredbeliefs[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if itemTable.onerequiredbelief and #itemTable.onerequiredbelief > 0 then
@@ -1954,15 +2614,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.onerequiredbelief do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.onerequiredbelief[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs (One Of The Following): ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if shieldClass then
@@ -1987,98 +2660,130 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 					
 					if blockDamageTypes ~= "" then
-						frame:AddText("Blocks Damage Types: "..blockDamageTypes, Color(110, 30, 30));
+						frame:AddText("Blocks Damage Types: "..blockDamageTypes, Color(110, 30, 30), nil, 0.9);
 					end
 				end
 			
 				if shieldStats.canparry then
-					frame:AddText("Can Parry", Color(110, 30, 30));
+					frame:AddText("Can Parry", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if !shieldStats.candeflect then
-					frame:AddText("Cannot Deflect", Color(110, 30, 30));
+					frame:AddText("Cannot Deflect", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if shieldStats.partialbulletblock then
-					frame:AddText("Has Bullet Resistance", Color(110, 30, 30));
+					frame:AddText("Has Bullet Resistance", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if shieldStats.parrydifficulty and shieldStats.parrydifficulty > 0.2 then
-					frame:AddText("Has Increased Parry Window", Color(110, 30, 30));
+					frame:AddText("Has Increased Parry Window", Color(110, 30, 30), nil, 0.9);
+				end
+				
+				if category == "Great Shield" then
+					frame:AddText("Great Shield: Reduces sprint speed by 10% when held.", Color(110, 30, 30), nil, 0.9);
+				end
+				
+				if itemTable.unrepairable then
+					frame:AddText("Unrepairable: This shield cannot be repaired and will always take condition damage, irrespective of beliefs.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.attributes then
 					if table.HasValue(itemTable.attributes, "conditionless") then
-						frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30));
+						frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30), nil, 0.9);
 					end
 					
 					if table.HasValue(itemTable.attributes, "electrified") then
-						frame:AddText("Electrified: Deals shock damage to characters who hit your shield with metal weapons or their fists if wearing metallic armor.", Color(110, 30, 30));
+						frame:AddText("Electrified: Deals shock damage to characters who hit your shield with metal weapons or their fists if wearing metallic armor.", Color(110, 30, 30), nil, 0.9);
 					end
-				
+
 					if table.HasValue(itemTable.attributes, "unbreakable") then
-						frame:AddText("Perfect Poise Damage Resistance: You are immune to poise damage while blocking, and will only suffer minimum block cost.", Color(110, 30, 30));
+						frame:AddText("Perfect Poise Damage Resistance: You are immune to poise damage while blocking, and will only suffer minimum block cost.", Color(110, 30, 30), nil, 0.9);
 					end
 				end
 				
 				if itemTable.requireFaction and not table.IsEmpty(itemTable.requireFaction) and itemTable.requireFaction[1] ~= "Wanderer" then
-					frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30));
+					frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.requireFaith and not table.IsEmpty(itemTable.requireFaith) then
-					frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30));
+					frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.requireSubfaction and not table.IsEmpty(itemTable.requireSubfaction) then
-					frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30));
+					frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.excludeFactions and not table.IsEmpty(itemTable.excludeFactions) then
-					frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30));
+					frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if Clockwork.Client:GetFaction() == "Goreic Warrior" and itemTable.excludeSubfactions and not table.IsEmpty(itemTable.excludeSubfactions) then
-					frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30));
+					frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30), nil, 0.9);
 				end
 				
 				frame:AddText("Shield Stats: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 				
 				if shieldStats.blockcone then
 					local percentage = math.min(shieldStats.blockcone / 270, 270);
+					local toolTip = function(frame)
+						frame:AddText("Block Cone", Color(110, 30, 30), nil, 1);
+						frame:AddText("The block cone of your weapon or shield determines at what angles blocking is effective, when facing toward a foe.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(shieldStats.blockcone).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Cone", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(shieldStats.blockcone).."°", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Cone", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if shieldStats.guardblockamount then
 					local percentage = math.min(shieldStats.guardblockamount / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Block Cost (Minimum)", Color(110, 30, 30), nil, 1);
+						frame:AddText("The minimum block cost of your weapon or shield in stamina if an attack by an enemy foe causes any stamina damage at all.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(shieldStats.guardblockamount).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Cost (Minimum)", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(shieldStats.guardblockamount).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Cost (Minimum)", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if shieldStats.poiseresistance then
 					local percentage = math.min(shieldStats.poiseresistance / 100, 100);
+					local toolTip = function(frame)
+						frame:AddText("Block Stamina Damage Resistance", Color(110, 30, 30), nil, 1);
+						frame:AddText("The resistance of your weapon or shield to additional stamina damage beyond the minimum cost while blocking.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring(shieldStats.poiseresistance).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Poise Damage Resistance", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(shieldStats.poiseresistance).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Block Stamina Damage Resistance", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if shieldStats.canparry then
 					if shieldStats.parrytakestamina then
 						local percentage = math.min(shieldStats.parrytakestamina / 40, 40);
+						local toolTip = function(frame)
+							frame:AddText("Parry Cost", Color(110, 30, 30), nil, 1);
+							frame:AddText("The stamina cost of attempting a parry. Successfully parrying a foe will refund half of this cost.", Color(225, 200, 200), nil, 0.8);
+						end
 
-						frame:AddBar(12, {{text = tostring(shieldStats.parrytakestamina).." Poise", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Cost", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(shieldStats.parrytakestamina).." Stamina", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Cost", Color(110, 30, 30), toolTip, true);
 					end
 					
 					if shieldStats.parrydifficulty then
 						local percentage = 1 - math.min(shieldStats.parrydifficulty / 0.3, 0.3);
+						local toolTip = function(frame)
+							frame:AddText("Parry Window", Color(110, 30, 30), nil, 1);
+							frame:AddText("The time in seconds after parrying that your parry will be active. Higher values mean that parrying will be easier as the window will be larger.", Color(225, 200, 200), nil, 0.8);
+						end
 
-						frame:AddBar(12, {{text = tostring(shieldStats.parrydifficulty).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Window", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(shieldStats.parrydifficulty).."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Parry Window", Color(110, 30, 30), toolTip, true);
 					end
 				end
 				
 				if shieldStats.damagereduction then
 					local percentage = math.min(1 - shieldStats.damagereduction, 0.3);
+					local toolTip = function(frame)
+						frame:AddText("Weapon Damage Reduction", Color(110, 30, 30), nil, 1);
+						frame:AddText("Equipped shields can lower the damage of equipped weapons up to a value of 30% for the heaviest shields.", Color(225, 200, 200), nil, 0.8);
+					end
 
-					frame:AddBar(12, {{text = tostring((1 - shieldStats.damagereduction) * 100).."%", percentage = percentage * 333.33, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Damage Reduction (Max 30%)", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring((1 - shieldStats.damagereduction) * 100).."%", percentage = percentage * 333.33, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Weapon Damage Reduction", Color(110, 30, 30), toolTip, true);
 				end
 			end
 		end
@@ -2118,15 +2823,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.requiredbeliefs do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.requiredbeliefs[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if itemTable.onerequiredbelief and #itemTable.onerequiredbelief > 0 then
@@ -2135,15 +2853,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.onerequiredbelief do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.onerequiredbelief[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs (One Of The Following): ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		frame:AddText("Armor Attributes: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
@@ -2161,98 +2892,102 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 				end
 			end
 		
-			frame:AddText(effectiveLimbsText, Color(110, 30, 30));
+			frame:AddText(effectiveLimbsText, Color(110, 30, 30), nil, 0.9);
+		end
+		
+		if itemTable.unrepairable then
+			frame:AddText("Unrepairable: This armor cannot be repaired and will always take condition damage, irrespective of beliefs.", Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.attributes then
 			if table.HasValue(itemTable.attributes, "conditionless") then
-				frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30));
+				frame:AddText("Conditionless: This item will not take condition damage.", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "disease_resistance") then
-				frame:AddText("Disease Resistance: This item prevents airborne diseases from infecting you.", Color(110, 30, 30));
+				frame:AddText("Disease Resistance: This item prevents airborne diseases from infecting you.", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "double_jump") then
-				frame:AddText("Double Jump: This item allows you to double jump by pressing your jump key while mid-air.", Color(110, 30, 30));
+				frame:AddText("Double Jump: This item allows you to double jump by pressing your jump key while mid-air.", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "electrified") then
-				frame:AddText("Electrified: Deals shock damage to characters who hit you with metal weapons or their fists if wearing metallic armor.", Color(110, 30, 30));
+				frame:AddText("Electrified: Deals shock damage to characters who hit you with metal weapons or their fists if wearing metallic armor.", Color(110, 30, 30), nil, 0.9);
 			end
 		
 			if table.HasValue(itemTable.attributes, "fear") then
-				frame:AddText("Fear: Characters of opposing factions will be disoriented and lose sanity when near you.", Color(110, 30, 30));
+				frame:AddText("Fear: Characters of opposing factions will be disoriented and lose sanity when near you.", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "increased_regeneration") then
-				frame:AddText("Increased Regeneration: Passive health regeneration is tripled.", Color(110, 30, 30));
+				frame:AddText("Increased Regeneration: Triples the health regeneration from 'Gift of the Great Tree'.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "lifeleech") then
-				frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health", Color(110, 30, 30));
+				frame:AddText("Lifeleech (Shieldless): 50% of damage dealt is returned as health", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "mothers_blessing") then
-				frame:AddText("Mother's Blessing: Reduces corruption gain by 50%.", Color(110, 30, 30));
+				frame:AddText("Mother's Blessing: Reduces corruption gain by 50%.", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "night_vision") then
-				frame:AddText("Night Vision: Night vision can be activated by right-clicking with Senses while this armor is equipped.", Color(110, 30, 30));
+				frame:AddText("Night Vision: Night vision can be activated by right-clicking with Senses while this armor is equipped.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "not_unequippable") then
-				frame:AddText("Not Unequippable: This item cannot be unequipped once worn and will remain equipped until your death.", Color(110, 30, 30));
+				frame:AddText("Not Unequippable: This item cannot be unequipped once worn and will remain equipped until your death.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "rage") then
-				frame:AddText("Rage (Shieldless): Movement speed is increased by 10%", Color(110, 30, 30));
+				frame:AddText("Rage (Shieldless): Movement speed is increased by 7%", Color(110, 30, 30), nil, 0.9);
 			end
 			
 			if table.HasValue(itemTable.attributes, "thermal_vision") then
-				frame:AddText("Thermal Vision: Thermal vision replaces Senses while this armor is equipped.", Color(110, 30, 30));
+				frame:AddText("Thermal Vision: Thermal vision replaces Senses while this armor is equipped.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "solblessed") then
-				--frame:AddText("Blessed in Hatred: Equipping will grant the 'Hatred' bar, which will fill upon inflicting or taking damage. 100% 'Hatred' will prevent death from damage but will reduce 'Hatred' to 0%.", Color(110, 30, 30));
-				frame:AddText("Blessed in Hatred: Equipping will grant the 'Hatred' bar, which will fill upon taking damage. 100% 'Hatred' will prevent death from damage but will reduce 'Hatred' to 0%.", Color(110, 30, 30));
+				--frame:AddText("Blessed in Hatred: Equipping will grant the 'Hatred' bar, which will fill upon inflicting or taking damage. 100% 'Hatred' will prevent death from damage but will reduce 'Hatred' to 0%.", Color(110, 30, 30), nil, 0.9);
+				frame:AddText("Blessed in Hatred: Equipping will grant the 'Hatred' bar, which will fill upon taking damage. 100% 'Hatred' will prevent death from damage but will reduce 'Hatred' to 0%.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "deathknell") then
-				frame:AddText("Deathknell: Taking damage to the head will disorient both you and the attacker.", Color(110, 30, 30));
+				frame:AddText("Deathknell: Taking damage to the head will disorient both you and the attacker.", Color(110, 30, 30), nil, 0.9);
 			end
 
 			if table.HasValue(itemTable.attributes, "bloodtoll") then
-				frame:AddText("Blood Toll: Taking any damage to the head will always result in a bleed injury.", Color(110, 30, 30));
+				frame:AddText("Blood Toll: Taking any damage to the head will always result in a bleed injury.", Color(110, 30, 30), nil, 0.9);
 			end
 		end
 		
 		--if itemTable.weight then
 			if itemTable.weightclass == "Medium" then
-				frame:AddText("Sprint Speed Reduction: 15%", Color(110, 30, 30));
+				frame:AddText("Sprint Speed Reduction: 15%", Color(110, 30, 30), nil, 0.9);
 			elseif itemTable.weightclass == "Heavy" then
-				frame:AddText("Sprint Speed Reduction: 30%", Color(110, 30, 30));
+				frame:AddText("Sprint Speed Reduction: 30%", Color(110, 30, 30), nil, 0.9);
 			end
 		--end
 		
 		if itemTable.requireFaction and not table.IsEmpty(itemTable.requireFaction) and itemTable.requireFaction[1] ~= "Wanderer" then
-			frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30));
+			frame:AddText("Required Faction: "..table.concat(itemTable.requireFaction, ", "), Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.requireFaith and not table.IsEmpty(itemTable.requireFaith) then
-			frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30));
+			frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.requireSubfaction and not table.IsEmpty(itemTable.requireSubfaction) then
-			frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30));
+			frame:AddText("Required Subfaction: "..table.concat(itemTable.requireSubfaction, ", "), Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.excludeFactions and not table.IsEmpty(itemTable.excludeFactions) then
-			frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30));
+			frame:AddText("Excluded Factions: "..table.concat(itemTable.excludeFactions, ", "), Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if Clockwork.Client:GetFaction() == "Goreic Warrior" and itemTable.excludeSubfactions and not table.IsEmpty(itemTable.excludeSubfactions) then
-			frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30));
+			frame:AddText("Excluded Subfactions: "..table.concat(itemTable.excludeSubfactions, ", "), Color(110, 30, 30), nil, 0.9);
 		end
 		
 		frame:AddText("Armor Stats: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
@@ -2266,48 +3001,72 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			end
 			
 			local percentage = math.min(protection, 100);
+			local toolTip = function(frame)
+				frame:AddText("Armor Effectiveness", Color(110, 30, 30), nil, 1);
+				frame:AddText("Armor effectiveness, as the name implies, affects how effective your armor is against enemy attacks. Higher armor effectiveness values reduce the damage of enemy attacks, but can in turn be reduced by an enemy's armor-percing damage. Note that the lower your armor condition, the lower your protection will be.", Color(225, 200, 200), nil, 0.8);
+			end
 
 			if protection < originalProtection then
-				frame:AddBar(12, {{text = tostring(protection).."% / "..originalProtection.."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor Effectiveness", Color(110, 30, 30), true);
+				frame:AddBar(12, {{text = tostring(protection).."% / "..originalProtection.."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor Effectiveness", Color(110, 30, 30), toolTip, true);
 			else
-				frame:AddBar(12, {{text = tostring(protection).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor Effectiveness", Color(110, 30, 30), true);
+				frame:AddBar(12, {{text = tostring(protection).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Armor Effectiveness", Color(110, 30, 30), toolTip, true);
 			end
 		end
 		
 		if itemTable.bluntScale then
 			local percentage = (1 - itemTable.bluntScale) * 100;
+			local toolTip = function(frame)
+				frame:AddText("Blunt Damage Resistance", Color(110, 30, 30), nil, 1);
+				frame:AddText("Reduces blunt damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+			end
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Blunt Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Blunt Damage Resistance", Color(110, 30, 30), toolTip, true);
 		end
 		
 		if itemTable.bulletScale then
 			local percentage = (1 - itemTable.bulletScale) * 100;
+			local toolTip = function(frame)
+				frame:AddText("Bullet Damage Resistance", Color(110, 30, 30), nil, 1);
+				frame:AddText("Reduces bullet damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+			end
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Bullet Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Bullet Damage Resistance", Color(110, 30, 30), toolTip, true);
 		end
 		
 		--[[if itemTable.damageTypeScales and itemTable.damageTypeScales[DMG_FALL] then
 			local percentage = -itemTable.damageTypeScales[DMG_FALL];
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Fall Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Fall Damage Resistance", Color(110, 30, 30), toolTip, true);
 		end]]--
 		
 		if itemTable.pierceScale then
 			local percentage = (1 - itemTable.pierceScale) * 100;
+			local toolTip = function(frame)
+				frame:AddText("Pierce Damage Resistance", Color(110, 30, 30), nil, 1);
+				frame:AddText("Reduces pierce damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+			end
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Pierce Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Pierce Damage Resistance", Color(110, 30, 30), toolTip, true);
 		end
 		
 		if itemTable.slashScale then
 			local percentage = (1 - itemTable.slashScale) * 100;
+			local toolTip = function(frame)
+				frame:AddText("Slash Damage Resistance", Color(110, 30, 30), nil, 1);
+				frame:AddText("Reduces slash damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+			end
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Slash Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Slash Damage Resistance", Color(110, 30, 30), toolTip, true);
 		end
 		
 		if itemTable.stabilityScale then
 			local percentage = (1 - itemTable.stabilityScale) * 100;
+			local toolTip = function(frame)
+				frame:AddText("Stability Damage Resistance", Color(110, 30, 30), nil, 1);
+				frame:AddText("Reduces stability damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+			end
 
-			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage Resistance", Color(110, 30, 30), true);
+			frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage Resistance", Color(110, 30, 30), toolTip, true);
 		else
 			local armorClass = itemTable.weightclass;
 			
@@ -2324,12 +3083,17 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 				
 				percentage = percentage * 100;
 				
-				frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage Resistance", Color(110, 30, 30), true);
+				local toolTip = function(frame)
+					frame:AddText("Stability Damage Resistance", Color(110, 30, 30), nil, 1);
+					frame:AddText("Reduces stability damage by a flat amount irrespective of armor effectiveness.", Color(225, 200, 200), nil, 0.8);
+				end
+				
+				frame:AddBar(12, {{text = tostring(percentage).."%", percentage = percentage, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Stability Damage Resistance", Color(110, 30, 30), toolTip, true);
 			end
 		end
 		
 		return true;
-	elseif (category == "Firearms") then
+	elseif (category == "Crossbows") or (category == "Firearms") then
 		local weaponAmmo = itemTable:GetData("Ammo");
 		local weaponClass = itemTable.uniqueID;
 		local weaponTable;
@@ -2351,7 +3115,7 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		end
 		
 		if itemTable.requireFaith and not table.IsEmpty(itemTable.requireFaith) then
-			frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30));
+			frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30), nil, 0.9);
 		end
 
 		if weaponClass then
@@ -2361,41 +3125,49 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 				frame:AddText("Weapon Attributes: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 
 				if !weaponTable.MisfireChance or weaponTable.MisfireChance == 0 then
-					frame:AddText("Cannot Misfire", Color(110, 30, 30));
+					frame:AddText("Cannot Misfire", Color(110, 30, 30), nil, 0.9);
+				end
+				
+				frame:AddText("Ranged Weapon: You will be disarmed upon taking damage with this weapon.", Color(110, 30, 30), nil, 0.9);
+				
+				if itemTable.unrepairable then
+					frame:AddText("Unrepairable: This weapon cannot be repaired and will always take condition damage, irrespective of beliefs.", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.attributes then
 					if table.HasValue(itemTable.attributes, "sundering_shot") then
-						frame:AddText("Sundering Shot: Travelling at supersonic speeds, Old World Longshot ignores armor and shields entirely.", Color(110, 30, 30));
+						frame:AddText("Sundering Shot: Travelling at supersonic speeds, Old World Longshot ignores armor and shields entirely.", Color(110, 30, 30), nil, 0.9);
 					elseif table.HasValue(itemTable.attributes, "sundering_shot_grapeshot") then
-						frame:AddText("Sundering Shot: Travelling at supersonic speeds, Old World Grapeshot ignores armor and shields entirely.", Color(110, 30, 30));
+						frame:AddText("Sundering Shot: Travelling at supersonic speeds, Old World Grapeshot ignores armor and shields entirely.", Color(110, 30, 30), nil, 0.9);
+					elseif table.HasValue(itemTable.attributes, "variable_damage") then
+						frame:AddText("Variable Damage: Damage will be increased or decreased depending on the distance of the target. Targets further away will receive more damage.", Color(110, 30, 30), nil, 0.9);
 					end
 				end
 
 				if itemTable.usesMagazine then
-					frame:AddText("Uses Detachable Magazines", Color(110, 30, 30));
+					frame:AddText("Uses Detachable Magazines", Color(110, 30, 30), nil, 0.9);
 				elseif itemTable.isRevolver then
-					frame:AddText("Has Revolving Barrels", Color(110, 30, 30));
+					frame:AddText("Has Revolving Barrels", Color(110, 30, 30), nil, 0.9);
 				elseif itemTable.ammoCapacity and itemTable.ammoCapacity > 1 then
-					frame:AddText("Has Fixed Magazine", Color(110, 30, 30));
+					frame:AddText("Has Fixed Magazine", Color(110, 30, 30), nil, 0.9);
 				else
-					frame:AddText("Has Single Shot", Color(110, 30, 30));
+					frame:AddText("Has Single Shot", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if weaponTable.IgnoresBulletResistance then
-					frame:AddText("Ignores Bullet Resistance", Color(110, 30, 30));
+					frame:AddText("Ignores Bullet Resistance", Color(110, 30, 30), nil, 0.9);
 				end
 				
 				if itemTable.ammoTypes then
-					frame:AddText("Shot Versatility: ", Color(110, 30, 30));
+					frame:AddText("Shot Versatility: ", Color(110, 30, 30), nil, 0.9);
 					
 					if itemTable.ammoTypesNice then
 						for i = 1, #itemTable.ammoTypesNice do
-							frame:AddText("   "..itemTable.ammoTypesNice[i], Color(110, 30, 30));
+							frame:AddText("   "..itemTable.ammoTypesNice[i], Color(110, 30, 30), nil, 0.9);
 						end
 					else
 						for i = 1, #itemTable.ammoTypes do
-							frame:AddText("   "..itemTable.ammoTypes[i], Color(110, 30, 30));
+							frame:AddText("   "..itemTable.ammoTypes[i], Color(110, 30, 30), nil, 0.9);
 						end
 					end
 				end
@@ -2411,11 +3183,15 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 				
 					local percentage = 1 - math.min(accuracy * 2, 1);
+					local toolTip = function(frame)
+						frame:AddText("Accuracy (Aiming)", Color(110, 30, 30), nil, 1);
+						frame:AddText("The accuracy of your weapon while aiming down sights. Can be further increased by crouching and through the 'Marksman' belief.", Color(225, 200, 200), nil, 0.8);
+					end
 		
 					if accuracy > originalAccuracy then
-						frame:AddBar(12, {{text = tostring(accuracy).." / "..tostring(originalAccuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Aiming)", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(accuracy).." / "..tostring(originalAccuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Aiming)", Color(110, 30, 30), toolTip, true);
 					else
-						frame:AddBar(12, {{text = tostring(accuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Aiming)", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(accuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Aiming)", Color(110, 30, 30), toolTip, true);
 					end
 				end
 				
@@ -2428,36 +3204,56 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 					end
 				
 					local percentage = 1 - math.min(accuracy * 2, 1);
+					local toolTip = function(frame)
+						frame:AddText("Accuracy (Hip-Fire)", Color(110, 30, 30), nil, 1);
+						frame:AddText("The accuracy of your weapon while hip-firing. Can be further increased by crouching.", Color(225, 200, 200), nil, 0.8);
+					end
 		
 					if accuracy > originalAccuracy then
-						frame:AddBar(12, {{text = tostring(accuracy).." / "..tostring(originalAccuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Moving)", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(accuracy).." / "..tostring(originalAccuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Hip-Fire)", Color(110, 30, 30), toolTip, true);
 					else
-						frame:AddBar(12, {{text = tostring(accuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Moving)", Color(110, 30, 30), true);
+						frame:AddBar(12, {{text = tostring(accuracy), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Accuracy (Hip-Fire)", Color(110, 30, 30), toolTip, true);
 					end
 				end
 				
 				if weaponTable.Primary.NumShots > 1 then
 					local percentage = math.min(weaponTable.Primary.NumShots, 32) / 32;
+					local toolTip = function(frame)
+						frame:AddText("Pellet Amount", Color(110, 30, 30), nil, 1);
+						frame:AddText("The amount of projectiles fired from this weapon.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponTable.Primary.NumShots), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Pellet Amount", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponTable.Primary.NumShots), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Pellet Amount", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponTable.Primary.RPM and weaponTable.Primary.ClipSize > 1 then
 					local percentage = math.min(weaponTable.Primary.RPM, 650) / 650;
+					local toolTip = function(frame)
+						frame:AddText("Rate of Fire", Color(110, 30, 30), nil, 1);
+						frame:AddText("The rate of fire of this weapon in rounds per minute.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponTable.Primary.RPM), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Rate of Fire", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponTable.Primary.RPM), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Rate of Fire", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if itemTable.reloadTime then
 					local percentage = math.min(itemTable.reloadTime, 10);
+					local toolTip = function(frame)
+						frame:AddText("Reload Time", Color(110, 30, 30), nil, 1);
+						frame:AddText("The amount of time in seconds it takes to reload this weapon.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(itemTable.reloadTime).."s", percentage = percentage * 10, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Reload Time", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(itemTable.reloadTime).."s", percentage = percentage * 10, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Reload Time", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponTable.Primary.Damage then
 					local percentage = math.min(weaponTable.Primary.Damage / 80, 80);
+					local toolTip = function(frame)
+						frame:AddText("Shot Damage", Color(110, 30, 30), nil, 1);
+						frame:AddText("The damage of this weapon's shot. Note that firearms have 100% armor-piercing.", Color(225, 200, 200), nil, 0.8);
+					end
 		
-					frame:AddBar(12, {{text = tostring(weaponTable.Primary.Damage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Shot Damage", Color(110, 30, 30), true);
+					frame:AddBar(12, {{text = tostring(weaponTable.Primary.Damage), percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Shot Damage", Color(110, 30, 30), toolTip, true);
 				end
 				
 				if weaponAmmo then
@@ -2506,8 +3302,12 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			frame:AddSpacer(2, Color(0, 0, 0, 0));
 		end;
 		
+		if itemTable.requireFaith and not table.IsEmpty(itemTable.requireFaith) then
+			frame:AddText("Required Faith: "..table.concat(itemTable.requireFaith, " or "), Color(110, 30, 30), nil, 0.9);
+		end
+		
 		frame:AddText("Effects: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-		frame:AddText(itemTable.charmEffects, Color(110, 30, 30));
+		frame:AddText(itemTable.charmEffects, Color(110, 30, 30), nil, 0.9);
 		
 		return true;
 	elseif (category == "Shot" and itemTable.ammoMagazineSize) then
@@ -2557,39 +3357,39 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		frame:AddText("Medical Attributes: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 
 		if itemTable.applicable then
-			frame:AddText("Applicable", Color(110, 30, 30));
+			frame:AddText("Applicable", Color(110, 30, 30), nil, 0.9);
 		elseif itemTable.ingestible then
-			frame:AddText("Ingestible", Color(110, 30, 30));
+			frame:AddText("Ingestible", Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.canSave then
-			frame:AddText("Can Revive From Critical Condition", Color(110, 30, 30));
+			frame:AddText("Can Revive From Critical Condition", Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.curesInjuries then
-			frame:AddText("Cures Injuries: ", Color(110, 30, 30));
+			frame:AddText("Cures Injuries: ", Color(110, 30, 30), nil, 0.9);
 			
 			for i = 1, #itemTable.curesInjuries do
 				local injury = cwMedicalSystem.cwInjuryTable[itemTable.curesInjuries[i]];
 				
 				if injury then
-					frame:AddText("    "..injury.name, Color(110, 30, 30));
+					frame:AddText("    "..injury.name, Color(110, 30, 30), nil, 0.9);
 				end
 			end
 		end
 		
 		if itemTable.stopsBleeding then
-			frame:AddText("Stops Bleeding", Color(110, 30, 30));
+			frame:AddText("Stops Bleeding", Color(110, 30, 30), nil, 0.9);
 		end
 		
 		if itemTable.limbs then
 			if itemTable.limbs == "all" then
-				frame:AddText("Supported Limbs: Heals All", Color(110, 30, 30));
+				frame:AddText("Supported Limbs: Heals All", Color(110, 30, 30), nil, 0.9);
 			elseif #itemTable.limbs > 0 then
-				frame:AddText("Supported Limbs: ", Color(110, 30, 30));
+				frame:AddText("Supported Limbs: ", Color(110, 30, 30), nil, 0.9);
 				
 				for i = 1, #itemTable.limbs do
-					frame:AddText("    "..hitGroupToString[itemTable.limbs[i]], Color(110, 30, 30));
+					frame:AddText("    "..hitGroupToString[itemTable.limbs[i]], Color(110, 30, 30), nil, 0.9);
 				end
 			end
 		end
@@ -2597,25 +3397,53 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		if itemTable.healAmount or itemTable.restoresBlood then
 			frame:AddText("Medical Stats: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
 		
-			if itemTable.healAmount then		
-				local healAmount = itemTable.healAmount * itemTable.healRepetition;
+			if itemTable.healAmount and itemTable.healRepetition then	
+				local healAmount = itemTable.healAmount;
+				local healRepetition = itemTable.healRepetition;
+				local healDelay = itemTable.healDelay;
 				local percentage = math.min(healAmount / 100, 100);
+				local toolTip = function(frame)
+					frame:AddText("Heal Amount", Color(110, 30, 30), nil, 1);
+					frame:AddText("The amount of health this item will restore every repetition.", Color(225, 200, 200), nil, 0.8);
+				end
 
-				frame:AddBar(12, {{text = healAmount.." Health", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Heal Amount", Color(110, 30, 30), true);
+				frame:AddBar(12, {{text = healAmount.." Health", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Heal Amount", Color(110, 30, 30), toolTip, true);
+				
+				percentage = math.min(healRepetition / 8, 8);
+				toolTip = function(frame)
+					frame:AddText("Heal Repetitions", Color(110, 30, 30), nil, 1);
+					frame:AddText("The amount of times that this item will restore health.", Color(225, 200, 200), nil, 0.8);
+				end
+
+				frame:AddBar(12, {{text = healRepetition, percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Heal Repetitions", Color(110, 30, 30), toolTip, true);
+				
+				if itemTable.healDelay then
+					percentage = math.min(healDelay / 8, 8);
+					toolTip = function(frame)
+						frame:AddText("Heal Delay", Color(110, 30, 30), nil, 1);
+						frame:AddText("The delay between each of this item's heal repetitions.", Color(225, 200, 200), nil, 0.8);
+					end
+
+					frame:AddBar(12, {{text = healDelay.."s", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Heal Delay", Color(110, 30, 30), toolTip, true);
+				end
 			end
 			
 			if itemTable.restoresBlood then	
 				local healAmount = itemTable.restoresBlood;
 				local percentage = math.min(healAmount / 2500, 2500);
+				local toolTip = function(frame)
+					frame:AddText("Restores Blood", Color(110, 30, 30), nil, 1);
+					frame:AddText("The total amount of blood that this medical item will restore.", Color(225, 200, 200), nil, 0.8);
+				end
 
-				frame:AddBar(12, {{text = healAmount.." Blood", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Restores Blood", Color(110, 30, 30), true);
+				frame:AddBar(12, {{text = healAmount.." Blood", percentage = percentage * 100, color = Color(110, 30, 30), font = "DermaDefault", textless = false, noDisplay = true}}, "Restores Blood", Color(110, 30, 30), toolTip, true);
 			end
 		end
 		
 		return true;
 	end
 	
-	if category == "Helms" then
+	if category == "Helms" then -- For helms that don't have armor like hats and hoods.
 		category = "Headwear";
 		
 		frame:AddText(name.." - "..category, Color(180, 20, 20), "nov_IntroTextSmallDETrooper", 1.15);
@@ -2670,6 +3498,10 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 		
 		return true;
 	else
+		if itemTable.GetCustomName then
+			name = itemTable:GetCustomName();
+		end
+	
 		frame:AddText(name.." - "..category, Color(180, 20, 20), "nov_IntroTextSmallDETrooper", 1.15);
 		frame:AddText(itemTable("description"), Color(180, 170, 170), "nov_IntroTextSmallDETrooper", 0.8);
 		
@@ -2683,15 +3515,28 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.requiredbeliefs do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.requiredbeliefs[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.requiredbeliefs[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs: ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
 		
 		if itemTable.onerequiredbelief and #itemTable.onerequiredbelief > 0 then
@@ -2700,16 +3545,31 @@ function Schema:ModifyItemMarkupTooltip(category, maximumWeight, weight, conditi
 			for i = 1, #itemTable.onerequiredbelief do
 				local beliefTable = cwBeliefs:FindBeliefByID(itemTable.onerequiredbelief[i]);
 				
-				if beliefTable and beliefTable.iconOverride then
-					table.insert(beliefIcons, beliefTable.iconOverride);
-				else
-					table.insert(beliefIcons, "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png");
+				if beliefTable then
+					local tooltip = function(frame)
+						frame:AddText(beliefTable.name, cwBeliefs:FindBeliefTreeByBelief(beliefTable.uniqueID).color, "Civ5ToolTip4");
+						
+						if beliefTable.quote then
+							frame:AddText(beliefTable.description.."\n", Color(225, 200, 200));
+							frame:AddText(beliefTable.quote, Color(128, 90, 90, 240));
+						else
+							frame:AddText(beliefTable.description, Color(225, 200, 200));
+						end
+					end
+					
+					if beliefTable.iconOverride then
+						table.insert(beliefIcons, {icon = beliefTable.iconOverride, tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					else
+						table.insert(beliefIcons, {icon = "begotten/ui/belieficons/"..itemTable.onerequiredbelief[i]..".png", tooltip = tooltip, button = function() cwBeliefs:OpenTree(nil, nil, nil, nil, nil, nil, beliefTable.uniqueID) end});
+					end
 				end
 			end
 			
 			frame:AddText("Required Beliefs (One Of The Following): ", Color(225, 225, 225), "nov_IntroTextSmallDETrooper", 1.15);
-			frame:AddIconRow(beliefIcons, 32);
+			frame:AddIconRow(beliefIcons, 40);
 		end
+		
+		hook.Run("SubModifyItemMarkupTooltip", category, maximumWeight, weight, condition, percentage, name, itemTable, x, y, width, height, frame, bShowWeight);
 		
 		return true;
 	end
@@ -2731,4 +3591,48 @@ netstream.Hook("GoreWarhorn", function(data)
 	Clockwork.Client:EmitSound("warhorns/warhorn_gore.mp3", 60, 100);
 	
 	util.ScreenShake(Clockwork.Client:GetPos(), 2, 5, 15, 1024);
+end);
+
+netstream.Hook("NPCSpawnESPInfo", function(data)
+	if data then
+		if data[1] then
+			Schema.npcSpawns = data[1];
+		end
+	end
+end);
+
+-- Save data icon in top right.
+local pentaFade;
+local pentaAlpha = 0;
+local pentaRotate = 0;
+local mPentagram = Material("begotten/pentagram_red.png");
+
+net.Receive("ServerSaveData", function()
+	if net.ReadBool() then
+		hook.Add("DrawOverlay", "DrawOverlayServerSaveData", function()
+			if pentaFade then
+				pentaAlpha = math.Approach(pentaAlpha, 0, FrameTime() * 400);
+			else
+				pentaAlpha = math.Approach(pentaAlpha, 255, FrameTime() * 400);
+			end
+			
+			pentaRotate = (pentaRotate + (FrameTime() * 50)) % 360;
+			
+			local scrW = ScrW()
+			local pentaSize = scrW * 0.032;
+			
+			surface.SetDrawColor(Color(139, 64, 0, pentaAlpha));
+			surface.SetMaterial(mPentagram);
+			surface.DrawTexturedRectRotated(scrW - pentaSize, pentaSize, pentaSize, pentaSize, pentaRotate);
+		end);
+	else
+		pentaFade = true;
+	
+		timer.Simple(4, function()
+			pentaFade = nil;
+			pentaAlpha = 0;
+			pentaRotate = 0;
+			hook.Remove("DrawOverlay", "DrawOverlayServerSaveData");
+		end);
+	end
 end);

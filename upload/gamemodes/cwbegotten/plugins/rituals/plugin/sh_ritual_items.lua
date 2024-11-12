@@ -17,15 +17,15 @@ local ITEM = Clockwork.item:New();
 	-- Called when a player drops the item.
 	function ITEM:OnUse(player, position)
 		if (player:Alive() and !player:IsRagdolled()) then
-			Clockwork.datastream:Start(player, "Stunned", 7);
-			Clockwork.datastream:Start(player, "PlaySound", "begotten/ui/sanity_gain.mp3");
+			netstream.Start(player, "Stunned", 7);
+			netstream.Start(player, "PlaySound", "begotten/ui/sanity_gain.mp3");
 			
 			if cwSanity then
 				player:HandleSanity(20);
 			end
 			
 			player:HandleNeed("corruption", -30);
-			Clockwork.chatBox:Add(player, nil, "itnofake", "You crush the purfying stone in your hand and can immediately feel the corruption leaving your body.");
+			Clockwork.chatBox:Add(player, nil, "itnofake", "You crush the purifying stone in your hand and can immediately feel the corruption leaving your body.");
 		else
 			Schema:EasyText(player, "firebrick", "You cannot do this action at this moment.")
 		end
@@ -266,7 +266,7 @@ ITEM:Register();
 local ITEM = Clockwork.item:New();
 	ITEM.name = "Ice Sigil Stone";
 	ITEM.model = "models/srp/items/spezzy/art_moldfish.mdl";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/ice_catalyst.png";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/art_moldfish.png";
 	ITEM.weight = 0.1;
 	ITEM.category = "Catalysts";
 	ITEM.description = "A sigil stone that saps the air with an unbearable chill.";

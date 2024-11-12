@@ -25,7 +25,7 @@ SWEP.Weight				= 30			-- Rank relative ot other weapons. bigger is better
 SWEP.AutoSwitchTo			= true		-- Auto switch to if we pick it up
 SWEP.AutoSwitchFrom			= true		-- Auto switch from if you pick up a better weapon
 SWEP.BoltAction				= false		-- Is this a bolt action rifle?
-SWEP.HoldType 				= "ar2"		-- how others view you carrying the weapon
+SWEP.HoldType 				= "smg"		-- how others view you carrying the weapon
 -- normal melee melee2 fist knife smg ar2 pistol rpg physgun grenade shotgun crossbow slam passive 
 -- you're mostly going to use ar2, smg, shotgun or pistol. rpg and crossbow make for good sniper rifles
 
@@ -77,6 +77,7 @@ SWEP.ViewModelBoneMods = {
 SWEP.AmmoTypes = {
 	["Pop-a-Shot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("musket/musket1.wav");
+		SWEP.Primary.SoundLevel = 400;
 		SWEP.Primary.NumShots = 1;
 		SWEP.Primary.Damage = 37;
 		SWEP.Primary.Spread = .1;
@@ -126,7 +127,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				--self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound)
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()

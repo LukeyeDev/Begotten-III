@@ -6,7 +6,7 @@ ITEM.iconoverride = "materials/begotten/ui/itemicons/armored_blade_druid_robes.p
 ITEM.category = "Armor"
 ITEM.conditionScale = 0.9
 ITEM.hitParticle = "MetalSpark";
-ITEM.protection = 50
+ITEM.protection = 55
 ITEM.type = "chainmail";
 ITEM.weight = 5;
 ITEM.weightclass = "Medium";
@@ -27,12 +27,13 @@ ITEM.effectiveLimbs = {
 }
 
 ITEM.damageTypeScales = {
-	[DMG_FALL] = -0.25, -- increases fall damage by 25%
+	[DMG_FALL] = -0.10, -- increases fall damage by 10%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
 ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
 ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
 ITEM.bulletScale = 0.25; -- reduces bullet damage by 75%
 
 ITEM.attributes = {"mothers_blessing", "increased_regeneration"};
@@ -90,9 +91,10 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.95; -- reduces blunt damage by 5%
-ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
-ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.95; -- reduces pierce damage by 5%
+ITEM.slashScale = 0.90; -- reduces slash damage by 10%
+ITEM.stabilityScale = 0.85; -- reduces stability damage by 15%
 ITEM.bulletScale = 0.75; -- reduces bullet damage by 25%
 
 ITEM.attributes = {"mothers_blessing", "increased_regeneration"};
@@ -149,9 +151,8 @@ ITEM.effectiveLimbs = {
 	[HITGROUP_HEAD] = true,
 }
 
-ITEM.bluntScale = 0.75; -- reduces blunt damage by 25%
-ITEM.stabilityScale = 0.55; -- reduces stability damage by 45%
-ITEM.slashScale = 0.95; -- reduces slash damage by 5%
+ITEM.bluntScale = 0.60; -- reduces blunt damage by 40%
+ITEM.stabilityScale = 0.50; -- reduces stability damage by 50%
 
 ITEM.components = {breakdownType = "breakdown", items = {"hide", "hide", "bearskin", "cloth"}};
 
@@ -194,9 +195,10 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.10, -- increases fall damage by 10%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.90; -- reduces pierce damage by 10%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
 ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
 ITEM.bulletScale = 0.90; -- reduces bullet damage by 10%
 
 ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "cloth", "cloth", "leather", "cloth"}};
@@ -255,10 +257,11 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
-ITEM.slashScale = 0.65; -- reduces slash damage by 35%
-ITEM.bulletScale = 0.75; -- reduces bullet damage by 35%
+ITEM.bluntScale = 0.80; -- reduces blunt damage by 20%
+ITEM.pierceScale = 0.70; -- reduces pierce damage by 30%
+ITEM.slashScale = 0.60; -- reduces slash damage by 40%
+ITEM.bulletScale = 0.65; -- reduces bullet damage by 35%
+ITEM.stabilityScale = 0.45; -- reduces stability damage by 55%
 
 ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "steel_chunks", "steel_chunks", "leather", "leather", "leather", "cloth"}};
 
@@ -315,8 +318,8 @@ ITEM.effectiveLimbs = {
 }
 
 ITEM.bluntScale = 0.60; -- reduces blunt damage by 40%
+ITEM.slashScale = 0.90; -- reduces slash damage by 10%
 ITEM.stabilityScale = 0.50; -- reduces stability damage by 50%
-ITEM.slashScale = 0.95; -- reduces slash damage by 5%
 
 ITEM.components = {breakdownType = "breakdown", items = {"human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "human_bone", "cloth", "cloth"}};
 
@@ -363,7 +366,7 @@ ITEM.iconoverride = "materials/begotten/ui/itemicons/warfighter_armor.png"
 ITEM.category = "Armor"
 ITEM.conditionScale = 0.9
 ITEM.hitParticle = "GlassImpact";
-ITEM.protection = 30
+ITEM.protection = 33
 ITEM.type = "leather";
 ITEM.weight = 2;
 ITEM.weightclass = "Light";
@@ -382,8 +385,10 @@ ITEM.effectiveLimbs = {
 	[HITGROUP_GEAR] = true
 }
 
-ITEM.bluntScale = 0.75; -- reduces blunt damage by 25%
-ITEM.slashScale = 0.95; -- reduces slash damage by 5%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.95; -- reduces pierce damage by 5%
+ITEM.slashScale = 0.90; -- reduces slash damage by 10%
+ITEM.stabilityScale = 0.85; -- reduces stability damage by 15%
 
 ITEM.components = {breakdownType = "breakdown", items = {"leather", "leather", "cloth", "cloth"}};
 
@@ -426,9 +431,10 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.10, -- increases fall damage by 10%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.80; -- reduces pierce damage by 20%
 ITEM.slashScale = 0.75; -- reduces slash damage by 25%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
 ITEM.bulletScale = 0.90; -- reduces bullet damage by 10%
 
 ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "leather", "cloth", "cloth", "cloth"}};
@@ -487,10 +493,11 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
-ITEM.slashScale = 0.65; -- reduces slash damage by 35%
-ITEM.bulletScale = 0.50; -- reduces bullet damage by 50%
+ITEM.bluntScale = 0.80; -- reduces blunt damage by 20%
+ITEM.pierceScale = 0.70; -- reduces pierce damage by 30%
+ITEM.slashScale = 0.60; -- reduces slash damage by 40%
+ITEM.bulletScale = 0.65; -- reduces bullet damage by 35%
+ITEM.stabilityScale = 0.45; -- reduces stability damage by 55%
 
 ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "iron_chunks", "iron_chunks", "human_bone", "human_bone"}};
 
@@ -547,9 +554,10 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.10, -- increases fall damage by 10%
 }
 
-ITEM.bluntScale = 0.90; -- reduces blunt damage by 10%
-ITEM.pierceScale = 0.90; -- reduces pierce damage by 10%
-ITEM.slashScale = 0.75; -- reduces slash damage by 25%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
+ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
 ITEM.bulletScale = 0.80; -- reduces bullet damage by 20%
 
 ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "steel_chunks", "steel_chunks", "leather", "cloth", "cloth", "cloth"}};
@@ -609,10 +617,11 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.95; -- reduces blunt damage by 5%
-ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
-ITEM.slashScale = 0.65; -- reduces slash damage by 35%
-ITEM.bulletScale = 0.50; -- reduces bullet damage by 50%
+ITEM.bluntScale = 0.80; -- reduces blunt damage by 20%
+ITEM.pierceScale = 0.70; -- reduces pierce damage by 30%
+ITEM.slashScale = 0.60; -- reduces slash damage by 40%
+ITEM.bulletScale = 0.30; -- reduces bullet damage by 70%
+ITEM.stabilityScale = 0.45; -- reduces stability damage by 55%
 
 ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks", "leather", "leather", "leather", "cloth"}};
 
@@ -644,7 +653,7 @@ ITEM.helmetIconOverride = "materials/begotten/ui/itemicons/gore_skull_helm.png"
 ITEM.category = "Armor"
 ITEM.conditionScale = 0.9
 ITEM.hitParticle = "GlassImpact";
-ITEM.protection = 50
+ITEM.protection = 55
 ITEM.type = "leather";
 ITEM.hasHelmet = true;
 ITEM.weight = 3.5;
@@ -671,10 +680,11 @@ ITEM.damageTypeScales = {
 	[DMG_FALL] = -0.25, -- increases fall damage by 25%
 }
 
-ITEM.bluntScale = 0.95; -- reduces blunt damage by 5%
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
 ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
 ITEM.slashScale = 0.70; -- reduces slash damage by 30%
-ITEM.bulletScale = 0; -- reduces bullet damage by 100%
+ITEM.stabilityScale = 0.85; -- reduces stability damage by 15%
+ITEM.bulletScale = 0.10; -- reduces bullet damage by 90%
 
 ITEM.attributes = {"mothers_blessing", "increased_regeneration", "fear"};
 ITEM.components = {breakdownType = "breakdown", items = {"hide", "hide", "cloth", "cloth", "cloth"}};
@@ -687,5 +697,117 @@ function ITEM:GetReplacement(player)
 		--return "models/begotten/satanists/lordvasso/male_56.mdl";
 	--end;
 end;
+
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("clothes_base");
+ITEM.name = "Reaver Marauder Lamellar";
+ITEM.group = "goreicwarfighters/reaver_marauder";
+ITEM.model = "models/begotten/items/reaver_marauder_item.mdl"
+ITEM.iconoverride = "begotten/ui/itemicons/reaver_marauder_item.png"
+ITEM.category = "Armor"
+ITEM.conditionScale = 0.80
+ITEM.hitParticle = "MetalSpark";
+ITEM.protection = 65;
+ITEM.weight = 6.5;
+ITEM.weightclass = "Medium";
+ITEM.type = "plate";
+ITEM.description = "A harness of lamellar and cold forged black iron. It is covered in sigils and runes of Clan Reaver, and even foreign symbols from far northern wastelands. Used widely in Goreic warbands for its strong protective metal plating.";
+ITEM.useSound = "armormovement/body-armor-b4.WAV.mp3";
+ITEM.requireFaction = {"Goreic Warrior", "Wanderer"};
+ITEM.excludeSubfactions = {"Clan Harald", "Clan Gore", "Clan Shagalax", "Clan Crast", "Clan Grock"};
+
+ITEM.effectiveLimbs = {
+	[HITGROUP_GENERIC] = true,
+	[HITGROUP_CHEST] = true,
+	[HITGROUP_STOMACH] = true,
+	[HITGROUP_LEFTARM] = true,
+	[HITGROUP_RIGHTARM] = true,
+	[HITGROUP_LEFTLEG] = true,
+	[HITGROUP_RIGHTLEG] = true,
+	[HITGROUP_GEAR] = true,
+}
+
+ITEM.damageTypeScales = {
+	[DMG_FALL] = -0.10, -- increases fall damage by 10%
+}
+
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
+ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
+ITEM.bulletScale = 0.80; -- reduces bullet damage by 20%
+
+ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "iron_chunks", "iron_chunks", "human_bone", "human_bone"}, xp = 30};
+
+ITEM.runSound = {
+	"armormovement/body-armor-1.WAV.mp3",
+	"armormovement/body-armor-2.WAV.mp3",
+	"armormovement/body-armor-3.WAV.mp3",
+	"armormovement/body-armor-4.WAV.mp3",
+	"armormovement/body-armor-5.WAV.mp3",
+	"armormovement/body-armor-6.WAV.mp3",
+};
+
+ITEM.walkSound = {
+	"armormovement/body-armor-b4.WAV.mp3",
+	"armormovement/body-armor-b5.WAV.mp3",
+};
+
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("clothes_base");
+ITEM.name = "Reaver Drottinn Lamellar";
+ITEM.group = "goreicwarfighters/reaver_chief";
+ITEM.model = "models/begotten/items/reaver_marauder_item.mdl"
+ITEM.iconoverride = "begotten/ui/itemicons/reaver_marauder_item.png"
+ITEM.category = "Armor"
+ITEM.conditionScale = 0.80
+ITEM.hitParticle = "MetalSpark";
+ITEM.protection = 70;
+ITEM.weight = 7.5;
+ITEM.weightclass = "Medium";
+ITEM.type = "plate";
+ITEM.description = "A set of blackened lamellar used by the torturers, executioners, and commanders of the far-away Marauders. This armor was made to boast Goreic mastery over darkness; to wield its power without being made its subject.";
+ITEM.useSound = "armormovement/body-armor-b4.WAV.mp3";
+ITEM.requireFaction = {"Goreic Warrior"};
+ITEM.excludeSubfactions = {"Clan Harald", "Clan Gore", "Clan Shagalax", "Clan Crast", "Clan Grock"};
+
+ITEM.effectiveLimbs = {
+	[HITGROUP_GENERIC] = true,
+	[HITGROUP_CHEST] = true,
+	[HITGROUP_STOMACH] = true,
+	[HITGROUP_LEFTARM] = true,
+	[HITGROUP_RIGHTARM] = true,
+	[HITGROUP_LEFTLEG] = true,
+	[HITGROUP_RIGHTLEG] = true,
+	[HITGROUP_GEAR] = true,
+}
+
+ITEM.damageTypeScales = {
+	[DMG_FALL] = -0.10, -- increases fall damage by 10%
+}
+
+ITEM.bluntScale = 0.85; -- reduces blunt damage by 15%
+ITEM.pierceScale = 0.85; -- reduces pierce damage by 15%
+ITEM.slashScale = 0.70; -- reduces slash damage by 30%
+ITEM.stabilityScale = 0.75; -- reduces stability damage by 25%
+ITEM.bulletScale = 0.75; -- reduces bullet damage by 25%
+
+ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "iron_chunks", "iron_chunks", "human_bone", "human_bone"}};
+
+ITEM.runSound = {
+	"armormovement/body-armor-1.WAV.mp3",
+	"armormovement/body-armor-2.WAV.mp3",
+	"armormovement/body-armor-3.WAV.mp3",
+	"armormovement/body-armor-4.WAV.mp3",
+	"armormovement/body-armor-5.WAV.mp3",
+	"armormovement/body-armor-6.WAV.mp3",
+};
+
+ITEM.walkSound = {
+	"armormovement/body-armor-b4.WAV.mp3",
+	"armormovement/body-armor-b5.WAV.mp3",
+};
 
 ITEM:Register();

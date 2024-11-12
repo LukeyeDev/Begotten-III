@@ -48,27 +48,35 @@ local ITEM = item.New(nil, true);
 			player:SetModel(replacement)
 		elseif (self.replacement) then
 			player:SetModel(self.replacement)
-		elseif (self.group) and player:IsRagdolled() then
-			local ragdollEntity = player:GetRagdollEntity();
+		elseif (self.group) then
+			local helmetItem = player:GetHelmetEquipped();
 			
-			if IsValid(ragdollEntity) and player:Alive() then
-				local model;
+			if !helmetItem or !helmetItem.headReplacement then
+				Clockwork.player:SetDefaultModel(player);
+			end
+		
+			if player:IsRagdolled() then
+				local ragdollEntity = player:GetRagdollEntity();
 				
-				if self.genderless then
-					model = "models/begotten/"..self.group..".mdl";
-				else
-					model = "models/begotten/"..self.group.."_"..string.lower(player:GetGender())..".mdl";
+				if IsValid(ragdollEntity) and player:Alive() then
+					local model;
+					
+					if self.genderless then
+						model = "models/begotten/"..self.group..".mdl";
+					else
+						model = "models/begotten/"..self.group.."_"..string.lower(player:GetGender())..".mdl";
+					end
+					
+					ragdollEntity:SetNWString("clothes", model);
 				end
-				
-				ragdollEntity:SetNWString("clothes", model);
 			end
 		end
 		
 		if self.concealsFace == true then
 			if bIsWearing then
-				player:SetSharedVar("faceConcealed", true);
+				player:SetNetVar("faceConcealed", true);
 			else
-				player:SetSharedVar("faceConcealed", false);
+				player:SetNetVar("faceConcealed", false);
 			end
 		end
 		
@@ -89,6 +97,18 @@ local ITEM = item.New(nil, true);
 			bSkipProgressBar = true;
 		end
 	
+		if extraData == "drop" then
+			local trace = player:GetEyeTraceNoCursor()
+
+			if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
+				if !hook.Run("PlayerCanDropItem", player, self, trace.HitPos) then
+					return false;
+				end
+			else
+				Clockwork.player:Notify(player, "You cannot drop the item that far away!");
+			end
+		end
+		
 		if Clockwork.equipment:UnequipItem(player, self, nil, !bSkipProgressBar) then
 			local action = Clockwork.player:GetAction(player);
 			
@@ -136,14 +156,23 @@ local ITEM = item.New(nil, true);
 				end
 				
 				if self.concealsFace == true then
-					player:SetSharedVar("faceConcealed", false);
+					player:SetNetVar("faceConcealed", false);
 				end
 				
-				if (self.group) and player:IsRagdolled() then
-					local ragdollEntity = player:GetRagdollEntity();
-					
-					if IsValid(ragdollEntity) and player:Alive() then
-						ragdollEntity:SetNWString("clothes", nil);
+				if extraData == "drop" then
+					local trace = player:GetEyeTraceNoCursor()
+
+					if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
+						if hook.Run("PlayerCanDropItem", player, self, trace.HitPos) then
+							local entity = Clockwork.entity:CreateItem(player, self, trace.HitPos);
+							
+							if (IsValid(entity)) then
+								Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal);
+								player:TakeItem(self);
+							end
+						end
+					else
+						Clockwork.player:Notify(player, "You cannot drop the item that far away!");
 					end
 				end
 				
@@ -156,6 +185,41 @@ local ITEM = item.New(nil, true);
 				Clockwork.player:SetDefaultSkin(player);
 				hook.Run("PlayerSetHandsModel", player, player:GetHands());
 				player:RebuildInventory();
+				
+				if player:IsRagdolled() then
+					local ragdollEntity = player:GetRagdollEntity();
+					
+					if IsValid(ragdollEntity) and player:Alive() then
+						if !helmetItem or !helmetItem.headReplacement then
+							ragdollEntity:SetModel(Clockwork.player:GetDefaultModel(player));
+							ragdollEntity:SetSkin(Clockwork.player:GetDefaultSkin(player));
+						end
+
+						local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+						local factionTable = Clockwork.faction:FindByID(faction);
+						local model = player:GetModel();
+						
+						if factionTable then
+							local subfaction = player:GetNetVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
+							
+							if subfaction and factionTable.subfactions then
+								for i, v in ipairs(factionTable.subfactions) do
+									if v.name == subfaction and v.models then
+										model = v.models[string.lower(player:GetGender())].clothes;
+									
+										break;
+									end
+								end
+							end
+							
+							if string.find(model, "models/begotten/heads") then
+								model = factionTable.models[string.lower(player:GetGender())].clothes;
+							end
+						end
+
+						ragdollEntity:SetNWString("clothes", model);
+					end
+				end
 				
 				if player:GetCharacterData("Hatred") then
 					player:SetCharacterData("Hatred", nil);
@@ -177,17 +241,17 @@ local ITEM = item.New(nil, true);
 	function ITEM:OnTakeFromPlayer(player)
 		if (player:GetClothesEquipped() == self) then
 			if self.concealsFace == true then
-				player:SetSharedVar("faceConcealed", false);
+				player:SetNetVar("faceConcealed", false);
 			end
 		end
 	end
 
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position)
-		if (player:GetClothesEquipped() == self) then
+		--[[if (player:GetClothesEquipped() == self) then
 			Schema:EasyText(player, "peru", "You cannot drop an item you're currently wearing.")
 			return false
-		end
+		end]]--
 	end
 
 	-- Called when a player uses the item.
@@ -195,8 +259,8 @@ local ITEM = item.New(nil, true);
 		local action = Clockwork.player:GetAction(player);
 		local faction = player:GetFaction();
 		local subfaction = player:GetSubfaction();
-		local kinisgerOverride = player:GetSharedVar("kinisgerOverride");
-		local kinisgerOverrideSubfaction = player:GetSharedVar("kinisgerOverrideSubfaction");
+		local kinisgerOverride = player:GetNetVar("kinisgerOverride");
+		local kinisgerOverrideSubfaction = player:GetNetVar("kinisgerOverrideSubfaction");
 		
 		if action == "putting_on_armor" or action == "taking_off_armor" then
 			Schema:EasyText(player, "peru", "You cannot wear this while already putting on or taking off armor!");
@@ -336,6 +400,10 @@ local ITEM = item.New(nil, true);
 							player:EmitSound("begotten/items/first_aid.wav");
 						end;
 					end;
+					
+					if clothesItem and clothesItem ~= self then
+						Clockwork.equipment:UnequipItem(player, clothesItem);
+					end
 					
 					self:OnWear(player);
 					Clockwork.equipment:EquipItem(player, self, "Armor");

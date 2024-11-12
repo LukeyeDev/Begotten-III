@@ -84,10 +84,32 @@ function SWEP:HandlePrimaryAttack()
 
 end
 
+function SWEP:HandleThrustAttack()
+
+	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
+	local attacktable = GetTable(self.AttackTable)
+
+	--Attack animation
+	if self:GetNWString("activeShield"):len() > 0 then
+		self:TriggerAnim(self.Owner, "a_sword_shield_attack_stab_slow_01");
+	else
+		self:TriggerAnim(self.Owner, "a_sword_attack_stab_slow_01");
+	end
+
+	-- Viewmodel attack animation!
+	local vm = self.Owner:GetViewModel()
+	vm:SendViewModelMatchingSequence( vm:LookupSequence( "thrust1" ) )
+	self.Owner:GetViewModel():SetPlaybackRate(0.35)
+	
+	self.Weapon:EmitSound(attacksoundtable["altsound"][math.random(1, #attacksoundtable["altsound"])])
+	self.Owner:ViewPunch(attacktable["punchstrength"])
+
+end
+
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -104,9 +126,19 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_twistedclub"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(6.5, 1.25, -15.065), angle = Angle(104.026, 0, 5.843), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_twistedclub"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(6.5, 1.25, -15.065), angle = Angle(104.026, 0, 5.843), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_twistedclub"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(4.25, -0.801, -15.065), angle = Angle(99.35, 52.597, -71.3), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_twistedclub"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(4.25, -0.801, -15.065), angle = Angle(99.35, 52.597, -71.3), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.VElementsDual = {
+	["v_left"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "Dummy16", rel = "", pos = Vector(1.48, -22.223, 2.469), angle = Angle(-12.223, -98.889, 180), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["v_right"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "Dummy01", rel = "", pos = Vector(1.48, -25.185, 0.899), angle = Angle(-180, 85.555, -94.445), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.WElementsDual = {
+	["w_left"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(4.25, -0.801, 15.065), angle = Angle(-99.35, 52.597, 71.3), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["w_right"] = { type = "Model", model = "models/props/begotten/melee/barbed_club.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(4.25, -0.801, -15.065), angle = Angle(99.35, 52.597, -71.3), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

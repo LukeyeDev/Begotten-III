@@ -97,6 +97,7 @@ end
 local ServerLog = ServerLog
 local cvars = cvars
 
+Clockwork.ConVars = Clockwork.ConVars or {}
 Clockwork.Entities = Clockwork.Entities or {}
 Clockwork.HitGroupBonesCache = {
 	{"ValveBiped.Bip01_R_UpperArm", HITGROUP_RIGHTARM},
@@ -116,25 +117,6 @@ Clockwork.HitGroupBonesCache = {
 	{"ValveBiped.Bip01_Spine1", HITGROUP_CHEST},
 	{"ValveBiped.Bip01_Head1", HITGROUP_HEAD},
 	{"ValveBiped.Bip01_Neck1", HITGROUP_HEAD}
-}
-
-Clockwork.WorkshopMaps = {
-	md_venetianredux_b2fix 			= 106094354,
-	rp_c18_v1 						= 132931674,
-	rp_c18_v2 						= 132937160,
-	rp_city8 						= 132913036,
-	rp_city8_2 						= 132940295,
-	rp_city8_canals 				= 132911524,
-	rp_city8_district1 				= 132919876,
-	rp_city8_district9 				= 132916875,
-	rp_city11_night_v1b 			= 127632645,
-	rp_city17_v1 					= 113352748,
-	rp_city23_night 				= 143076340,
-	rp_city45_2013 					= 118759412,
-	rp_city45_catalyst_x1f_final 	= 221567663,
-	rp_nc_industrial17_v2 			= 698222128,
-	rp_nc_city8_v2a 				= 736405289,
-	rp_gc_city8						= 760771478
 }
 
 -- A function to add a ban.
@@ -206,7 +188,7 @@ function Clockwork.kernel:CountryCode(player, code)
 		end;
 		
 		player:SetData("CountryCode", code);
-		player:SetNetVar("CountryCode", string.lower(code));
+		player:SetNetVar("CountryCode", string.lower(code), Schema:GetAdmins());
 		player.CountryCode = string.lower(code);
 		player.FlagIcon = self:GetCountryIcon(player);
 	end;
@@ -414,6 +396,32 @@ end
 -- A function to delete Clockwork data.
 function Clockwork.kernel:DeleteClockworkData(fileName)
 	return fileio.Delete("settings/clockwork/"..fileName..".cw")
+end
+
+function Clockwork.kernel:ProcessSaveData(bInstant, bNotify)
+	if bInstant then
+		local saveStart = SysTime();
+	
+		Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, "Starting save data!");
+		
+		hook.Run("PreSaveData")
+		hook.Run("SaveData")
+		hook.Run("PostSaveData")
+		
+		Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, "Data saved! Took "..tostring(SysTime() - saveStart).." seconds.");
+	else
+		if bNotify then
+			hook.Run("SaveDataImminent")
+		end
+	
+		timer.Simple(2, function()
+			Clockwork.kernel:ProcessSaveData(true);
+			
+			timer.Simple(1, function()
+				hook.Run("SaveDataCompleted");
+			end);
+		end);
+	end
 end
 
 -- A function to convert a force.
@@ -765,10 +773,10 @@ end
 
 -- A function to distribute wages cash.
 function Clockwork.kernel:DistributeWagesCash()
-	for k, v in ipairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized() and v:Alive()) then
 			local info = {
-				wages = v:GetWages()
+				wages = v:GetWages() or 0
 			}
 
 			hook.Run("PlayerModifyWagesInfo", v, info)
@@ -800,12 +808,8 @@ end
 -- A function to print a log message.
 function Clockwork.kernel:PrintLog(logType, text)
 	local listeners = {}
-	local playerCount = _player.GetCount();
-	local players = _player.GetAll();
-
-	for i = 1, playerCount do
-		local v, k = players[i], i;
-		
+	
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized() and v:GetInfoNum("cwShowLog", 0) == 1) then
 			if (Clockwork.player:IsAdmin(v)) then
 				listeners[#listeners + 1] = v
@@ -853,10 +857,6 @@ function Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)
 	local inflictor = damageInfo:GetInflictor()
 	local attacker = damageInfo:GetAttacker()
 	local amount = damageInfo:GetDamage()
-
-	if (amount != damageInfo:GetDamage()) then
-		amount = damageInfo:GetDamage()
-	end
 	
 	local isPlayerRagdoll = Clockwork.entity:IsPlayerRagdoll(entity);
 	local player = Clockwork.entity:GetPlayer(entity);
@@ -866,7 +866,9 @@ function Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)
 	if (player) then
 		ragdoll = player:GetRagdollEntity();
 	
-		if (hook.Run("PlayerShouldTakeDamage", player, attacker, inflictor, damageInfo) == false or player:IsInGodMode()) then
+		if (hook.Run("PlayerShouldTakeDamage", player, attacker) == false or
+		hook.Run("PlayerShouldTakeDamageNew", player, attacker, inflictor, damageInfo) or
+		player:IsInGodMode()) then
 			damageInfo:SetDamage(0)
 			return true
 		end
@@ -895,7 +897,7 @@ function Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)
 			if IsValid(attacker) and attacker:IsPlayer() then
 				local activeWeapon = attacker:GetActiveWeapon();
 				
-				if IsValid(activeWeapon) and activeWeapon.Base == "sword_swepbase" then
+				if activeWeapon:IsValid() and activeWeapon.Base == "sword_swepbase" then
 					lastHitGroup = Clockwork.kernel:GetRagdollHitGroup(entity, damageInfo:GetDamagePosition());
 				end
 			end
@@ -930,17 +932,13 @@ function Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)
 						hook.Run("OnPlayerHitGround", player, false, false, true);
 						entity.cwNextFallDamage = curTime + 0.5;
 						
+						--print("Damage: " ..amount);
+						--print("Velocity: "..tostring(physicsObject:GetVelocity()));
+						--print("Vel Length: "..velocity);
+						
 						damageInfo:SetDamage(amount)
 					end
 				end
-			end
-		end
-	
-		if !lastHitGroup then
-			if isPlayerRagdoll then
-				lastHitGroup = Clockwork.kernel:GetRagdollHitGroup(entity, damageInfo:GetDamagePosition())
-			else
-				lastHitGroup = player:LastHitGroup()
 			end
 		end
 	
@@ -948,8 +946,21 @@ function Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)
 			return true;
 		end
 		
+		if !lastHitGroup then
+			if isPlayerRagdoll then
+				lastHitGroup = Clockwork.kernel:GetRagdollHitGroup(entity, damageInfo:GetDamagePosition())
+			else
+				lastHitGroup = player:LastHitGroup()
+			end
+		end
+		
+		if lastHitGroup == HITGROUP_GENERIC then
+			lastHitGroup = math.random(1, 7);
+		end
+		
 		hook.Run("PreCalculatePlayerDamage", player, lastHitGroup, damageInfo);
 		hook.Run("CalculatePlayerDamage", player, lastHitGroup, damageInfo);
+		hook.Run("PostCalculatePlayerDamage", player, lastHitGroup, damageInfo);
 	end
 end
 
@@ -1011,6 +1022,7 @@ playerMeta.ClockworkStripWeapon = playerMeta.ClockworkStripWeapon or playerMeta.
 entityMeta.ClockworkFireBullets = entityMeta.ClockworkFireBullets or entityMeta.FireBullets
 entityMeta.ClockworkFire = entityMeta.ClockworkFire or entityMeta.Fire
 playerMeta.ClockworkGodDisable = playerMeta.ClockworkGodDisable or playerMeta.GodDisable
+entityMeta.ClockworkIgnite = entityMeta.ClockworkIgnite or entityMeta.Ignite
 entityMeta.ClockworkExtinguish = entityMeta.ClockworkExtinguish or entityMeta.Extinguish
 entityMeta.ClockworkWaterLevel = entityMeta.ClockworkWaterLevel or entityMeta.WaterLevel
 playerMeta.ClockworkGodEnable = playerMeta.ClockworkGodEnable or playerMeta.GodEnable
@@ -1055,7 +1067,7 @@ end
 
 -- A function to get a player's name.
 function playerMeta:Name(bRealName)
-	return (!bRealName and self:GetNetVar("NameOverride", nil)) or self:QueryCharacter("Name", self:SteamName())
+	return (!bRealName and self:GetNetVar("NameOverride")) or self:QueryCharacter("Name", self:SteamName())
 end
 
 -- A function to make a player fire bullets.
@@ -1146,9 +1158,7 @@ function playerMeta:Give(class, itemTable, bForceReturn)
 				weapon = weapon:EntIndex()
 			})
 
-			weapon:SetNWString(
-				"ItemID", tostring(itemTable.itemID)
-			)
+			weapon:SetNWInt("ItemID", itemTable.itemID);
 			weapon.cwItemTable = itemTable
 
 			if (itemTable.OnWeaponGiven) then
@@ -1291,10 +1301,13 @@ end
 
 -- A function to get whether a player is running.
 function playerMeta:IsRunning()
-	if (self:Alive() and !self:IsRagdolled() and !self:InVehicle()
-	and !self:Crouching() and self:KeyDown(IN_SPEED)) then
-		if (self:GetVelocity():Length() >= self:GetWalkSpeed() or bNoWalkSpeed) then
-			return true
+	if self:KeyDown(IN_SPEED) then
+		if self:Alive() and !self:IsRagdolled() and !self:InVehicle() and !self:Crouching() and self:WaterLevel() < 2 then
+			if (self:GetVelocity():Length() >= self:GetWalkSpeed() or bNoWalkSpeed) then
+				if !self:GetNetVar("runningDisabled") then
+					return true;
+				end
+			end
 		end
 	end
 
@@ -1311,7 +1324,6 @@ function playerMeta:IsJumping()
 	return false
 end
 
-
 -- A function to strip a weapon from a player.
 function playerMeta:StripWeapon(weaponClass)
 	if (self:IsRagdolled()) then
@@ -1319,10 +1331,17 @@ function playerMeta:StripWeapon(weaponClass)
 
 		for k, v in pairs(ragdollWeapons) do
 			if (v.weaponData["class"] == weaponClass) then
-				weapons[k] = nil
+				ragdollWeapons[k] = nil
 			end
 		end
 	else
+		-- Experimental linux server crash fix by just removing the weapon manually instead of using StripWeapon which can infinitely loop.
+		--[[local weaponObj = self:GetWeapon(weaponClass);
+		
+		if IsValid(weaponObj) then
+			weaponObj:Remove();
+		end]]--
+		
 		self:ClockworkStripWeapon(weaponClass)
 	end
 end
@@ -1418,7 +1437,7 @@ do
 	function playerMeta:UpdateWeaponFired()
 		--[[local activeWeapon = self:GetActiveWeapon();
 		
-		if (IsValid(activeWeapon)) then
+		if (activeWeapon:IsValid()) then
 			local weaponClass = activeWeapon:GetClass()
 			local itemTable = item.GetByWeapon(activeWeapon)
 			
@@ -1457,6 +1476,17 @@ function playerMeta:IsOnFire()
 	else
 		return self:ClockworkIsOnFire()
 	end
+end
+
+-- A function to ignite a player.
+function playerMeta:Ignite(length, radius)
+	if hook.Run("PlayerCanBeIgnited", self) == false then return false end;
+
+	if (self:IsRagdolled()) then
+		self:GetRagdollEntity():Ignite(length, radius);
+	end
+	
+	self:ClockworkIgnite(length, radius)
 end
 
 -- A function to extinguish a player.
@@ -1647,6 +1677,8 @@ function playerMeta:GetMaxHealth(health)
 	local subfaith = self:GetSubfaith();
 	local faith = self:GetFaith();
 	local boost = self:GetNetVar("loyaltypoints", 0)
+	
+	-- should probably move this all into hooks later.
 
 	if FACTION then
 		maxHealth = FACTION.maxHealth or 100;
@@ -1663,16 +1695,16 @@ function playerMeta:GetMaxHealth(health)
 	
 	if subfaction then
 		if subfaction == "Clan Grock" then
-			maxHealth = maxHealth + 125;
+			maxHealth = maxHealth + 175;
 		elseif subfaction == "Knights of Sol" then
-			maxHealth = maxHealth + 100;
+			maxHealth = maxHealth + 75;
 		elseif subfaction == "Clan Gore" or subfaction == "Inquisition" or subfaction == "Philimaxio" then
 			maxHealth = maxHealth + 50;
 		elseif subfaction == "Clan Harald" then
-			maxHealth = maxHealth + 40;
+			maxHealth = maxHealth + 45;
 		elseif subfaction == "Clan Shagalax" or subfaction == "Machinists" then
 			maxHealth = maxHealth + 30;
-		elseif subfaction == "Clan Reaver" or subfaction == "Clan Crast" or subfaction == "Legionary" then
+		elseif subfaction == "Clan Reaver" or subfaction == "Clan Crast" or subfaction == "Legionary" or subfaction == "Varazdat" then
 			maxHealth = maxHealth + 25;
 		end
 	end
@@ -1717,10 +1749,24 @@ function playerMeta:GetMaxHealth(health)
 
 	if self:GetCharmEquipped("ring_vitality") then
 		maxHealth = maxHealth + 25;
+	elseif self:GetCharmEquipped("ring_vitality_lesser") then
+		maxHealth = maxHealth + 15;
 	end
 	
 	if self.maxHealthBoost then
 		maxHealth = maxHealth + self.maxHealthBoost;
+	end
+	
+	if cwMedicalSystem then
+		local injuries = cwMedicalSystem:GetInjuries(self);
+		
+		if injuries then
+			for k, v in pairs (injuries) do
+				if v["burn"] then
+					maxHealth = maxHealth - 5;
+				end
+			end
+		end
 	end
 	
 	if (self:Health() > maxHealth) and self.maxHealthSet then
@@ -1783,7 +1829,10 @@ function playerMeta:SetForcedAnimation(animation, delay, OnAnimate, OnFinish)
 	local sequence = nil
 
 	if (!animation) then
-		self:SetNetVar("ForceAnim", 0)
+		if self:GetNetVar("ForceAnim") then
+			self:SetNetVar("ForceAnim", nil)
+		end
+		
 		self.cwForcedAnimation = nil
 
 		if (forcedAnimation and forcedAnimation.OnFinish) then
@@ -1908,20 +1957,20 @@ end
 function playerMeta:GetMaxWeight()
 	local backpackItem = self:GetBackpackEquipped();
 	local clothesItem = self:GetClothesEquipped();
-	local itemsList = Clockwork.inventory:GetAsItemsList(self:GetInventory())
+	--local itemsList = Clockwork.inventory:GetAsItemsList(self:GetInventory())
 	--local weight = self:GetNetVar("InvWeight") or 8
 	local weight = config.GetVal("default_inv_weight") or 20;
 	
 	weight = hook.Run("PlayerAdjustMaxWeight", self, weight);
 	
 	-- Apply item weight buffs after belief weight buffs.
-	for k, v in pairs(itemsList) do
+	--[[for k, v in pairs(itemsList) do
 		local addInvWeight = v.addInvSpace;
 		
 		if (addInvWeight) then
 			weight = weight + addInvWeight
 		end
-	end
+	end]]--
 	
 	if backpackItem and backpackItem.invSpace then
 		weight = weight + backpackItem.invSpace;
@@ -1937,21 +1986,27 @@ end
 -- A function to get the maximum space a player can carry.
 function playerMeta:GetMaxSpace()
 	local backpackItem = self:GetBackpackEquipped();
-	local itemsList = Clockwork.inventory:GetAsItemsList(self:GetInventory())
-	local space = self:GetNetVar("InvSpace") or 10
+	local clothesItem = self:GetClothesEquipped();
+	--local itemsList = Clockwork.inventory:GetAsItemsList(self:GetInventory())
+	--local space = self:GetNetVar("InvSpace") or 10;
+	local space = config.GetVal("default_inv_space") or 100;
 
 	--space = hook.Run("PlayerAdjustMaxSpace", player, space)
 	
-	for k, v in pairs(itemsList) do
+	--[[for k, v in pairs(itemsList) do
 		local addInvSpace = v.addInvVolume
 		if (addInvSpace) then
 			space = space + addInvSpace
 		end
-	end
+	end]]--
 	
 	if backpackItem and backpackItem.invSpace then
 		space = space + backpackItem.invSpace;
 	end
+	
+	if clothesItem and clothesItem.pocketSpace then
+		weight = weight + clothesItem.pocketSpace;
+	end;
 
 	return space
 end
@@ -2067,7 +2122,7 @@ function playerMeta:TakeItemByID(uniqueID, itemID)
 	local itemTable = self:GetItemInstance(uniqueID, itemID)
 
 	if (itemTable) then
-		return self:TakeItem(itemTable)
+		return self:TakeItem(itemTable, true)
 	else
 		return false
 	end
@@ -2087,6 +2142,9 @@ end
 function playerMeta:GiveItem(itemTable, bForce)
 	if (isstring(itemTable)) then
 		itemTable = item.CreateInstance(itemTable)
+	-- There's some weird things happening with item instances that necessitate this for now.
+	elseif itemTable.uniqueID and itemTable.itemID and !itemTable:IsInstance() then
+		itemTable = item.CreateInstance(itemTable.uniqueID, itemTable.itemID);
 	end
 
 	if (!itemTable or !itemTable:IsInstance()) then
@@ -2116,7 +2174,7 @@ function playerMeta:GiveItem(itemTable, bForce)
 end
 
 -- A function to take an item from a player.
-function playerMeta:TakeItem(itemTable)
+function playerMeta:TakeItem(itemTable, bRemoveInstance)
 	if (!itemTable or !itemTable:IsInstance()) then
 		debug.Trace()
 		return false
@@ -2132,9 +2190,16 @@ function playerMeta:TakeItem(itemTable)
 
 	hook.Run("PlayerItemTaken", self, itemTable);
 	
-	Clockwork.kernel:ForceUnequipItem(self, itemTable.uniqueID, itemTable.itemID);
+	if self:GetItemEquipped(itemTable) then
+		Clockwork.kernel:ForceUnequipItem(self, itemTable.uniqueID, itemTable.itemID);
+	end
+	
 	Clockwork.inventory:RemoveInstance(inventory, itemTable);
-	netstream.Start(self, "InvTake", {itemTable.index, itemTable.itemID});
+	netstream.Start(self, "InvTake", {itemTable.index, itemTable.itemID, bRemoveInstance});
+	
+	if bRemoveInstance then
+		item.RemoveInstance(itemTable.itemID);
+	end
 	
 	Clockwork.inventory:Rebuild(self);
 
@@ -2149,9 +2214,9 @@ function playerMeta:GiveItems(itemTables)
 end
 
 -- An easy function to take a table of items from a player.
-function playerMeta:TakeItems(itemTables)
+function playerMeta:TakeItems(itemTables, bRemoveInstances)
 	for _, itemTable in pairs(itemTables) do
-		self:TakeItem(itemTable)
+		self:TakeItem(itemTable, bRemoveInstances)
 	end
 end
 
@@ -2231,7 +2296,7 @@ end
 
 -- A function to query a player's character table.
 function playerMeta:QueryCharacter(key, default)
-	if (self:GetCharacter()) then
+	if (self.cwCharacter) then
 		return Clockwork.player:Query(self, key, default)
 	else
 		return default
@@ -2245,15 +2310,14 @@ end
 
 -- A function to set a shared variable for a player.
 function playerMeta:SetSharedVar(key, value, sharedTable)
-	--print("Sending shared var: "..key);
 	return self:SetNetVar(key, value)
 end
 
 -- A function to get a player's character data.
 function playerMeta:GetCharacterData(key, default)
-	if (self:GetCharacter()) then
-		local data = self:QueryCharacter("Data")
+	local data = self:QueryCharacter("Data")
 
+	if data then
 		if (data[key] != nil) then
 			return data[key]
 		end
@@ -2277,11 +2341,6 @@ function playerMeta:GetHoldingEntity()
 	return hook.Run("PlayerGetHoldingEntity", self) or self.cwIsHoldingEnt
 end
 
--- A function to get whether a player's character menu is reset.
-function playerMeta:IsCharacterMenuReset()
-	return self.cwCharMenuReset
-end
-
 -- A function to check if a player can afford an amount.
 function playerMeta:CanAfford(amount)
 	return Clockwork.player:CanAfford(self, amount)
@@ -2302,17 +2361,25 @@ function playerMeta:GetPlayerFlags()
 	return Clockwork.player:GetPlayerFlags(self)
 end
 
+-- Set a player to be muted.
+function playerMeta:SetMuted(bMuted)
+	self.muted = bMuted;
+end
+
+-- Check if a player is muted.
+function playerMeta:IsMuted()
+	return self.muted;
+end
+
 playerMeta.GetName = playerMeta.Name
 playerMeta.Nick = playerMeta.Name
 
 concommand.Add("cwStatus", function(player, command, arguments)
-	local plyTable = _player.GetAll()
-
 	if (IsValid(player)) then
 		if (Clockwork.player:IsAdmin(player)) then
 			player:PrintMessage(2, "# User ID | Name | Steam Name | Steam ID | IP Address")
 
-			for k, v in ipairs(plyTable) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized()) then
 					local status = hook.Run("PlayerCanSeeStatus", player, v)
 
@@ -2355,8 +2422,10 @@ concommand.Add("cwc", function(player, command, arguments)
 		tf	= "takeflags"
 	}
 	
-	if !player:IsAdmin() then
-		Schema:EasyText(GetAdmins(), "firebrick", "Player "..player:Name().." has attempted to run cwc in console! You should ban them immediately.");
+	if IsValid(player) then
+		if !player:IsAdmin() then
+			Schema:EasyText(Schema:GetAdmins(), "firebrick", "Player "..player:Name().." has attempted to run cwc with the arguments ("..table.concat(arguments, ", ")..") in console! It could be a bind or it could be malicious.");
+		end
 	end
 
 	--	if called from console
@@ -2375,7 +2444,7 @@ concommand.Add("cwc", function(player, command, arguments)
 			if (target) then
 				if (!Clockwork.player:IsProtected(target)) then
 					print("Console has set "..target:Name().."'s user group to "..userGroup..".")
-					Schema:EasyText(GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s user group to "..userGroup..".")
+					Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s user group to "..userGroup..".")
 						target:SetClockworkUserGroup(userGroup)
 					Clockwork.player:LightSpawn(target, true, true)
 				else
@@ -2396,7 +2465,7 @@ concommand.Add("cwc", function(player, command, arguments)
 
 					if (userGroup != "user") then
 						print("Console has demoted "..target:Name().." from "..userGroup.." to user.")
-						Schema:EasyText(GetAdmins(), "lightslategrey", "Console has demoted "..target:Name().." from "..userGroup.." to user.")
+						Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has demoted "..target:Name().." from "..userGroup.." to user.")
 							target:SetClockworkUserGroup("user")
 						Clockwork.player:LightSpawn(target, true, true)
 					else
@@ -2446,7 +2515,7 @@ concommand.Add("cwc", function(player, command, arguments)
 							Clockwork.player:SaveCharacter(target)
 
 							print("Console has added "..target:Name().." to the "..factionTable.name.." whitelist.")
-							Schema:EasyText(GetAdmins(), "lightslategrey", "Console has added "..target:Name().." to the "..factionTable.name.." whitelist.")
+							Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has added "..target:Name().." to the "..factionTable.name.." whitelist.")
 						else
 							MsgC(Color(255, 100, 0, 255), target:Name().." is already on the "..factionTable.name.." whitelist!\n")
 						end
@@ -2475,7 +2544,7 @@ concommand.Add("cwc", function(player, command, arguments)
 							Clockwork.player:SaveCharacter(target)
 
 							print("Console has removed "..target:Name().." from the "..factionTable.name.." whitelist.")
-							Schema:EasyText(GetAdmins(), "lightslategrey", "Console has removed "..target:Name().." from the "..factionTable.name.." whitelist.")
+							Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has removed "..target:Name().." from the "..factionTable.name.." whitelist.")
 						else
 							MsgC(Color(255, 100, 0, 255), target:Name().." is not on the "..factionTable.name.." whitelist!\n")
 						end
@@ -2510,14 +2579,14 @@ concommand.Add("cwc", function(player, command, arguments)
 
 									if (hours >= 1) then
 										print("Console has banned '"..steamName.."' for "..hours.." hour(s) ("..reason..").")
-										Schema:EasyText(GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' for "..hours.." hour(s) ("..reason..").")
+										Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' for "..hours.." hour(s) ("..reason..").")
 									else
 										print("Console has banned '"..steamName.."' for "..math.Round(duration / 60).." minute(s) ("..reason..").")
-										Schema:EasyText(GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' for "..math.Round(duration / 60).." minute(s) ("..reason..").")
+										Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' for "..math.Round(duration / 60).." minute(s) ("..reason..").")
 									end
 								else
 									print("Console has banned '"..steamName.."' permanently ("..reason..").")
-									Schema:EasyText(GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' permanently ("..reason..").")
+									Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has banned '"..steamName.."' permanently ("..reason..").")
 								end
 							else
 								MsgC(Color(255, 100, 0, 255), "This is not a valid identifier!\n")
@@ -2550,7 +2619,7 @@ concommand.Add("cwc", function(player, command, arguments)
 			if (target) then
 				if (!Clockwork.player:IsProtected(arguments[2])) then
 					print("Console has kicked '"..target:Name().."' ("..reason..").")
-					Schema:EasyText(GetAdmins(), "lightslategrey", "Console has kicked '"..target:Name().."' ("..reason..").")
+					Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has kicked '"..target:Name().."' ("..reason..").")
 						target:Kick(reason)
 					target.kicked = true
 				else
@@ -2574,7 +2643,7 @@ concommand.Add("cwc", function(player, command, arguments)
 					local name = table.concat(arguments, " ", 3)
 
 					print("Console has set "..target:Name().."'s name to "..name..".")
-					Schema:EasyText(GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s name to "..name..".")
+					Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s name to "..name..".")
 
 					Clockwork.player:SetName(target, name)
 				end
@@ -2594,7 +2663,7 @@ concommand.Add("cwc", function(player, command, arguments)
 				target:SetModel(model)
 
 				print("Console has set "..target:Name().."'s model to "..model..".")
-				Schema:EasyText(GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s model to "..model..".")
+				Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console has set "..target:Name().."'s model to "..model..".")
 			else
 				MsgC(Color(255, 100, 0, 255), arguments[2].." is not a valid character!\n")
 			end
@@ -2609,7 +2678,7 @@ concommand.Add("cwc", function(player, command, arguments)
 			end
 
 			print("Console is restarting the map in "..delay.." seconds!")
-			Schema:EasyText(GetAdmins(), "lightslategrey", "Console is restarting the map in "..delay.." seconds!")
+			Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console is restarting the map in "..delay.." seconds!")
 
 			timer.Simple(delay, function()
 				RunConsoleCommand("changelevel", game.GetMap())
@@ -2632,7 +2701,7 @@ concommand.Add("cwc", function(player, command, arguments)
 				Clockwork.player:GiveFlags(target, arguments[3])
 
 				print("Console gave "..target:Name().." '"..arguments[3].."' flags.")
-				Schema:EasyText(GetAdmins(), "lightslategrey", "Console gave "..target:Name().." '"..arguments[3].."' flags.")
+				Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console gave "..target:Name().." '"..arguments[3].."' flags.")
 			else
 				MsgC(Color(255, 100, 0, 255), arguments[2].." is not a valid character!\n")
 			end
@@ -2654,7 +2723,7 @@ concommand.Add("cwc", function(player, command, arguments)
 				Clockwork.player:TakeFlags(target, arguments[3])
 
 				print("Console took '"..arguments[3].."' flags from "..target:Name()..".")
-				Schema:EasyText(GetAdmins(), "lightslategrey", "Console took '"..arguments[3].."' flags from "..target:Name()..".")
+				Schema:EasyText(Schema:GetAdmins(), "lightslategrey", "Console took '"..arguments[3].."' flags from "..target:Name()..".")
 			else
 				MsgC(Color(255, 100, 0, 255), arguments[2].." is not a valid character!\n")
 			end
@@ -2744,7 +2813,7 @@ end;
 
 -- A function to set a player's character data.
 function playerMeta:SetCharacterData(key, value, bFromBase)
-	local character = self:GetCharacter()
+	local character = self.cwCharacter
 
 	if (!character) then return end
 

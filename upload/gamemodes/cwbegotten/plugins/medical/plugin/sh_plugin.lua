@@ -31,7 +31,7 @@ COMMAND.arguments = 1;
 
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
-	if (player:GetSharedVar("tied") == 0) then
+	if (player:GetNetVar("tied") == 0) then
 		local itemTable = player:FindItemByID(arguments[1]);
 		local entity = player:GetEyeTraceNoCursor().Entity;
 		local target = Clockwork.entity:GetPlayer(entity);
@@ -75,7 +75,7 @@ function COMMAND:OnRun(player, arguments)
 		target:StopAllBleeding();
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has stopped all bleeding for "..target:Name()..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has stopped all bleeding for "..target:Name()..".");
 		else
 			Schema:EasyText(player, "cornflowerblue","["..self.name.."] You have stopped all bleeding for yourself.");
 		end;
@@ -101,7 +101,7 @@ function COMMAND:OnRun(player, arguments)
 		target:ResetInjuries();
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), _team.GetColor(player:Team()), player:Name(), "cornflowerblue", " has reset all injuries for ", _team.GetColor(target:Team()), target:Name(), "cornflowerblue", ".");
+			Schema:EasyText(Schema:GetAdmins(), _team.GetColor(player:Team()), player:Name(), "cornflowerblue", " has reset all injuries for ", _team.GetColor(target:Team()), target:Name(), "cornflowerblue", ".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have reset all injuries for yourself.");
 		end;
@@ -127,15 +127,15 @@ local COMMAND = Clockwork.command:New("CharGetInjuries");
 			local injuries = cwMedicalSystem:GetInjuries(target);
 			local injuryStr = "";
 			
-			--PrintTable(injuries);
-			
-			for k, v in pairs(injuries) do
-				for k2, v2 in pairs(v) do
-					if v2 == true then
-						local injury = cwMedicalSystem.cwInjuryTable[k2];
-					
-						if injury and injury.symptom then
-							injuryStr = injuryStr.." Their "..cwMedicalSystem.cwHitGroupToString[k]..injury.symptom;
+			if injuries then 
+				for k, v in pairs(injuries) do
+					for k2, v2 in pairs(v) do
+						if v2 == true then
+							local injury = cwMedicalSystem.cwInjuryTable[k2];
+						
+							if injury and injury.symptom then
+								injuryStr = injuryStr.." Their "..cwMedicalSystem.cwHitGroupToString[k]..injury.symptom;
+							end
 						end
 					end
 				end
@@ -181,13 +181,15 @@ local COMMAND = Clockwork.command:New("CharGiveInjury");
 				local limbNumber = cwMedicalSystem.cwStringToHitGroup[limb];
 				local injuries = cwMedicalSystem:GetInjuries(target);
 			
-				for k, v in pairs(injuries) do
-					for k2, v2 in pairs(v) do
-						if v2 == true then
-							if k2 == injury and k == limbNumber then
-								Schema:EasyText(player, "darkgrey",target:Name().." already has the "..injury.." injury!");
-								
-								return false;
+				if injuries then
+					for k, v in pairs(injuries) do
+						for k2, v2 in pairs(v) do
+							if v2 == true then
+								if k2 == injury and k == limbNumber then
+									Schema:EasyText(player, "darkgrey",target:Name().." already has the "..injury.." injury!");
+									
+									return false;
+								end
 							end
 						end
 					end
@@ -195,7 +197,7 @@ local COMMAND = Clockwork.command:New("CharGiveInjury");
 				
 				target:AddInjury(limbNumber, injury);
 				
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has given "..target:Name().." a "..injury.." injury on their "..limb.."!");
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has given "..target:Name().." a "..injury.." injury on their "..limb.."!");
 			else
 				Schema:EasyText(player, "grey",arguments[2].." is not a valid injury!");
 			end
@@ -237,7 +239,7 @@ local COMMAND = Clockwork.command:New("CharTakeInjury");
 
 				target:RemoveInjury(cwMedicalSystem.cwStringToHitGroup[limb], injury);
 				
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has taken a "..injury.." injury from "..target:Name().."'s "..limb.."!");
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has taken a "..injury.." injury from "..target:Name().."'s "..limb.."!");
 			else
 				Schema:EasyText(player, "grey",arguments[2].." is not a valid injury!");
 			end
@@ -261,7 +263,7 @@ local COMMAND = Clockwork.command:New("CharClearInjuries");
 		if (target and target:HasInitialized()) then
 			target:ResetInjuries();
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has cleared all of "..target:Name().."'s injuries!");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has cleared all of "..target:Name().."'s injuries!");
 		else
 			Schema:EasyText(player, "grey", "["..self.name.."] "..arguments[1].." is not a valid player!");
 		end;
@@ -280,14 +282,14 @@ function COMMAND:OnRun(player, arguments)
 	local target = Clockwork.player:FindByID(arguments[1])
 	
 	if (target) then
-		local bloodLevel = arguments[2];
+		local bloodLevel = tonumber(arguments[2]);
 		local oldBloodLevel = target:GetCharacterData("BloodLevel");
 		
 		if bloodLevel then
 			target:SetBloodLevel(bloodLevel);
 			
 			if (player != target) then
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has set "..target:Name().."'s blood level to "..tostring(bloodLevel)..".");
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has set "..target:Name().."'s blood level to "..tostring(bloodLevel)..".");
 			else
 				Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own blood level to "..tostring(bloodLevel)..".");
 			end;
@@ -317,8 +319,31 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 			if (target:GetShootPos():Distance(player:GetShootPos()) <= 192) then
 				local bloodLevel = target:GetCharacterData("BloodLevel", cwMedicalSystem.maxBloodLevel);
 				local diagnoseString = "You take a good look at "..target:Name()..".";
+				local health = target:Health();
+				local maxHealth = target:GetMaxHealth();
+				local textColorScale = 0;
 				
 				if target:Alive() then
+					if health < maxHealth then
+						if health <= maxHealth * 0.25 then
+							diagnoseString = diagnoseString.." They appear to be near death.";
+							
+							textColorScale = math.min(textColorScale + 0.8, 1);
+						elseif health <= maxHealth * 0.55 then
+							diagnoseString = diagnoseString.." They appear to be badly wounded.";
+							
+							textColorScale = math.min(textColorScale + 0.5, 1);
+						elseif health <= maxHealth * 0.75 then
+							diagnoseString = diagnoseString.." They appear to be wounded.";
+							
+							textColorScale = math.min(textColorScale + 0.25, 1);
+						elseif health <= maxHealth * 0.9 then
+							diagnoseString = diagnoseString.." They appear to have minor wounds.";
+							
+							textColorScale = math.min(textColorScale + 0.05, 1);
+						end
+					end
+				
 					if target.bleeding then
 						local bleedingLimbsData = target:GetCharacterData("BleedingLimbs", {});
 						local bleedingLimbs = {};
@@ -326,6 +351,8 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 						for k, v in pairs(bleedingLimbsData) do
 							if v == true then
 								table.insert(bleedingLimbs, k);
+								
+								textColorScale = math.min(textColorScale + 0.1, 1);
 							end
 						end
 						
@@ -352,13 +379,17 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 					
 					local injuries = cwMedicalSystem:GetInjuries(target);
 					
-					for k, v in pairs(injuries) do
-						for k2, v2 in pairs(v) do
-							if v2 == true then
-								local injury = cwMedicalSystem.cwInjuryTable[k2];
-							
-								if injury and injury.symptom then
-									diagnoseString = diagnoseString.." Their "..cwMedicalSystem.cwHitGroupToString[k]..injury.symptom;
+					if injuries then
+						for k, v in pairs(injuries) do
+							for k2, v2 in pairs(v) do
+								if v2 == true then
+									local injury = cwMedicalSystem.cwInjuryTable[k2];
+								
+									if injury and injury.symptom then
+										diagnoseString = diagnoseString.." Their "..cwMedicalSystem.cwHitGroupToString[k]..injury.symptom;
+										
+										textColorScale = math.min(textColorScale + 0.1, 1);
+									end
 								end
 							end
 						end
@@ -366,9 +397,11 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 					
 					if bloodLevel < cwMedicalSystem.maxBloodLevel - 1250 then
 						diagnoseString = diagnoseString.." They look very pale from blood loss.";
+						
+						textColorScale = math.min(textColorScale + 0.2, 1);
 					end
 					
-					local symptoms = target:GetSharedVar("symptoms", {});
+					local symptoms = target:GetNetVar("symptoms", {});
 					local symptomText;
 					
 					for i = 1, #symptoms do
@@ -378,33 +411,35 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 							if symptomText then
 								symptomText = symptomText.." They look very pale and sickly.";
 							else
-								symptomText = "They look very pale and sickly.";
+								symptomText = " They look very pale and sickly.";
 							end
 						elseif symptom == "Pustules" then
 							if symptomText then
 								symptomText = symptomText.." They are covered in pustules and buboes, a textbook symptom of the Begotten Plague.";
 							else
-								symptomText = "They are covered in pustules and buboes, a textbook symptom of the Begotten Plague.";
+								symptomText = " They are covered in pustules and buboes, a textbook symptom of the Begotten Plague.";
 							end
 						elseif symptom == "Deformities" then
 							if symptomText then
 								symptomText = symptomText.." Their skin is deformed and discolored, and their eyes bulging.";
 							else
-								symptomText = "Their skin is deformed and discolored, and their eyes bulging.";
+								symptomText = " Their skin is deformed and discolored, and their eyes bulging.";
 							end
 						elseif symptom == "Coughing" then
 							if symptomText then
 								symptomText = symptomText.." They are coughing a great deal.";
 							else
-								symptomText = "They are coughing a great deal.";
+								symptomText = " They are coughing a great deal.";
 							end
 						elseif symptom == "Nausea" then
 							if symptomText then
 								symptomText = symptomText.." They look mildly disoriented as if afflicted by nausea.";
 							else
-								symptomText = "They look mildly disoriented as if afflicted by nausea.";
+								symptomText = " They look mildly disoriented as if afflicted by nausea.";
 							end
 						end
+						
+						textColorScale = math.min(textColorScale + 0.2, 1);
 					end
 					
 					if symptomText then
@@ -415,9 +450,9 @@ local COMMAND = Clockwork.command:New("CharDiagnose");
 						diagnoseString = diagnoseString.." They look perfectly healthy.";
 					end
 					
-					Schema:EasyText(player, "indianred",diagnoseString);
+					Schema:EasyText(player, Color(255 * textColorScale, 255 * (1 - textColorScale), 0), diagnoseString);
 				else
-					Schema:EasyText(player, "indianred",diagnoseString.." They would appear to be deceased, there is nothing more you can do for them.");
+					Schema:EasyText(player, "indianred", diagnoseString.." They would appear to be deceased, there is nothing more you can do for them.");
 				end
 			else
 				Schema:EasyText(player, "firebrick", "This character is too far away!");
@@ -433,7 +468,7 @@ local COMMAND = Clockwork.command:New("CharGiveDisease");
 	COMMAND.text = "<string Name> <string DiseaseID> [int Stage]";
 	COMMAND.access = "s";
 	COMMAND.arguments = 2;
-	COMMAND.optionalarguments = 3;
+	COMMAND.optionalArguments = 1;
 	COMMAND.alias = {"GiveDisease", "PlyGiveDisease"};
 
 	-- Called when the command has been run.
@@ -452,7 +487,7 @@ local COMMAND = Clockwork.command:New("CharGiveDisease");
 						if not target:HasDisease(diseaseID, stage) then
 							if stage > 0 and stage <= #diseaseTable.stages then
 								target:GiveDisease(diseaseID, arguments[3]);
-								Schema:EasyText(GetAdmins(), "cornflowerblue", target:Name().." has been given the '"..diseaseID.."' disease (Stage "..tostring(stage)..") by "..player:Name().."!", nil);
+								Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..target:Name().." has been given the '"..diseaseID.."' disease (Stage "..tostring(stage)..") by "..player:Name().."!", nil);
 							else
 								Schema:EasyText(player, "grey", "["..self.name.."] You must specify a valid stage for "..diseaseID.."! (1 - "..#diseaseTable.stages..")");
 							end
@@ -462,7 +497,7 @@ local COMMAND = Clockwork.command:New("CharGiveDisease");
 					else
 						if not target:HasDisease(diseaseID) then
 							target:GiveDisease(diseaseID);
-							Schema:EasyText(GetAdmins(), "cornflowerblue", target:Name().." has been given the '"..diseaseID.."' disease by "..player:Name().."!", nil);
+							Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..target:Name().." has been given the '"..diseaseID.."' disease by "..player:Name().."!", nil);
 						else
 							Schema:EasyText(player, "cornflowerblue","["..self.name.."] "..target:Name().." already has this disease!");
 						end
@@ -496,7 +531,7 @@ local COMMAND = Clockwork.command:New("CharTakeDisease");
 				if cwMedicalSystem:FindDiseaseByID(diseaseID) then
 					if target:HasDisease(diseaseID) then
 						target:TakeDisease(diseaseID);
-						Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has taken the '"..diseaseID.."' disease from "..target:Name().."!", nil);
+						Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has taken the '"..diseaseID.."' disease from "..target:Name().."!", nil);
 					else
 						Schema:EasyText(player, "cornflowerblue","["..self.name.."] "..target:Name().." does not have that disease!");
 					end
@@ -573,4 +608,117 @@ local COMMAND = Clockwork.command:New("CharGetDiseases");
 			Schema:EasyText(player, "grey", "["..self.name.."] "..arguments[1].." is not a valid player!");
 		end;
 	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("CharForceVomit");
+COMMAND.tip = "Force a character to vomit.";
+COMMAND.text = "<string Name> [bool VomitBlood]";
+COMMAND.access = "s";
+COMMAND.arguments = 1;
+COMMAND.optionalArguments = 1;
+COMMAND.alias = {"ForceVomit", "PlyForceVomit", "MakeVomit", "CharMakeVomit", "PlyMakeVomit"};
+
+-- Called when the command has been run.
+function COMMAND:OnRun(player, arguments)
+	local target = Clockwork.player:FindByID(arguments[1])
+	
+	if (target) then
+		local contagious_diseases = {};
+		
+		for i, disease in ipairs(target:GetCharacterData("diseases", {})) do
+			local diseaseID = disease.uniqueID;
+			local diseaseTable = cwMedicalSystem:FindDiseaseByID(diseaseID);
+			
+			if diseaseTable and diseaseTable.contagious then
+				table.insert(contagious_diseases, diseaseID);
+			end
+		end
+		
+		local targetPos = target:GetPos();
+		local boneIndex = target:LookupBone("ValveBiped.Bip01_Head1");
+		local headPos, boneAng = target:GetBonePosition(boneIndex);
+		
+		if !arguments[2] then
+			local strings = {"suddenly throws up on the ground, hurling vomit everywhere!", "vomits onto the ground!", "gags and then vomits all over the ground!"};
+			
+			if cwCharacterNeeds and target.HandleNeed then
+				target:HandleNeed("hunger", 5);
+				target:HandleNeed("thirst", 5);
+			end
+			
+			target:Freeze(true);
+			target:EmitSound("misc/splat.ogg", 60, math.random(80, 95));
+			--ParticleEffect("vomit_barnacle", headPos + (target:GetForward() * 8) - Vector(0, 0, 1), Angle(90, 0, 0), target);
+			--ParticleEffect("vomit_barnacle_b", headPos + (target:GetForward() * 8) - Vector(0, 0, 1), Angle(90, 0, 0), target);
+			ParticleEffect("blood_advisor_shrapnel_spray_2", headPos + (target:GetForward() * 8) - Vector(0, 0, 1), target:EyeAngles(), target);
+			util.Decal("BeerSplash", targetPos - Vector(0, 0, 2), targetPos + Vector(0, 0, 2));
+			
+			timer.Simple(3, function()
+				if IsValid(target) then
+					target:Freeze(false);
+					
+					if target:Alive() then
+						local curse_strings = {"Fuck...", "Cocksucker...", "Shit...", "Fuck's sake...", "Gah..."};
+						
+						Clockwork.chatBox:Add(target, nil, "itnofake", curse_strings[math.random(1, #curse_strings)]);
+					end
+				end
+			end);
+			
+			if #contagious_diseases > 0 then
+				for k, v in pairs (ents.FindInSphere(target:GetPos(), 128)) do
+					if (v:IsPlayer() and not v.cwObserverMode) then
+						target:InfectOtherPlayer(v, contagious_diseases, 80);
+					end;
+				end;
+			end;
+			
+			Clockwork.chatBox:AddInTargetRadius(target, "me", strings[math.random(1, #strings)], target:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
+		else
+			local strings = {"suddenly throws blood up on the ground!", "vomits blood onto the ground!", "gags and then vomits blood all over the ground!"};
+			
+			if cwCharacterNeeds and target.HandleNeed then
+				target:HandleNeed("hunger", 5);
+				target:HandleNeed("thirst", 5);
+			end
+			
+			target:ModifyBloodLevel(-25);
+			target:Freeze(true);
+			target:EmitSound("misc/splat.ogg", 60, math.random(80, 95));
+			ParticleEffect("blood_advisor_puncture_withdraw", headPos + (target:GetForward() * 8) - Vector(0, 0, 1), Angle(180, 0, 0), target);
+			util.Decal("BloodLarge", targetPos - Vector(0, 0, 2), targetPos + Vector(0, 0, 2));
+			
+			timer.Simple(3, function()
+				if IsValid(target) then
+					target:Freeze(false);
+					
+					if target:Alive() then
+						local curse_strings = {"Fuck...", "Cocksucker...", "Shit...", "Fuck's sake...", "Gah..."};
+						
+						Clockwork.chatBox:Add(target, nil, "itnofake", curse_strings[math.random(1, #curse_strings)]);
+					end
+				end
+			end);
+			
+			if #contagious_diseases > 0 then
+				for k, v in pairs (ents.FindInSphere(target:GetPos(), 128)) do
+					if (v:IsPlayer() and not v.cwObserverMode) then
+						target:InfectOtherPlayer(v, contagious_diseases, 80);
+					end;
+				end;
+			end;
+			
+			Clockwork.chatBox:AddInTargetRadius(target, "me", strings[math.random(1, #strings)], target:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
+		end
+		
+		if (player != target) then
+			Schema:EasyText(Schema:GetAdmins(), "olive", "["..self.name.."] "..player:Name().." has made "..target:Name().." vomit.");
+		else
+			Schema:EasyText(player, "olive", "["..self.name.."] You have made yourself vomit.");
+		end;
+	else
+		Schema:EasyText(player, "grey", "["..self.name.."] "..arguments[1].." is not a valid player!");
+	end;
+end;
+
 COMMAND:Register();

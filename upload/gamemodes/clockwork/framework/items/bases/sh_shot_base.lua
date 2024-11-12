@@ -14,6 +14,7 @@ local ITEM = item.New(nil, true);
 	ITEM:AddData("Rounds", 1, true) -- default to 1 round
 	ITEM.equippable = false; -- this blocks equipping the item as a melee weapon.
 	ITEM.ammoMagazineSize = nil;
+	ITEM.requiredReloadBelief = nil;
 	
 	-- A function to get the item's weight.
 	function ITEM:GetItemWeight()
@@ -48,10 +49,12 @@ local ITEM = item.New(nil, true);
 				return false;
 			end
 			
-			if player.HasBelief and not player:HasBelief("powder_and_steel") then
-				Schema:EasyText(player, "chocolate", "You do not have the required belief, 'Powder and Steel', to load this weapon!");
-				
-				return false;
+			if player.HasBelief and self.requiredReloadBelief then
+				if !player:HasBelief(self.requiredReloadBelief) then
+					Schema:EasyText(player, "chocolate", "You do not have the required belief, '"..cwBeliefs:GetBeliefName(self.requiredReloadBelief).."', to load this weapon!");
+					
+					return false;
+				end
 			end
 
 			for i, v in ipairs(player:GetWeaponsEquipped()) do
@@ -75,14 +78,14 @@ local ITEM = item.New(nil, true);
 			end
 			
 			if player.holyPowderkegActive then
-				consumeTime = 3;
+				consumeTime = math.Round(consumeTime * 0.33);
 			end
 			
 			if weaponItem.reloadSounds then
 				player:EmitSound(weaponItem.reloadSounds[1]);
 			
 				for i = 2, #weaponItem.reloadSounds do
-					timer.Simple(consumeTime * ((i - 1) / #weaponItem.reloadSounds), function()
+					timer.Create(player:EntIndex().."reload"..i, consumeTime * ((i - 1) / #weaponItem.reloadSounds), 1, function()
 						if IsValid(player) and Clockwork.player:GetAction(player) == "reloading" then
 							player:EmitSound(weaponItem.reloadSounds[i]);
 						end
@@ -100,6 +103,11 @@ local ITEM = item.New(nil, true);
 				itemEntity.beingUsed = true;
 				player.itemUsing = itemEntity;
 			end
+			
+			player:SetLocalVar("cwProgressBarVerb", weaponItem.name);
+			player:SetLocalVar("cwProgressBarItem", self.name);
+			
+			player.lastLoadedShot = self.uniqueID;
 			
 			Clockwork.player:SetAction(player, "reloading", consumeTime, nil, function()
 				if IsValid(player) and weaponItem then
@@ -141,7 +149,7 @@ local ITEM = item.New(nil, true);
 					if IsValid(itemEntity) then
 						itemEntity:Remove();
 					else
-						player:TakeItem(self);
+						player:TakeItem(self, true);
 					end
 				end
 			end);
@@ -159,17 +167,44 @@ local ITEM = item.New(nil, true);
 			return false;
 		end
 		
-		if weaponItem and weaponItem.category == "Firearms" and weaponItem.ammoTypes then
+		if weaponItem and (weaponItem.category == "Firearms" or weaponItem.category == "Crossbows") and weaponItem.ammoTypes then
 			if table.HasValue(weaponItem.ammoTypes, self.ammoType) then
 				local weaponItemAmmo = weaponItem:GetData("Ammo");
 				
 				if weaponItemAmmo and #weaponItemAmmo < weaponItem.ammoCapacity then
-					if player.HasBelief and not player:HasBelief("powder_and_steel") then
-						if bNotify then
-							Schema:EasyText(player, "chocolate", "You do not have the required belief, 'Powder and Steel', to load this weapon!");
+					if player.HasBelief and self.requiredReloadBelief then
+						if !player:HasBelief(self.requiredReloadBelief) then
+							if bNotify then
+								Schema:EasyText(player, "chocolate", "You do not have the required belief, '"..cwBeliefs:GetBeliefName(self.requiredReloadBelief).."', to load this weapon!");
+							end
+							
+							return false;
+						end
+					end
+					
+					if weaponItem.category == "Firearms" then
+						if (player:WaterLevel() >= 3) then 
+							Schema:EasyText(player, "peru", "You can't load your powder charge while underwater!");
+							
+							return false;
 						end
 						
-						return false;
+						if cwWeather then
+							local lastZone = player:GetCharacterData("LastZone");
+							local zoneTable = zones:FindByID(lastZone);
+							
+							if zoneTable and zoneTable.hasWeather and cwWeather:IsOutside(player:EyePos()) then
+								if lastZone == "wasteland" or lastZone == "tower" then
+									local weather = cwWeather.weather;
+									
+									if weather == "acidrain" or weather == "bloodstorm" or weather == "thunderstorm" then
+										Schema:EasyText(player, "peru", "You can't load your powder charge under these wet conditions!");
+								
+										return false;
+									end
+								end
+							end
+						end
 					end
 					
 					if not weaponItem.usesMagazine then

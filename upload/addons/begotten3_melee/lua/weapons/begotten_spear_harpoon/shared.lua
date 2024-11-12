@@ -81,7 +81,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -98,9 +98,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_spear_harpoon"] = { type = "Model", model = "models/props_junk/harpoon002a.mdl", bone = "v_weapon.Knife_Handle", rel = "", pos = Vector(-0.519, 0.518, 6.752), angle = Angle(99.35, 22.208, 0), size = Vector(0.6, 0.6, 0.6), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} },
+	["v_spear_harpoon"] = { type = "Model", model = "models/props_junk/harpoon002a.mdl", bone = "v_weapon.Knife_Handle", rel = "", pos = Vector(-0.519, 0.518, 6.752), angle = Angle(99.35, 22.208, 0), size = Vector(0.6, 0.6, 0.6), material = "", skin = 0, bodygroup = {} },
 }
 
 SWEP.WElements = {
-	["w_spear_harpoon"] = { type = "Model", model = "models/props_junk/harpoon002a.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.635, 0.518, -5.715), angle = Angle(-101.689, -118.053, 73.636), size = Vector(0.699, 0.699, 0.699), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["w_spear_harpoon"] = { type = "Model", model = "models/props_junk/harpoon002a.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.635, 0.518, -5.715), angle = Angle(-101.689, -118.053, 73.636), size = Vector(0.699, 0.699, 0.699), material = "", skin = 0, bodygroup = {[0] = 3} }
 }

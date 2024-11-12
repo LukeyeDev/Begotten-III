@@ -15,7 +15,7 @@ SWEP.DrawCrosshair			= true		-- set false if you want no crosshair
 SWEP.Weight				= 30			-- rank relative ot other weapons. bigger is better
 SWEP.AutoSwitchTo			= true		-- Auto switch to if we pick it up
 SWEP.AutoSwitchFrom			= true		-- Auto switch from if you pick up a better weapon
-SWEP.HoldType 				= "ar2"	-- how others view you carrying the weapon
+SWEP.HoldType 				= "smg"	-- how others view you carrying the weapon
 -- normal melee melee2 fist knife smg ar2 pistol rpg physgun grenade shotgun crossbow slam passive 
 -- you're mostly going to use ar2, smg, shotgun or pistol. rpg and crossbow make for good sniper rifles
 
@@ -52,9 +52,9 @@ SWEP.data.ironsights			= 1
 SWEP.ShellTime			= 0.55 -- For shotguns, how long it takes to insert a shell.
 
 SWEP.Primary.NumShots = 32;
-SWEP.Primary.Damage = 12;
-SWEP.Primary.Spread = .175;
-SWEP.Primary.IronAccuracy = .175;
+SWEP.Primary.Damage = 8;
+SWEP.Primary.Spread = .18;
+SWEP.Primary.IronAccuracy = .18;
 -- Because irons don't magically give you less pellet spread!
 
 -- Enter iron sight info and bone mod info below
@@ -67,9 +67,9 @@ SWEP.AmmoTypes = {
 	["Grapeshot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("weapons/en/m3-1.wav");
 		SWEP.Primary.NumShots = 32;
-		SWEP.Primary.Damage = 12;
-		SWEP.Primary.Spread = .175;
-		SWEP.Primary.IronAccuracy = .175;
+		SWEP.Primary.Damage = 8;
+		SWEP.Primary.Spread = .18;
+		SWEP.Primary.IronAccuracy = .18;
 		SWEP.Primary.Ammo = "buckshot";
 		
 		if SWEP.Owner and SWEP.Owner:IsPlayer() then
@@ -115,7 +115,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				--self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound)
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()

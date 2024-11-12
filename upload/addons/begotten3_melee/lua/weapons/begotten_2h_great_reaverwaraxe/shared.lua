@@ -114,7 +114,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(5,25,5))
 	self:IdleAnimationDelay( 3, 3 )
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 function SWEP:IdleAnimationDelay( seconds, index )
@@ -140,9 +140,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_reaverwaraxe"] = { type = "Model", model = "models/begotten/weapons/2h_axe2.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.65, -1.691, -11.948), angle = Angle(10.519, 85, 1.5), size = Vector(0.879, 0.879, 0.879), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_reaverwaraxe"] = { type = "Model", model = "models/begotten/weapons/2h_axe2.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.65, -1.691, -11.948), angle = Angle(10.519, 85, 1.5), size = Vector(0.879, 0.879, 0.879), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_reaverwaraxe"] = { type = "Model", model = "models/begotten/weapons/2h_axe2.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(2.849, 1.2, 0.518), angle = Angle(171.817, 3.5, -176.495), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_reaverwaraxe"] = { type = "Model", model = "models/begotten/weapons/2h_axe2.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(2.849, 1.2, 0.518), angle = Angle(171.817, 3.5, -176.495), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

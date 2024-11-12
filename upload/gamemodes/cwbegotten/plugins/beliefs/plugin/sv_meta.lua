@@ -25,6 +25,8 @@ function playerMeta:HandleXP(amount, bIgnoreModifiers)
 		end
 		
 		if amount > 0 then
+			newAmount = newAmount * config.Get("xp_modifier"):Get();
+		
 			-- Belief gain bonuses.
 			if self:HasBelief("gifted") then
 				newAmount = newAmount + (amount * 0.25);
@@ -101,12 +103,12 @@ end
 function playerMeta:ResetBeliefs()
 	self:SetCharacterData("beliefs", {});
 	--self:SetCharacterData("subfaith", nil);
-	self:SetSharedVar("subfaith", nil);
-	self:GetCharacter().subfaith = nil;
+	self:SetNetVar("subfaith", nil);
+	self.cwCharacter.subfaith = nil;
 	self:SetSacramentLevel(1);
 
-	local max_poise = self:GetMaxPoise();
-	local poise = self:GetNWInt("meleeStamina");
+	--local max_poise = self:GetMaxPoise();
+	--local poise = self:GetNWInt("meleeStamina");
 	local max_stamina = self:GetMaxStamina();
 	local max_stability = self:GetMaxStability();
 	local stability = self:GetNWInt("stability");
@@ -114,10 +116,10 @@ function playerMeta:ResetBeliefs()
 	
 	self:SetMaxHealth(self:GetMaxHealth());
 	self:SetLocalVar("maxStability", max_stability);
-	self:SetLocalVar("maxMeleeStamina", max_poise);
+	--self:SetLocalVar("maxMeleeStamina", max_poise);
 	self:SetNWInt("stability", math.min(stability, max_stability));
 	self:SetCharacterData("stability", self:GetNWInt("stability"));
-	self:SetNWInt("meleeStamina", math.min(poise, max_poise));
+	--self:SetNWInt("meleeStamina", math.min(poise, max_poise));
 	self:SetLocalVar("Max_Stamina", max_stamina);
 	self:SetCharacterData("Max_Stamina", max_stamina);
 	self:SetNWInt("Stamina", math.min(stamina, max_stamina));
@@ -154,6 +156,8 @@ function playerMeta:HasBelief(uniqueID, bHasAny)
 					return false;
 				end
 			end
+			
+			return true;
 		end
 	else
 		if (beliefs[uniqueID]) then
@@ -167,7 +171,7 @@ end
 function playerMeta:Cloak()
 	local activeWeapon = self:GetActiveWeapon();
 	
-	if IsValid(activeWeapon) then
+	if activeWeapon:IsValid() then
 		activeWeapon:SetNoDraw(true);
 	end
 	
@@ -184,7 +188,7 @@ end
 function playerMeta:Uncloak()
 	local activeWeapon = self:GetActiveWeapon();
 	
-	if IsValid(activeWeapon) then
+	if activeWeapon:IsValid() then
 		activeWeapon:SetNoDraw(false);
 	end
 	

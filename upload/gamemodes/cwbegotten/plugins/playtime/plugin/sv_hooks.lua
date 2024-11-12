@@ -1,33 +1,13 @@
 local PLUGIN = PLUGIN;
 local playerMeta = FindMetaTable("Player")
 
---PLUGIN.secondTime = CurTime()
---[[function PLUGIN:Think()
-	if (CurTime() > self.secondTime) then
-		self.secondTime = CurTime() + 1
-		for k, v in pairs(player.GetAll()) do
-			if (!v:GetData("playTime")) then
-				v:SetData("playTime", 0)
-			else
-				v:SetData("playTime", v:GetData("playTime") + 1)
-			end
-			if v:GetCharacter() then
-				if (!v:GetCharacterData("charPlayTime")) then
-					v:SetCharacterData("charPlayTime", 0)
-				else
-					if (v:Alive()) then
-						v:SetCharacterData("charPlayTime", v:GetCharacterData("charPlayTime") + 1)
-					end;
-				end
-			end
-		end
-	end
-	
-	--Clockwork.kernel:CallTimerThink( CurTime() );
-end]]--
+-- Called when a player's character screen info should be adjusted.
+function PLUGIN:PlayerAdjustCharacterScreenInfo(player, character, info)
+	info.timesurvived = character.data["charPlayTime"] or 0;
+end
 
-function PLUGIN:PlayerThink(player, curTime, infoTable)
-	if !player.nextPlayTime or player.nextPlayTime < curTime then
+function PLUGIN:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
+	if !plyTab.nextPlayTime or plyTab.nextPlayTime < curTime then
 		local playTime = player:GetData("playTime", 0);
 	
 		if (playTime) then
@@ -36,19 +16,19 @@ function PLUGIN:PlayerThink(player, curTime, infoTable)
 			player:SetData("playTime", playTime + 5);
 		end
 		
-		if player:GetCharacter() then
+		if plyTab.cwCharacter then
 			local charPlayTime = player:GetCharacterData("charPlayTime", 0);
 		
 			if (!charPlayTime) then
 				player:SetCharacterData("charPlayTime", 0)
 			else
-				if (player:Alive()) then
+				if alive then
 					player:SetCharacterData("charPlayTime", charPlayTime + 5);
 				end;
 			end
 		end
 		
-		player.nextPlayTime = curTime + 5;
+		plyTab.nextPlayTime = curTime + 5;
 	end
 end
 
@@ -57,7 +37,7 @@ function playerMeta:PlayTime()
 end
 
 function playerMeta:CharPlayTime()
-	if self:GetCharacter() then
+	if self.cwCharacter then
 		return self:GetCharacterData("charPlayTime") or 0
 	else
 		return false
@@ -66,7 +46,7 @@ end
 
 -- Called when a player's shared variables should be set.
 --[[function PLUGIN:PlayerSetSharedVars(player, curTime)
-	player:SetSharedVar("characterPlayTime", player:GetCharacterData("charPlayTime"));
+	player:SetNetVar("characterPlayTime", player:GetCharacterData("charPlayTime"));
 end;]]--
 
 function ConvertSecondsToMultiples(seconds)

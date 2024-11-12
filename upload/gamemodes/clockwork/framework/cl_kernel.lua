@@ -32,51 +32,6 @@ COLOR_GREEN = Color(0, 255, 0)
 COLOR_BLUE = Color(0, 0, 255)
 
 do
-	-- A function to get font widescreen scale.
-	function ScaleToWideScreen(size)
-		return math.min(math.max(ScreenScale(size / 2.62467192), math.min(size, 14)), size);
-	end;
-
-	-- A function to draw some rotated text.
-	function surface.DrawRotatedText(text, font, x, y, angle, color) local matrix = Matrix();
-		local pos = Vector(x + (GetFontWidth(font, text) / 2), y + (draw.GetFontHeight(font) / 2));
-		
-		matrix:Translate(pos);
-		matrix:Rotate(Angle(0, angle, 0));
-		matrix:Translate(-pos);
-		
-		cam.PushModelMatrix(matrix);
-		surface.SetFont(font);
-		surface.SetTextColor(color);
-		surface.SetTextPos(x, y);
-		surface.DrawText(text);
-		cam.PopModelMatrix();
-	end;
-
-	-- A function to draw some scaled text.
-	function surface.DrawScaledText(text, font, x, y, scale, color)
-		local matrix = Matrix()
-		local pos = Vector(x, y)
-
-		matrix:Translate(pos)
-		matrix:Scale(Vector(1, 1, 1) * scale)
-		matrix:Translate(-pos)
-
-		cam.PushModelMatrix(matrix)
-			surface.SetFont(font)
-			surface.SetTextColor(color)
-			surface.SetTextPos(x, y)
-			surface.DrawText(text)
-		cam.PopModelMatrix()
-	end
-
-	-- A function to get if a variable is a vector.
-	function IsVector(any)
-		return isvector(any);
-	end;
-end;
-
-do
 	--[[
 		This is a hack to display world tips correctly based on their owner.
 	--]]
@@ -148,7 +103,7 @@ do
 		cwOldRunConsoleCommand(...)
 	end
 end
-
+-- A function to draw some scaled text.
 function surface.DrawScaledText(text, font, x, y, scale, color)
 	local matrix = Matrix()
 	local pos = Vector(x, y)
@@ -165,21 +120,35 @@ function surface.DrawScaledText(text, font, x, y, scale, color)
 	cam.PopModelMatrix()
 end
 
-function surface.DrawRotatedText(text, font, x, y, angle, color)
-	local matrix = Matrix()
-	local pos = Vector(x, y)
-
-	matrix:Translate(pos)
-	matrix:Rotate(Angle(0, angle, 0))
-	matrix:Translate(-pos)
-
-	cam.PushModelMatrix(matrix)
-		surface.SetFont(font)
-		surface.SetTextColor(color)
-		surface.SetTextPos(x, y)
-		surface.DrawText(text)
-	cam.PopModelMatrix()
+function surface.DrawRotatedTextCentered(text, font, x, y, angle, color) 
+	local matrix = Matrix();
+	local pos = Vector(x + (GetFontWidth(font, text) / 2), y + (draw.GetFontHeight(font) / 2));
+	
+	matrix:Translate(pos);
+	matrix:Rotate(Angle(0, angle, 0));
+	matrix:Translate(-pos);
+	
+	cam.PushModelMatrix(matrix);
+		draw.SimpleText(text, font, x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER);
+	cam.PopModelMatrix();
 end
+
+-- A function to draw some rotated text.
+function surface.DrawRotatedText(text, font, x, y, angle, color) 
+	local matrix = Matrix();
+	local pos = Vector(x + (GetFontWidth(font, text) / 2), y + (draw.GetFontHeight(font) / 2));
+	
+	matrix:Translate(pos);
+	matrix:Rotate(Angle(0, angle, 0));
+	matrix:Translate(-pos);
+	
+	cam.PushModelMatrix(matrix);
+		surface.SetFont(font);
+		surface.SetTextColor(color);
+		surface.SetTextPos(x, y);
+		surface.DrawText(text);
+	cam.PopModelMatrix();
+end;
 
 function surface.DrawScaled(x, y, scale, callback)
 	local matrix = Matrix()
@@ -231,6 +200,8 @@ Clockwork.NetworkProxies = Clockwork.NetworkProxies or {}
 Clockwork.InfoMenuOpen = Clockwork.InfoMenuOpen or false
 Clockwork.ColorModify = Clockwork.ColorModify or {}
 Clockwork.Cinematics = Clockwork.Cinematics or {}
+Clockwork.ActiveDermaToolTips = Clockwork.ActiveDermaToolTips or {}
+Clockwork.ConVars = Clockwork.ConVars or {}
 
 Clockwork.kernel.CenterHints = Clockwork.kernel.CenterHints or {}
 Clockwork.kernel.ESPInfo = Clockwork.kernel.ESPInfo or {}
@@ -492,7 +463,7 @@ function Clockwork.kernel:WrapText(text, font, maximumWidth, baseTable)
 end
 
 -- A function to handle an entity's menu.
-function Clockwork.kernel:HandleEntityMenu(entity)
+function Clockwork.kernel:HandleEntityMenu(entity, bQuickTake)
 	if hook.Run("CanOpenEntityMenu") ~= false then
 		local options = {}
 		local itemTable = nil
@@ -749,12 +720,12 @@ end;
 do
 	-- A function to draw the date and time.
 	function Clockwork.kernel:DrawDateTime()
-		local colorWhite = Clockwork.option:GetColor("white");
+		--local colorWhite = Clockwork.option:GetColor("white");
 		local info = {width = ScrW() * 0.25, x = 8, y = 8};
 
 		hook.Run("HUDPaintTopScreen", info)
 		
-		if (hook.Run("PlayerCanSeeDateTime")) then
+		--[[if (hook.Run("PlayerCanSeeDateTime")) then
 			local dateTimeFont = Clockwork.option:GetFont("date_time_text");
 			local dateString = Clockwork.date:GetString();
 			local timeString = Clockwork.time:GetString();
@@ -772,7 +743,7 @@ do
 			end;
 			
 			info.y = info.y + 8;
-		end;
+		end;]]--
 
 		self:DrawBars(info);
 		hook.Run("PostDrawDateTime", info);
@@ -832,15 +803,6 @@ function Clockwork.kernel:DrawBars(info, class)
 		else
 			Clockwork.bars.x = info.x
 		end
-		
-		local barNumber = #Clockwork.bars.stored
-		local padding = 1
-		
-		if (barNumber > 1) then
-			padding = (4 * barNumber) + 2
-		end
-
-		draw.RoundedBox(4, Clockwork.bars.x - 2, info.y - 4, info.width + 4, (Clockwork.bars.height * #Clockwork.bars.stored) + (padding + 6), Color(20, 20, 20, Clockwork.Client.BarAlpha / 2))
 
 		Clockwork.option:SetFont("bar_text", Clockwork.option:GetFont("auto_bar_text"))
 			for k, v in pairs(Clockwork.bars.stored) do
@@ -923,7 +885,7 @@ do
 				end;
 				
 				if cwCharacterNeeds then
-					local corruption = math.Round(player:GetSharedVar("corruption") or 0);
+					local corruption = math.Round(player:GetNetVar("corruption") or 0);
 					
 					if (corruption > 0) then
 						table.insert(text, {
@@ -950,7 +912,7 @@ do
 					});
 				end;
 				
-				local subfaction = player:GetSharedVar("subfaction");
+				local subfaction = player:GetNetVar("subfaction");
 				
 				if subfaction and subfaction ~= "" and subfaction ~= "N/A" then
 					table.insert(text, {
@@ -960,7 +922,7 @@ do
 				end
 				
 				if (Schema.faiths) then
-					local faith = player:GetSharedVar("faith");
+					local faith = player:GetNetVar("faith");
 					
 					if faith then
 						local faithText = faith;
@@ -971,7 +933,7 @@ do
 							faithColor = faithTable.color;
 						end
 						
-						local subfaith = player:GetSharedVar("subfaith");
+						local subfaith = player:GetNetVar("subfaith");
 						
 						if subfaith and subfaith ~= "N/A" then
 							faithText = subfaith;
@@ -984,14 +946,14 @@ do
 					end
 				end;
 				
-				if player:GetSharedVar("favored") then
+				if player:GetNetVar("favored") then
 					table.insert(text, {
 						text = "*FAVORED*", 
 						color = Color(0, 0, 255, 255);
 					});
 				end
 				
-				if player:GetSharedVar("followed") then
+				if player:GetNetVar("followed") then
 					table.insert(text, {
 						text = "*FOLLOWED*", 
 						color = Color(255, 0, 0, 255);
@@ -999,7 +961,7 @@ do
 				end
 				
 				--if player:HasTrait("marked") then
-				if player:GetSharedVar("marked") then
+				if player:GetNetVar("marked") then
 					table.insert(text, {
 						text = "*MARKED*", 
 						color = Color(255, 0, 0, 255);
@@ -1007,7 +969,7 @@ do
 				end
 				
 				--if player:HasTrait("possessed") then
-				if player:GetSharedVar("possessed") then
+				if player:GetNetVar("possessed") then
 					table.insert(text, {
 						text = "*POSSESSED*", 
 						color = Color(255, 0, 0, 255);
@@ -1015,7 +977,7 @@ do
 				end
 				
 				if cwMedicalSystem then
-					local diseases = player:GetSharedVar("diseases");
+					local diseases = player:GetNetVar("diseases");
 					
 					if diseases and not table.IsEmpty(diseases) then
 						for i = 1, #cwMedicalSystem.espDiseases do
@@ -1034,7 +996,7 @@ do
 				end
 
 				if (weapon and IsValid(weapon)) then			
-					local raised = Clockwork.player:GetWeaponRaised(player) or player:GetSharedVar("senses") == true;
+					local raised = player:IsWeaponRaised(weapon);
 					local color = colorWhite;
 
 					if (raised == true) then
@@ -1058,9 +1020,7 @@ do
 
 	-- A function to get all ESP info.
 	function Clockwork.kernel:GetAdminESPInfo(info)
-		local players = _player.GetAll();
-		
-		for k, v in pairs(players) do
+		for _, v in _player.Iterator() do
 			if (IsValid(v) and v:HasInitialized()) then
 				local physBone = v:LookupBone("ValveBiped.Bip01_Head1");
 				local position = nil;
@@ -1075,7 +1035,7 @@ do
 					position = v:GetPos() + Vector(0, 0, 80);
 				end;
 
-				local topText = {v:Name().." ("..v:GetSharedVar("level", 1)..")"};
+				local topText = {v:Name().." ("..v:GetNetVar("level", 1)..")"};
 					hook.Run("GetStatusInfo", v, topText);	
 				local playerColor = Clockwork.kernel:PlayerNameColor(v);
 				
@@ -1093,8 +1053,8 @@ do
 			end;
 		end;
 		
-		local salesESP = CW_CONVAR_SALEESP:GetInt() == 1;
-		local itemESP = CW_CONVAR_ITEMESP:GetInt() == 1;
+		local salesESP = Clockwork.ConVars.SALEESP:GetInt() == 1;
+		local itemESP = Clockwork.ConVars.ITEMESP:GetInt() == 1;
 		local allEnts = {};
 		
 		if (salesESP or itemESP) then
@@ -1166,7 +1126,7 @@ do
 		local curTime = UnPredictedCurTime();
 
 		if (!self.NextGetESPInfo or curTime >= self.NextGetESPInfo) then
-			self.NextGetESPInfo = curTime + (CW_CONVAR_ESPTIME:GetInt() or 1);
+			self.NextGetESPInfo = curTime + (Clockwork.ConVars.ESPTIME:GetInt() or 1);
 			self.ESPInfo = {};
 
 			self:GetAdminESPInfo(self.ESPInfo)
@@ -1275,6 +1235,13 @@ function Clockwork.kernel:DrawBar(x, y, width, height, color, text, value, maxim
 	
 	local frameTime = FrameTime()
 	local backgroundColor = Clockwork.option:GetColor("background")
+
+	if (bTopBar) then
+		local pixelsPerPoint = width / 100;
+
+		width = pixelsPerPoint * maximum;
+	end
+
 	local progressWidth = math.Clamp(((width - 2) / maximum) * value, 0, width - 2)
 	local colorWhite = Clockwork.option:GetColor("white")
 	local newBarInfo = {
@@ -1309,12 +1276,16 @@ function Clockwork.kernel:DrawBar(x, y, width, height, color, text, value, maxim
 	if (bTopBar) then
 		color.a = Clockwork.Client.BarAlpha
 	end
+	
+	local percentbar = barInfo.progressWidth / (barInfo.width - 2)
 
 	barInfo.height = 24
+	
+	draw.RoundedBox(4, barInfo.x - 2, barInfo.y - 2, barInfo.width + 4, barInfo.height + 4, Color(20, 20, 20, Clockwork.Client.BarAlpha / 2))
 
 	surface.SetDrawColor(255, 255, 255, (color.a / 2))
 	surface.SetMaterial(Clockwork.scratchTexture)
-	surface.DrawTexturedRect(barInfo.x, barInfo.y, barInfo.width, barInfo.height)
+	surface.DrawTexturedRect(barInfo.x - 4, barInfo.y, barInfo.width + 4, barInfo.height)
 	
 	barInfo.drawBackground = false
 	barInfo.drawProgress = false
@@ -1331,7 +1302,7 @@ function Clockwork.kernel:DrawBar(x, y, width, height, color, text, value, maxim
 
 	surface.SetDrawColor(barInfo.color.r, barInfo.color.g, barInfo.color.b, (color.a * 3))
 	surface.SetMaterial(Clockwork.scratchTexture)
-	surface.DrawTexturedRect(barInfo.x, barInfo.y, barInfo.progressWidth, barInfo.height)
+	surface.DrawTexturedRectUV(barInfo.x - 4, barInfo.y, barInfo.progressWidth + 4, barInfo.height, 0, 0, percentbar, 1 )
 	
 	if (barInfo.text and barInfo.text != "") then
 		local barTextX = barInfo.x + (barInfo.width / 2)
@@ -1392,6 +1363,11 @@ function Clockwork.kernel:ScaleToWideScreen(size)
 	return math.min(math.max(ScreenScale(size / 2.62467192), math.min(size, 14)), size);
 end;
 
+-- A function to get font widescreen scale.
+function ScaleToWideScreen(size)
+	return math.min(math.max(ScreenScale(size / 2.62467192), math.min(size, 14)), size);
+end;
+
 -- A function to draw some simple text.
 function Clockwork.kernel:DrawSimpleText(text, x, y, color, alignX, alignY, shadowless, shadowDepth)
 	local mainTextFont = Clockwork.option:GetFont("main_text")
@@ -1435,7 +1411,7 @@ function Clockwork.kernel:PrintColoredText(...)
 	
 	local text = {}
 
-	for k, v in ipairs({...}) do
+	for k, v in pairs({...}) do
 		if v ~= "noTime" then
 			if (type(v) == "Player") then
 				text[#text + 1] = Clockwork.kernel:PlayerNameColor(v);
@@ -1777,7 +1753,7 @@ function Clockwork.kernel:HandleItemSpawnIconClick(itemTable, spawnIcon, Callbac
 		end
 	end
 	
-	if (itemTable.OnRepair) and (itemTable.repairItem) and itemTable:GetCondition() then
+	if (itemTable.OnRepair) and (itemTable.repairItem) and itemTable:GetCondition() and !itemTable.unrepairable then
 		if itemTable:GetCondition() < 100 and (!itemTable:IsBroken() or (cwBeliefs and cwBeliefs:HasBelief("artisan"))) then
 			if Clockwork.inventory:HasItemByID(Clockwork.inventory:GetClient(), itemTable.repairItem) then
 				itemFunctions[#itemFunctions + 1] = (itemTable.repairText or repairName);
@@ -2235,16 +2211,12 @@ do
 		return Clockwork.kernel:NewMetaTable(MARKUP_OBJECT);
 	end;
 
-	function Clockwork.kernel:GetActiveDermaToolTip()
-		return Clockwork.ActiveDermaToolTip
+	function Clockwork.kernel:GetActiveDermaToolTips()
+		return Clockwork.ActiveDermaToolTips
 	end
 
 	function Clockwork.kernel:AddMarkupLine(markupText, text, color)
 		print("Clockwork.kernel:AddMarkupLine called with text: "..text);
-	end;
-
-	function Clockwork.kernel:GetActiveMarkupToolTip()
-		return self:GetActiveDermaToolTip();
 	end;
 
 	function Clockwork.kernel:CreateMarkupToolTip(panel)
@@ -2263,7 +2235,8 @@ function Clockwork.kernel:CreateDermaToolTip(panel)
 	-- A function to set the panel's associated item table.
 	function panel.SetItemTable(panel, itemTable, bWeightless)
 		if (itemTable and !table.IsEmpty(itemTable)) then
-			panel.itemTable = itemTable
+			panel.itemTable = itemTable;
+			panel.itemID = itemTable.itemID;
 			panel.bWeightless = bWeightless or true;
 		end;
 	end;
@@ -2276,10 +2249,8 @@ function Clockwork.kernel:CreateDermaToolTip(panel)
 
 	-- A function to get the panel's associated item table.
 	function panel.GetItemTable(panel)
-		return panel.itemTable;
+		return item.FindInstance(panel.itemID) or panel.itemTable;
 	end;
-	
-	panel.IsToolTip = true;
 
 	-- Called when the panel is removed.
 	function panel.OnRemove(panel, ...)
@@ -2569,7 +2540,7 @@ function Clockwork.kernel:DrawCinematic(cinematicTable, curTime)
 end;
 
 -- A function to draw the cinematic introduction.
-function Clockwork.kernel:DrawCinematicIntro(curTime)
+--[[function Clockwork.kernel:DrawCinematicIntro(curTime)
 	local cinematicInfo = hook.Run("GetCinematicIntroInfo");
 	local colorWhite = Clockwork.option:GetColor("white");
 	local colorInfo = Clockwork.option:GetColor("information");
@@ -2613,10 +2584,10 @@ function Clockwork.kernel:DrawCinematicIntro(curTime)
 			Clockwork.CinematicScreenTarget = 255;
 		end;
 	end;
-end;
+end;]]--
 
 -- A function to draw the cinematic introduction bars.
-function Clockwork.kernel:DrawCinematicIntroBars()
+--[[function Clockwork.kernel:DrawCinematicIntroBars()
 	if (config.Get("draw_intro_bars"):Get()) then
 		local maxBarLength = ScrH() / 13;
 		
@@ -2652,50 +2623,7 @@ function Clockwork.kernel:DrawCinematicIntroBars()
 		draw.RoundedBox(0, 0, 0, ScrW(), Clockwork.CinematicScreenBarLength, Color(0, 0, 0, 255));
 		draw.RoundedBox(0, 0, ScrH() - Clockwork.CinematicScreenBarLength + 1, ScrW(), maxBarLength, Color(0, 0, 0, 255));
 	end;
-end;
-
--- A function to draw the cinematic info.
-function Clockwork.kernel:DrawCinematicInfo()
-	if (!Clockwork.CinematicInfoAlpha and !Clockwork.CinematicInfoSlide) then
-		Clockwork.CinematicInfoAlpha = 255;
-		Clockwork.CinematicInfoSlide = 0;
-	end;
-	
-	Clockwork.CinematicInfoSlide = math.Approach(Clockwork.CinematicInfoSlide, 255, 1);
-	
-	if (Clockwork.CinematicScreenAlpha and Clockwork.CinematicScreenTarget) then
-		Clockwork.CinematicInfoAlpha = math.Approach(Clockwork.CinematicInfoAlpha, 0, 1);
-		
-		if (Clockwork.CinematicInfoAlpha == 0) then
-			Clockwork.CinematicInfoDrawn = true;
-		end;
-	end;
-	
-	local cinematicInfo = hook.Run("GetCinematicIntroInfo");
-	local colorWhite = Clockwork.option:GetColor("white");
-	local colorInfo = Clockwork.option:GetColor("information");
-	
-	local cinematicInfo = hook.Run("GetCinematicIntroInfo");
-	local colorWhite = Clockwork.option:GetColor("white");
-	local colorInfo = Clockwork.option:GetColor("information");
-	
-	if (cinematicInfo) then
-		if (cinematicInfo.title) then
-			local cinematicInfoTitle = string.upper(cinematicInfo.title);
-			local introTextBigFont = Clockwork.option:GetFont("intro_text_big");
-			local introTextSmallFont = Clockwork.option:GetFont("intro_text_small")
-			local textWidth, textHeight = Clockwork.kernel:GetCachedTextSize(introTextBigFont, cinematicInfoTitle);
-			
-			draw.SimpleText(cinematicInfoTitle, introTextBigFont, ScrW() / 2, ScrH() / 2, Color(colorWhite.r, colorWhite.g, colorWhite.b, alpha), 1, 1);
-		
-			if (cinematicInfo.text) then
-				draw.SimpleText(string.upper(cinematicInfo.text), introTextSmallFont, (ScrW() / 2) - (textWidth / 2), (ScrH() / 2) + (textHeight / 2), Color(colorWhite.r, colorWhite.g, colorWhite.b, alpha));
-			end;
-		elseif (cinematicInfo.text) then
-			draw.SimpleText(string.upper(cinematicInfo.text), introTextSmallFont, ScrW() / 2, (ScrH() / 2) + 40, Color(colorWhite.r, colorWhite.g, colorWhite.b, alpha), 0, 1);
-		end;
-	end;
-end;
+end;]]--
 
 -- A function to draw some door text.
 function Clockwork.kernel:DrawDoorText(entity, eyePos, eyeAngles, font, nameColor, textColor)
@@ -3142,6 +3070,10 @@ function playerMeta:GetCountryCode()
 	end;
 end;
 
+function playerMeta:GetSubfaction() 
+	return self:GetNetVar("subfaction"); 
+end
+
 entityMeta.ClockworkFireBullets = entityMeta.ClockworkFireBullets or entityMeta.FireBullets
 weaponMeta.OldGetPrintName = weaponMeta.OldGetPrintName or weaponMeta.GetPrintName
 playerMeta.SteamName = playerMeta.SteamName or playerMeta.Name
@@ -3167,13 +3099,7 @@ function weaponMeta:GetPrintName()
 		name = self:OldGetPrintName()
 	end
 	
-	if self:GetNWString("activeShield"):len() > 0 then
-		local shieldTable = GetTable(self:GetNWString("activeShield"));
-		
-		if shieldTable and shieldTable.name then
-			return name.." & "..shieldTable.name;
-		end
-	elseif self:GetNWString("activeOffhand"):len() > 0 then
+	if self:GetNWString("activeOffhand"):len() > 0 then
 		local weaponTable = weapons.GetStored(self:GetNWString("activeOffhand"));
 
 		if weaponTable and weaponTable.PrintName then
@@ -3191,6 +3117,12 @@ function weaponMeta:GetPrintName()
 				return tab[1].." & "..tab[2];
 			end
 		end
+	elseif self:GetNWString("activeShield"):len() > 0 then
+		local shieldTable = GetTable(self:GetNWString("activeShield"));
+		
+		if shieldTable and shieldTable.name then
+			return name.." & "..shieldTable.name;
+		end
 	end
 	
 	return name;
@@ -3198,7 +3130,7 @@ end
 
 -- A function to get a player's name.
 function playerMeta:Name(bRealName)
-	local name = (!bRealName and self:GetNetVar("NameOverride", nil)) or self:GetDTString(STRING_NAME)
+	local name = (!bRealName and self:GetNetVar("NameOverride")) or self:GetDTString(STRING_NAME)
 
 	if (!name or name == "") then
 		return self:SteamName()
@@ -3219,10 +3151,15 @@ end
 
 -- A function to get whether a player is running.
 function playerMeta:IsRunning(bNoWalkSpeed)
-	if (self:Alive() and !self:IsRagdolled() and !self:InVehicle() and !self:Crouching()
-	and self:GetDTBool(BOOL_ISRUNNING)) then
-		if (self:GetVelocity():Length() >= self:GetWalkSpeed() or bNoWalkSpeed) then
-			return true
+	if self:GetDTBool(BOOL_ISRUNNING) then
+		if (self:Alive() and !self:IsRagdolled() and !self:InVehicle() and !self:Crouching() and self:WaterLevel() < 2) then
+			if (self:GetVelocity():Length() >= self:GetWalkSpeed() or bNoWalkSpeed) then
+				if self == Clockwork.Client and !self:KeyDown(IN_SPEED) then
+					return false;
+				end
+				
+				return true
+			end
 		end
 	end
 
@@ -3231,9 +3168,9 @@ end
 
 -- A function to get a player's forced animation.
 function playerMeta:GetForcedAnimation()
-	local forcedAnimation = self:GetNetVar("ForceAnim")
+	local forcedAnimation = self:GetNetVar("ForceAnim");
 
-	if (forcedAnimation != 0) then
+	if (forcedAnimation) then
 		return {
 			animation = forcedAnimation,
 		}
@@ -3256,15 +3193,13 @@ end
 
 -- A function to get whether a player has initialized.
 function playerMeta:HasInitialized()
-	if (IsValid(self)) then
+	--if (IsValid(self)) then
 		return self:GetNetVar("Initialized")
-	end
+	--end
 end
 
 -- A function to get a player's gender.
 function playerMeta:GetGender()
-	if (self:GetNetVar("Gender") == nil) then return GENDER_MALE; end
-
 	if (self:GetNetVar("Gender") == 1) then
 		return GENDER_FEMALE
 	else

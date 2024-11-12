@@ -1,5 +1,13 @@
 local overlay;
 
+function PLUGIN:GetProgressBarInfoAction(action, percentage)
+	if (action == "putting_on_armor") then
+		return {text = "You are putting on your armor. Click to cancel.", percentage = percentage, flash = percentage < 10};
+	elseif (action == "taking_off_armor") then
+		return {text = "You are taking off your armor. Click to cancel.", percentage = percentage, flash = percentage < 10};
+	end
+end
+
 -- Called when helmet (bodygroup 1) screen space effects should be rendered.
 function PLUGIN:RenderScreenspaceEffects()
 	local curTime = CurTime();
@@ -34,14 +42,24 @@ function PLUGIN:RenderScreenspaceEffects()
 end;
 
 function PLUGIN:Tick()
-	for _, player in pairs(_player.GetAll()) do
+	for _, player in _player.Iterator() do
 		player.clothesDrawnThisTick = false;
 	end
 	
 	for k, v in pairs(ents.FindByClass("prop_ragdoll")) do
-		if v:GetNWString("clothes") then
-			if !IsValid(v.clothesEnt) then
-				local clothesEnt = ClientsideModel(v:GetNWString("clothes"), RENDERGROUP_BOTH);
+		local clothesEnt = v.clothesEnt;
+		
+		if !v:IsDormant() and string.sub(v:GetModel(), 1, 21) == "models/begotten/heads" then
+			local vTab = v:GetTable();
+			local model = v:GetNWString("clothes") or "models/begotten/wanderers/wanderer_male.mdl";
+			
+			if IsValid(clothesEnt) and clothesEnt:GetModel() ~= model then
+				clothesEnt:Remove();
+				vTab.clothesEnt = nil;
+			end
+		
+			if !IsValid(clothesEnt) then
+				clothesEnt = ClientsideModel(model, RENDERGROUP_BOTH);
 				
 				if IsValid(clothesEnt) then
 					clothesEnt:SetParent(v);
@@ -49,14 +67,12 @@ function PLUGIN:Tick()
 					clothesEnt:SetColor(v:GetColor());
 					clothesEnt:SetNoDraw(v:GetNoDraw());
 					
-					v.clothesEnt = clothesEnt;
+					vTab.clothesEnt = clothesEnt;
 				end
 			else
-				local clothesEnt = v.clothesEnt;
-				
 				if clothesEnt:GetModel() ~= v:GetNWString("clothes") then
 					clothesEnt:Remove();
-					v.clothesEnt = ClientsideModel(v:GetNWString("clothes"), RENDERGROUP_BOTH);
+					vTab.clothesEnt = ClientsideModel(v:GetNWString("clothes"), RENDERGROUP_BOTH);
 				end
 			
 				if clothesEnt:GetParent() ~= v then
@@ -68,15 +84,21 @@ function PLUGIN:Tick()
 				clothesEnt:SetNoDraw(v:GetNoDraw());
 				clothesEnt:SetPos(v:GetPos());
 			end
+		elseif clothesEnt then
+			if IsValid(clothesEnt) then
+				clothesEnt:Remove();
+			end
+			
+			v.clothesEnt = nil;
 		end
 	end
 end
 
 function PLUGIN:PostPlayerDraw(player, flags)
 	if string.sub(player:GetModel(), 1, 21) == "models/begotten/heads" then
-		local shouldBeVisible = player:Alive() and player:GetMoveType() ~= MOVETYPE_OBSERVER and player:GetColor().a > 0;
-		
-		if shouldBeVisible then
+		local plyColor = player:GetColor();
+	
+		if player:Alive() and player:GetMoveType() ~= MOVETYPE_OBSERVER and plyColor.a > 0 and !player:GetNoDraw() then
 			local plyTab = player:GetTable();
 			local clothes = player:GetClothesEquipped();
 			local model;
@@ -88,17 +110,25 @@ function PLUGIN:PostPlayerDraw(player, flags)
 					model = "models/begotten/"..clothes.group.."_"..string.lower(player:GetGender())..".mdl"
 				end
 			else
-				local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+				local faction = player:GetFaction();
 				
 				if faction then
+					if faction == "Children of Satan" then
+						faction = player:GetNetVar("kinisgerOverride") or faction;
+					end
+					
 					local factionTable = Clockwork.faction:FindByID(faction);
 					
 					if factionTable then
-						local subfaction = player:GetSharedVar("kinisgerOverrideSubfaction") or player:GetSharedVar("subfaction");
+						local subfaction = player:GetNetVar("subfaction");
 						
+						if faction == "Children of Satan" then
+							subfaction = player:GetNetVar("kinisgerOverrideSubfaction") or subfaction;
+						end
+
 						if subfaction and factionTable.subfactions then
-							for k, v in pairs(factionTable.subfactions) do
-								if k == subfaction and v.models then
+							for i, v in ipairs(factionTable.subfactions) do
+								if v.name == subfaction and v.models then
 									model = v.models[string.lower(player:GetGender())].clothes;
 								
 									break;
@@ -113,20 +143,21 @@ function PLUGIN:PostPlayerDraw(player, flags)
 				end
 			end
 			
-			if IsValid(plyTab.clothesEnt) and plyTab.clothesEnt:GetModel() ~= model then
-				plyTab.clothesEnt:Remove();
+			local clothesEnt = plyTab.clothesEnt;
+			
+			if IsValid(clothesEnt) and clothesEnt:GetModel() ~= model then
+				clothesEnt:Remove();
 				plyTab.clothesEnt = nil;
 			end
 			
-			if !IsValid(plyTab.clothesEnt) then
+			if !IsValid(clothesEnt) then
 				if model then
 					plyTab.clothesEnt = ClientsideModel(model, RENDERGROUP_BOTH);
+					clothesEnt = plyTab.clothesEnt;
 				else
 					return;
 				end
 			end
-			
-			local clothesEnt = plyTab.clothesEnt;
 			
 			if clothes and clothes.bodygroupCharms then
 				for k, v in pairs(clothes.bodygroupCharms) do
@@ -143,8 +174,7 @@ function PLUGIN:PostPlayerDraw(player, flags)
 				clothesEnt:AddEffects(EF_BONEMERGE);
 			end
 
-			clothesEnt:SetColor(player:GetColor());
-			clothesEnt:SetNoDraw(player:GetNoDraw());
+			clothesEnt:SetColor(plyColor);
 
 			plyTab.clothesDrawnThisTick = true;
 		end
@@ -152,7 +182,7 @@ function PLUGIN:PostPlayerDraw(player, flags)
 end
 
 function PLUGIN:Think()
-	for _, player in pairs(_player.GetAll()) do
+	for _, player in _player.Iterator() do
 		local plyTab = player:GetTable();
 		local clothesEnt = plyTab.clothesEnt;
 		
@@ -167,6 +197,8 @@ function PLUGIN:Think()
 end
 
 function PLUGIN:EntityRemoved(entity, bFullUpdate)
+	if bFullUpdate then return end;
+
 	if entity:IsPlayer() or entity:GetClass() == "prop_ragdoll" then
 		if IsValid(entity.clothesEnt) then
 			entity.clothesEnt:Remove();

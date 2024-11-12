@@ -3,6 +3,8 @@
 	Created by cash wednesday, gabs, DETrooper and alyousha35
 --]]
 
+config.Add("xp_modifier", 1)
+
 cwBeliefs.xpValues = {
 	["breakdown"] = 1, -- 1 xp per item broken down.
 	["copy"] = 200, -- 200 xp per book copied by those with the 'Scribe' belief.
@@ -13,22 +15,22 @@ cwBeliefs.xpValues = {
 	["meltdown"] = 2, -- 2 xp per item melted down.
 	["mutilate"] = 2, -- 2 xp per mutiliation of a corpse. Also includes other stuff like eating hearts or harvesting bones.
 	["residual"] = 1, -- 1 xp per minute survived in non-safezones.
-	["read"] = 50, -- 50 xp for every unique scripture read.
+	["read"] = 50, -- 50 xp for every unique scripture read. Halved if a member of a faction.
 };
 
 cwBeliefs.beliefNotifications = {
-	["embrace_the_darkness"] = "You can now right click with Senses equipped in order to toggle invisibility while outside in the Wasteland at night, though you must remain crouched with your Senses equipped.",
+	["embrace_the_darkness"] = "You can now right click with Senses equipped in order to toggle invisibility while outside in the Wasteland at night, during blood storms, or while in the mines, though you must remain crouched with your Senses equipped. Note that after attacking there will be a five second delay before you can cloak. Firing a firearm will increase this delay to 30 seconds.",
 	["evasion"] = "You can now roll by double-tapping your movement keys (toggled in the Clockwork Settings menu), or by binding a key to 'begotten_roll' and pressing it while moving. Rolling grants invincibility frames and can also put out fires.",
 	["father"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now warcry by typing '/warcry' in chat, which will temporarily disorient and lower the sanity of nearby enemy players.",
 	["flagellant"] = "You can now scourge your own flesh by typing '/flagellate' in the chatbox.",
 	["halfsword_sway"] = "You can now change stances with certain weapons by using E + Right Click!",
 	["hard_glazed"] = "You can now pray to the Gods by typing '/pray' in the chatbox.",
-	["mother"] = "You can now pray to the Gods by typing '/pray' in the chatbox.",
+	["mother"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now warcry by typing '/warcry' in chat, which will temporarily disorient and lower the sanity of nearby enemy players.",
 	["old_son"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now warcry by typing '/warcry' in chat, which will temporarily disorient and lower the sanity of nearby enemy players.",
 	["parrying"] = "You can now parry with melee weapons by using your reload key!",
 	["primevalism"] = "You can now pray to the Gods by typing '/pray' in the chatbox.",
 	["satanism"] = "You can now pray to the Gods by typing '/pray' in the chatbox.",
-	["sister"] = "You can now pray to the Gods by typing '/pray' in the chatbox.",
+	["sister"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now warcry by typing '/warcry' in chat, which will temporarily disorient and lower the sanity of nearby enemy players.",
 	["sol_orthodoxy"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now end your miserable fucking existence by typing '/suicide'.",
 	["voltism"] = "You can now pray to the Gods by typing '/pray' in the chatbox. You can also now electrocute yourself by typing '/electrocute'.",
 	--["deflection"] = "You can now deflect when blocking with melee weapons by performing timed blocks!",
@@ -86,7 +88,7 @@ function cwBeliefs:LevelUp(player)
 			player:SetCharacterData("points", points);
 			player:SetLocalVar("points", points);
 			player:SetCharacterData("level", newLevel);
-			player:SetSharedVar("level", newLevel);
+			player:SetNetVar("level", newLevel);
 			Clockwork.plugin:Call("PlayerLevelUp", player, newLevel, points);
 		end
 	end
@@ -101,7 +103,12 @@ function cwBeliefs:TakeBelief(player, uniqueID, niceName, category)
 	local points = player:GetCharacterData("points", 0)
 	
 	if (points <= 0) then
-		Schema:EasyText(player, "chocolate", "You do not have enough faith to follow this belief!")
+		Schema:EasyText(player, "peru", "You do not have enough faith to follow this belief!")
+		return false
+	end;
+
+	if (player:GetNetVar("tied") != 0) then
+		Schema:EasyText(player, "peru", "You cannot follow beliefs when you are tied!");
 		return false
 	end;
 	
@@ -115,6 +122,8 @@ function cwBeliefs:TakeBelief(player, uniqueID, niceName, category)
 		player:SetLocalVar("points", player:GetCharacterData("points", 0));
 		player:Notify("You have taken the \""..niceName.."\" belief.")
 		player:SendLua([[Clockwork.Client:EmitSound("ambient/fire/ignite.wav", 40)]]);
+		
+		Clockwork.kernel:PrintLog(LOGTYPE_MINOR, player:Name().." has taken the \""..niceName.."\" belief.");
 		
 		hook.Run("BeliefTaken", player, uniqueID, category);
 	end;
@@ -153,8 +162,8 @@ function cwBeliefs:ForceRemoveBelief(player, uniqueID, bRemoveDependencies)
 		local beliefTable = self:FindBeliefByID(uniqueID, category)
 		
 		if beliefTable and beliefTable.subfaith and beliefTable.row == 1 then
-			player:SetSharedVar("subfaith", nil);
-			player:GetCharacter().subfaith = nil;
+			player:SetNetVar("subfaith", nil);
+			player.cwCharacter.subfaith = nil;
 		end
 		
 		beliefs[uniqueID] = false;
@@ -166,8 +175,8 @@ function cwBeliefs:ForceRemoveBelief(player, uniqueID, bRemoveDependencies)
 				local requirementTable = self:FindBeliefByID(v, category)
 				
 				if requirementTable and requirementTable.subfaith and requirementTable.row == 1 then
-					player:SetSharedVar("subfaith", nil);
-					player:GetCharacter().subfaith = nil;
+					player:SetNetVar("subfaith", nil);
+					player.cwCharacter.subfaith = nil;
 				end
 			
 				beliefs[v] = false;
@@ -177,16 +186,21 @@ function cwBeliefs:ForceRemoveBelief(player, uniqueID, bRemoveDependencies)
 		
 		beliefs[uniqueID] = false;
 		
-		local max_poise = player:GetMaxPoise();
-		local poise = player:GetNWInt("meleeStamina");
+		player:SetCharacterData("beliefs", beliefs);
+		player:SetCharacterData("level", math.max(player:GetCharacterData("level", 1) - levels_to_remove, 1));
+		player:SetNetVar("level", player:GetCharacterData("level", 1));
+		player:NetworkBeliefs();
+		
+		--local max_poise = player:GetMaxPoise();
+		--local poise = player:GetNWInt("meleeStamina");
 		local max_stamina = player:GetMaxStamina();
 		local max_stability = player:GetMaxStability();
 		local stamina = player:GetNWInt("Stamina", 100);
 		
 		player:SetMaxHealth(player:GetMaxHealth());
 		player:SetLocalVar("maxStability", max_stability);
-		player:SetLocalVar("maxMeleeStamina", max_poise);
-		player:SetNWInt("meleeStamina", math.min(poise, max_poise));
+		--player:SetLocalVar("maxMeleeStamina", max_poise);
+		--player:SetNWInt("meleeStamina", math.min(poise, max_poise));
 		player:SetLocalVar("Max_Stamina", max_stamina);
 		player:SetCharacterData("Max_Stamina", max_stamina);
 		player:SetNWInt("Stamina", math.min(stamina, max_stamina));
@@ -194,10 +208,6 @@ function cwBeliefs:ForceRemoveBelief(player, uniqueID, bRemoveDependencies)
 		
 		hook.Run("RunModifyPlayerSpeed", player, player.cwInfoTable, true)
 		
-		player:SetCharacterData("beliefs", beliefs);
-		player:SetCharacterData("level", math.max(player:GetCharacterData("level", 1) - levels_to_remove, 1));
-		player:SetSharedVar("level", player:GetCharacterData("level", 1));
-		player:NetworkBeliefs();
 		player:SaveCharacter();
 	end
 end
@@ -219,7 +229,7 @@ function cwBeliefs:SetSacramentLevel(player, level)
 	player:SetLocalVar("points", points);
 	player:SetCharacterData("points", points);
 	player:SetCharacterData("level", level);
-	player:SetSharedVar("level", level);
+	player:SetNetVar("level", level);
 	
 	if oldLevel < level then
 		Clockwork.plugin:Call("PlayerLevelUp", player, level, points);
@@ -228,21 +238,21 @@ end
 
 function cwBeliefs:ResetBeliefSharedVars(player)
 	if player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation") then
-		player:SetSharedVar("beliefFont", "Voltism");
-	elseif player:GetSharedVar("beliefFont") then
-		player:SetSharedVar("beliefFont", nil);
+		player:SetNetVar("beliefFont", "Voltism");
+	elseif player:GetNetVar("beliefFont") then
+		player:SetNetVar("beliefFont", nil);
 	end
 	
 	if player:HasBelief("nimble") then
-		player:SetSharedVar("hasNimble", true);
-	elseif player:GetSharedVar("nimble") then
-		player:SetSharedVar("hasNimble", nil);
+		player:SetNetVar("hasNimble", true);
+	elseif player:GetNetVar("hasNimble") then
+		player:SetNetVar("hasNimble", nil);
 	end
 	
 	if player:HasBelief("favored") then
-		player:SetSharedVar("favored", true);
-	elseif player:GetSharedVar("favored") then
-		player:SetSharedVar("favored", nil);
+		player:SetNetVar("favored", true);
+	elseif player:GetNetVar("favored") then
+		player:SetNetVar("favored", nil);
 	end
 end;
 
@@ -263,3 +273,5 @@ concommand.Add("listbeliefs", function(player)
 		end;
 	end;
 end)
+
+config.Add("max_sac_level", 40, true)

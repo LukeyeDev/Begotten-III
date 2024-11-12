@@ -2,18 +2,18 @@
 	Begotten III: Jesus Wept
 --]]
 
-cwSenses.heatwaveMaterial = Material("sprites/heatwave");
-cwSenses.heatwaveMaterial:SetFloat("$refractamount", 0);
+--cwSenses.heatwaveMaterial = Material("sprites/heatwave");
+--cwSenses.heatwaveMaterial:SetFloat("$refractamount", 0);
 cwSenses.shinyMaterial = Material("models/shiny");
 
 -- Called when screen space effects should be rendered.
 function cwSenses:RenderScreenspaceEffects()
-	local senses = Clockwork.Client:GetNWBool("senses");
+	local senses = Clockwork.Client:GetNetVar("senses");
 
 	if !Clockwork.kernel:IsChoosingCharacter() then	
 		if (senses) then
-			local hasThermal = Clockwork.Client:GetNWBool("hasThermal");
-			local hasNV = Clockwork.Client:GetNWBool("hasNV");
+			local hasThermal = Clockwork.Client:GetNetVar("hasThermal");
+			local hasNV = Clockwork.Client:GetNetVar("hasNV");
 			
 			if (hasThermal) then
 				local modulation = {1, 0, 0};
@@ -33,21 +33,19 @@ function cwSenses:RenderScreenspaceEffects()
 			
 				cam.Start3D(EyePos(), EyeAngles());
 				
-				local players = _player.GetAll();
-
-				for i, v in ipairs(players) do
+				for _, v in _player.Iterator() do
 					if (v:Alive() and v:HasInitialized() and !v:IsNoClipping()) then
 						local ragdollEntity = v:GetRagdollEntity();
 						
 						render.SuppressEngineLighting(true);
 						
-						if v:GetSharedVar("subfaith") == "Voltism" then
+						if v:GetNetVar("subfaith") == "Voltism" then
 							render.SetColorModulation(unpack(voltismModulation));
 						else
 							render.SetColorModulation(unpack(modulation));
 						end
 						
-						self.heatwaveMaterial:SetFloat("$refractamount", -0.0007);
+						--self.heatwaveMaterial:SetFloat("$refractamount", -0.0007);
 						
 						render.MaterialOverride(self.shinyMaterial);
 						
@@ -165,7 +163,7 @@ end;
 -- Called just before the skybox is drawn.
 --[[function cwSenses:PreDrawSkyBox()
 	if !Clockwork.kernel:IsChoosingCharacter() then
-		local senses = Clockwork.Client:GetNWBool("senses");
+		local senses = Clockwork.Client:GetNetVar("senses");
 		
 		if (senses) then
 			render.Clear(0, 0, 0, 255);
@@ -177,7 +175,7 @@ end
 -- Called just after the skybox is drawn.
 function cwSenses:PostDrawSkyBox()
 	if !Clockwork.kernel:IsChoosingCharacter() then
-		local senses = Clockwork.Client:GetNWBool("senses");
+		local senses = Clockwork.Client:GetNetVar("senses");
 		
 		if (senses) then
 			render.Clear(0, 0, 0, 255);
@@ -193,11 +191,11 @@ function cwSenses:Think()
 	if (!Clockwork.Client.cwNextSenseCheck or curTime > Clockwork.Client.cwNextSenseCheck) then
 		Clockwork.Client.cwNextSenseCheck = curTime + 0.05;
 		
-		local senses = Clockwork.Client:GetNWBool("senses");
+		local senses = Clockwork.Client:GetNetVar("senses");
 
 		if (senses) then
-			local hasThermal = Clockwork.Client:GetNWBool("hasThermal");
-			local hasNV = Clockwork.Client:GetNWBool("hasNV");
+			local hasThermal = Clockwork.Client:GetNetVar("hasThermal");
+			local hasNV = Clockwork.Client:GetNetVar("hasNV");
 			
 			if !hasThermal and !hasNV then
 				if (!self.darknessSound) then

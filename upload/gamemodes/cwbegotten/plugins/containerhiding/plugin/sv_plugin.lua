@@ -7,6 +7,12 @@
 
 -- Called when the player attempts to hide in a container.
 function cwContainerHiding:AttemptHide(player, entity, bHide)
+	if player:GetPos():Distance(entity:GetPos()) > 128 then
+		Schema:EasyText(player, "peru", "You are too far to hide in this container.");
+	
+		return;
+	end
+
 	if (IsValid(entity.occupier) and entity.occupier:GetCharacterData("hidden") == true and entity.occupier != player) then
 		self:OpenedStorage(entity.occupier, entity);
 		--Schema:EasyText(player, "peru", "This container is currently occupied by another.");
@@ -16,7 +22,7 @@ function cwContainerHiding:AttemptHide(player, entity, bHide)
 
 	if (bHide) then
 		player:SetCharacterData("hidden", true);
-		player:SetSharedVar("hidden", true);
+		player:SetNetVar("hidden", true);
 		player:SetPos(entity:LocalToWorld(Vector(0, 0, -50)));
 		player:SetNoDraw(true);
 		player:DrawShadow(false);
@@ -34,8 +40,8 @@ function cwContainerHiding:AttemptHide(player, entity, bHide)
 		end);
 		
 		if (table.HasValue(self.containerProps["black"], string.lower(entity:GetModel()))) then
-			if (player:GetSharedVar("blackOut") != true) then
-				player:SetSharedVar("blackOut", true);
+			if (player:GetNetVar("blackOut") != true) then
+				player:SetLocalVar("blackOut", true);
 			end;
 		end;
 		
@@ -43,10 +49,10 @@ function cwContainerHiding:AttemptHide(player, entity, bHide)
 			Schema:OpenSound(entity, player);
 		end
 		
-		--Clockwork.datastream:Start(player, "cwCustomHint", {string.Split(player:Name(), " ")[1].." Thinks...", "I should be safe in here..."});
+		--netstream.Start(player, "cwCustomHint", {string.Split(player:Name(), " ")[1].." Thinks...", "I should be safe in here..."});
 	else
 		player:SetCharacterData("hidden", false);
-		player:SetSharedVar("hidden", false);
+		player:SetNetVar("hidden", false);
 		player:SetPos(entity:LocalToWorld(Vector(50, 0, -24)));
 		player:SetNoDraw(false);
 		player:DrawShadow(true);
@@ -56,8 +62,8 @@ function cwContainerHiding:AttemptHide(player, entity, bHide)
 		entity.occupier = nil;
 		
 		if (table.HasValue(self.containerProps["black"], string.lower(entity:GetModel()))) then
-			if (player:GetSharedVar("blackOut") == true) then
-				player:SetSharedVar("blackOut", false);
+			if (player:GetNetVar("blackOut") == true) then
+				player:SetLocalVar("blackOut", false);
 			end;
 		end;
 		
@@ -66,7 +72,7 @@ function cwContainerHiding:AttemptHide(player, entity, bHide)
 		end
 	end;
 	
-	Clockwork.datastream:Start(player, "ContainerHeartbeat", bHide)
+	netstream.Start(player, "ContainerHeartbeat", bHide)
 end;
 
 -- Called when a player opens an occupied storage container.
@@ -97,16 +103,16 @@ function cwContainerHiding:OpenedStorage(player, entity)
 			end;
 		end;
 		
-		if (player:GetSharedVar("blackOut") == true) then
-			player:SetSharedVar("blackOut", false);
+		if (player:GetNetVar("blackOut") == true) then
+			player:SetLocalVar("blackOut", false);
 		end;
 	end;
 end;
 
-concommand.Add("HideInEntity", function(player)
+--[[concommand.Add("HideInEntity", function(player)
 	local ent = player:GetEyeTrace().Entity;
 	
 	if (ent:GetClass() == "prop_physics") then
 		cwContainerHiding:AttemptHide(player, ent, true);
 	end;
-end);
+end);]]--

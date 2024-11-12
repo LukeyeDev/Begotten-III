@@ -10,7 +10,7 @@ if (CLIENT) then
 	SYSTEM.toolTip = "An easier way of editing the Clockwork config."
 	SYSTEM.doesCreateForm = false
 	
-	local textColor = Color(20, 20, 20);
+	local textColor = Color(160, 20, 20);
 
 	-- Called to get whether the local player has access to the system.
 	function SYSTEM:HasAccess()
@@ -82,16 +82,16 @@ if (CLIENT) then
 				self.editForm:Help(v):SetTextColor(textColor)
 			end
 
-			self.editForm:SetName(self.activeKey.name)
+			self.editForm:SetName(self.adminValues.name);
 
 			if (self.activeKey.value != nil) then
-				local mapEntry, mapLabel = self.editForm:TextEntry("Map")
+				local mapEntry, mapLabel = self.editForm:TextEntry("Map:")
 				mapLabel:SetTextColor(textColor)
 
 				local valueType = type(self.activeKey.value)
 
 				if (valueType == "string") then
-					local textEntry, textLabel = self.editForm:TextEntry("Value")
+					local textEntry, textLabel = self.editForm:TextEntry("Value:")
 						textLabel:SetTextColor(textColor)
 						textEntry:SetValue(self.activeKey.value)
 					local okayButton = self.editForm:Button("Okay")
@@ -105,17 +105,18 @@ if (CLIENT) then
 						})
 					end
 				elseif (valueType == "number") then
-					local numSlider = self.editForm:NumSlider("Value", nil, self.adminValues.minimum,
+					local numSlider = self.editForm:NumSlider("Value:", nil, self.adminValues.minimum,
 					self.adminValues.maximum, self.adminValues.decimals)
 						numSlider.Label:SetTextColor(textColor)
 						numSlider:SetValue(self.activeKey.value)
+						numSlider.decimals = self.adminValues.decimals;
 					local okayButton = self.editForm:Button("Okay")
 
 					-- Called when the button is clicked.
 					function okayButton.DoClick(okayButton)
 						netstream.Start("SystemCfgSet", {
 							key = self.activeKey.name,
-							value = numSlider:GetValue(),
+							value = tostring(math.Round(tonumber(numSlider:GetValue()), numSlider.decimals)),
 							useMap = mapEntry:GetValue()
 						})
 					end
@@ -213,21 +214,23 @@ else
 				end
 
 				if (!configObject("isStatic")) then
-					value = configObject:Set(data.value, useMap)
+					local value = data.value;
+
+					value = configObject:Set(value, useMap)
 
 					if (value != nil) then
 						local printValue = tostring(value)
 
 						if (configObject("isPrivate")) then
 							if (configObject("needsRestart")) then
-								Schema:EasyText(GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..string.rep("*", string.utf8len(printValue)).."' for the next restart.")
+								Schema:EasyText(Schema:GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..string.rep("*", string.utf8len(printValue)).."' for the next restart.")
 							else
-								Schema:EasyText(GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..string.rep("*", string.utf8len(printValue)).."'.")
+								Schema:EasyText(Schema:GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..string.rep("*", string.utf8len(printValue)).."'.")
 							end
 						elseif (configObject("needsRestart")) then
-							Schema:EasyText(GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..printValue.."' for the next restart.")
+							Schema:EasyText(Schema:GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..printValue.."' for the next restart.")
 						else
-							Schema:EasyText(GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..printValue.."'.")
+							Schema:EasyText(Schema:GetAdmins(), "skyblue", player:Name().." set "..keyPrefix..data.key.." to '"..printValue.."'.")
 						end
 
 						netstream.Start(player, "SystemCfgValue", { data.key, configObject:Get() })

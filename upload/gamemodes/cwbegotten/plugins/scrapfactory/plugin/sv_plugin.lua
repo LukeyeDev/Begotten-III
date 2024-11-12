@@ -114,11 +114,7 @@ function cwScrapFactory:StartProcessing()
 				end
 				
 				timer.Create("ScrapCycleAlarmTimer", self.cycleTime - 20, 1, function()
-					local players = _player.GetAll()
-			
-					for i = 1, _player.GetCount() do
-						local player = players[i];
-						
+					for _, player in _player.Iterator() do
 						if IsValid(player) then
 							netstream.Start(player, "StartScrapFactoryAlarm");
 						end
@@ -162,17 +158,7 @@ function cwScrapFactory:CheckProcessingCycle()
 			timer.Remove("ScrapCycleTimer")
 		end
 		
-		if IsValid(self.alarmEnt) then
-			local players = _player.GetAll()
-	
-			for i = 1, _player.GetCount() do
-				local player = players[i];
-				
-				if IsValid(player) then
-					netstream.Start(player, "StopScrapFactoryAlarm");
-				end
-			end
-		end
+		netstream.Start(PlayerCache or _player.GetAll(), "StopScrapFactoryAlarm");
 		
 		timer.Simple(30, function()
 			cwScrapFactory:StopProcessingCycle();
@@ -185,14 +171,14 @@ function cwScrapFactory:CheckProcessingCycle()
 			local scanPos = cwScrapFactory.rewardPositions[1];
 			local playersPresent = {};
 			
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) and v:HasInitialized() and v:Alive() and !Clockwork.player:IsNoClipping(v) then
 					local lastZone = v:GetCharacterData("LastZone");
 				
 					if lastZone == "scrapper" then
 						table.insert(playersPresent, v);
 					
-						if v:GetSharedVar("subfaith") == "Voltism" then
+						if v:GetNetVar("subfaith") == "Voltism" then
 							voltistPresent = true;
 						else
 							local vFaith = v:GetFaith();
@@ -286,17 +272,7 @@ function cwScrapFactory:StopProcessingCycle()
 			timer.Remove("ScrapCycleTimer")
 		end
 	
-		if IsValid(self.alarmEnt) then
-			local players = _player.GetAll()
-	
-			for i = 1, _player.GetCount() do
-				local player = players[i];
-				
-				if IsValid(player) then
-					netstream.Start(player, "StopScrapFactoryAlarm");
-				end
-			end
-		end
+		netstream.Start(PlayerCache or _player.GetAll(), "StopScrapFactoryAlarm");
 		
 		self.cycleInProgress = false;
 	end
@@ -313,9 +289,7 @@ function cwScrapFactory:StopValvesOverheating()
 end
 
 function cwScrapFactory:PlayerUse(player, entity)
-	local class = entity:GetClass();
-	
-	if (class == "cw_scrapfactoryvalve") then
+	if (entity:GetClass() == "cw_scrapfactoryvalve") then
 		if entity.overheating == true then
 			local position = player:GetPos();
 			local distance = position:Distance(entity:GetPos())
@@ -324,9 +298,8 @@ function cwScrapFactory:PlayerUse(player, entity)
 				return
 			end;
 			
-			if (!player.cwTurningValve) then
-				player.cwTurningValve = true;
-				player.cwValvePos = entity:GetPos();
+			if (!player.cwUseActionEntity) then
+				player.cwUseActionEntity = entity;
 				
 				local duration = 5;
 				
@@ -334,7 +307,7 @@ function cwScrapFactory:PlayerUse(player, entity)
 					duration = 1;
 				end
 				
-				Clockwork.player:SetAction(player, "turn_scrapfactory_valve", duration, 1, function() 
+				Clockwork.player:SetUseKeyAction(player, "turn_scrapfactory_valve", duration, 1, function() 
 					if (IsValid(entity)) then
 						if (entity.overheating == true) then
 							entity:EmitSound("buttons/lever2.wav");
@@ -345,32 +318,6 @@ function cwScrapFactory:PlayerUse(player, entity)
 				end);
 			end;
 		end;
-	elseif (player.cwTurningValve) then
-		player.cwTurningValve = nil;
-		player.cwValvePos = nil;
-		Clockwork.player:SetAction(player, false);
-	end;
-end;
-
-function cwScrapFactory:PlayerThink(player, curTime, infoTable)
-	if (player.cwTurningValve) then
-		if (!player:KeyDown(IN_USE)) then
-			Clockwork.player:SetAction(player, nil);
-			player.cwTurningValve = nil;
-			player.cwValvePos = nil;
-		end;
-		
-		if (player.cwValvePos) then
-			local valvePosition = player.cwValvePos;
-			local position = player:GetPos();
-			local distance = position:Distance(valvePosition)
-
-			if (distance > 128 or !player:Alive()) then
-				Clockwork.player:SetAction(player, nil);
-				player.cwTurningValve = nil;
-				player.cwValvePos = nil;
-			end;
-		end;
 	end;
 end;
 
@@ -378,11 +325,7 @@ function cwScrapFactory:ApplyPipesForces()
 	if self.cycleInProgress == true then
 		util.ScreenShake(self.screenShakeVector, 5, 5, 2, 5000);
 	
-		local players = _player.GetAll()
-			
-		for i = 1, _player.GetCount() do
-			local player = players[i];
-			
+		for _, player in _player.Iterator() do
 			if IsValid(player) then
 				local playerPos = player:GetPos();
 				

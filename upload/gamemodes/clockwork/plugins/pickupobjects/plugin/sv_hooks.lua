@@ -82,17 +82,7 @@ function cwPickupObjects:PlayerDeath(player, inflictor, attacker, damageInfo)
 end
 
 -- Called when a player's ragdoll attempts to take damage.
-function cwPickupObjects:PlayerRagdollCanTakeDamage(player, ragdoll, inflictor, attacker, hitGroup, damageInfo)
-	--[[if (ragdoll.cwNextTakeDmg and CurTime() < ragdoll.cwNextTakeDmg) then
-		return false;
-	elseif (IsValid(ragdoll.cwHoldingGrab)) then
-		if (!damageInfo:IsExplosionDamage() and !damageInfo:IsBulletDamage()) then
-			if (!damageInfo:IsDamageType(DMG_CLUB) and !damageInfo:IsDamageType(DMG_SLASH)) then
-				return false;
-			end;
-		end;
-	end;]]--
-end;
+function cwPickupObjects:PlayerRagdollCanTakeDamage(player, ragdoll, inflictor, attacker, hitGroup, damageInfo) end;
 
 -- Called when a player enters a vehicle.
 function cwPickupObjects:PlayerEnteredVehicle(player, vehicle, class)
@@ -172,14 +162,16 @@ function cwPickupObjects:KeyPress(player, key)
 								local ragdollPlayer = Clockwork.entity:GetPlayer(entity)
 
 								if (ragdollPlayer) and !ragdollPlayer:GetNetVar("IsDragged") and !ragdollPlayer.BeingPickedUp then
-									if ragdollPlayer.possessor then
-										Schema:EasyText(player, "chocolate", "No matter how hard you try you can't seem to hold this person down!");
-										return;
-									end
-								
-									if ragdollPlayer.stabilityStunned and !player:HasBelief("wrestle_subdue") then
-										Schema:EasyText(player, "chocolate", "You cannot pick up this person while they are knocked over from low stability unless you have the 'Wrestle and Subdue' belief!");
-										return;
+									if ragdollPlayer:Alive() then
+										if ragdollPlayer.possessor then
+											Schema:EasyText(player, "chocolate", "No matter how hard you try you can't seem to hold this person down!");
+											return;
+										end
+									
+										if ragdollPlayer.stabilityStunned and !player:HasBelief("wrestle_subdue") then
+											Schema:EasyText(player, "chocolate", "You cannot pick up this person while they are knocked over from low stability unless you have the 'Wrestle and Subdue' belief!");
+											return;
+										end
 									end
 									
 									--if (Clockwork.player:GetUnragdollTime(ragdollPlayer) != 0) or !ragdollPlayer:Alive() then

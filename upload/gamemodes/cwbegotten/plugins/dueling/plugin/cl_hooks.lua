@@ -2,7 +2,7 @@
 	Begotten III: Jesus Wept
 --]]
 
-Clockwork.datastream:Hook("SetPlayerDueling", function(dueling)
+netstream.Hook("SetPlayerDueling", function(dueling)
 	Clockwork.Client.dueling = dueling;
 end);
 
@@ -23,5 +23,13 @@ end
 function cwDueling:CanPlayAmbientMusic()
 	if Clockwork.Client.dueling then
 		return false;
+	end
+end
+
+function cwDueling:CanPlayBattleMusic()
+	if (Clockwork.ConVars.BATTLEMUSIC and Clockwork.ConVars.BATTLEMUSIC:GetInt() == 2) then
+		if !Clockwork.Client.dueling then
+			return false
+		end
 	end
 end

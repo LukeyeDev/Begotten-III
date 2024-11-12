@@ -15,7 +15,7 @@ SWEP.DrawCrosshair			= true		-- set false if you want no crosshair
 SWEP.Weight				= 30			-- rank relative ot other weapons. bigger is better
 SWEP.AutoSwitchTo			= true		-- Auto switch to if we pick it up
 SWEP.AutoSwitchFrom			= true		-- Auto switch from if you pick up a better weapon
-SWEP.HoldType 				= "ar2"	-- how others view you carrying the weapon
+SWEP.HoldType 				= "smg"	-- how others view you carrying the weapon
 -- normal melee melee2 fist knife smg ar2 pistol rpg physgun grenade shotgun crossbow slam passive 
 -- you're mostly going to use ar2, smg, shotgun or pistol. rpg and crossbow make for good sniper rifles
 
@@ -38,7 +38,7 @@ SWEP.Primary.KickUp				= 5				-- Maximum up recoil (rise)
 SWEP.Primary.KickDown			= 0.8		-- Maximum down recoil (skeet)
 SWEP.Primary.KickHorizontal		= 0.6	-- Maximum up recoil (stock)
 SWEP.Primary.Automatic			= false		-- Automatic/Semi Auto
-SWEP.Primary.Ammo			= "ar2"	-- pistol, 357, smg1, ar2, buckshot, slam, SniperPenetratedRound, AirboatGun
+SWEP.Primary.Ammo			= "smg"	-- pistol, 357, smg1, ar2, buckshot, slam, SniperPenetratedRound, AirboatGun
 -- Pistol, buckshot, and slam always ricochet. Use AirboatGun for a light metal peircing shotgun pellets
 
 SWEP.Secondary.IronFOV			= 60		-- How much you 'zoom' in. Less is more! 
@@ -49,7 +49,7 @@ SWEP.data.ironsights			= 1
 SWEP.ShellTime			= .5
 
 SWEP.Primary.NumShots	= 1
-SWEP.Primary.Damage		= 85
+SWEP.Primary.Damage		= 95
 SWEP.Primary.Spread		= 0.05				
 SWEP.Primary.IronAccuracy = .02
 -- Because irons don't magically give you less pellet spread!
@@ -96,10 +96,10 @@ SWEP.AmmoTypes = {
 	["Longshot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("weapons/cb4/cb4-1.wav");
 		SWEP.Primary.NumShots = 1;
-		SWEP.Primary.Damage = 85;
+		SWEP.Primary.Damage = 95;
 		SWEP.Primary.Spread = .05;
 		SWEP.Primary.IronAccuracy = .02;
-		SWEP.Primary.Ammo = "ar2";
+		SWEP.Primary.Ammo = "smg";
 		
 		if SWEP.Owner and SWEP.Owner:IsPlayer() then
 			if SWEP.Owner:GetVelocity() == Vector(0, 0, 0) then
@@ -144,7 +144,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				--self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound)
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()

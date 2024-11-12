@@ -86,8 +86,8 @@ function cwRituals:PlayerCanPerformRitual(uniqueID)
 	local requiredSubfaction = ritualTable.requiredSubfaction;
 	local requiredBeliefsSubfactionOverride = ritualTable.requiredBeliefsSubfactionOverride;
 	local onerequiredbelief = ritualTable.onerequiredbelief;
-	local subfaction = Clockwork.Client:GetSharedVar("subfaction");
-	local subfaith = Clockwork.Client:GetSharedVar("subfaith");
+	local subfaction = Clockwork.Client:GetNetVar("subfaction");
+	local subfaith = Clockwork.Client:GetNetVar("subfaith");
 	
 	if Clockwork.Client:IsRagdolled() or !Clockwork.Client:Alive() then
 		--Clockwork.chatBox:Add(nil, "icon16/error.png", Color(200, 175, 200, 255), "Your character cannot perform a ritual at this moment!");
@@ -215,20 +215,28 @@ end;
 
 -- Called to check if a player does recognise another player.
 function cwRituals:PlayerDoesRecognisePlayer(player, status, isAccurate, realValue)
-	if Clockwork.Client:GetSharedVar("faith") == "Faith of the Dark" and player:GetSharedVar("markedBySatanist") then
+	if Clockwork.Client:GetNetVar("faith") == "Faith of the Dark" and player:GetNetVar("markedBySatanist") then
 		return true;
 	end
 end;
+
+function cwRituals:GetProgressBarInfoAction(action, percentage)
+	if (action == "ritualing") then
+		return {text = "You are performing a ritual. Click to cancel.", percentage = percentage, flash = percentage < 0}
+	end
+end
+
+local powderheelAuraDistance = 512*512;
 
 function cwRituals:PostDrawOpaqueRenderables()
 	local curTime = CurTime();
 
 	if !self.nextVFXCheck or self.nextVFXCheck < curTime then
-		self.nextVFXCheck = curTime + math.random(0.5, 1);
+		self.nextVFXCheck = curTime + math.Rand(0.5, 1);
 	
 		self.storedPlayers = {};
 		
-		for k, v in pairs(ents.FindInSphere(Clockwork.Client:GetPos(), 1024)) do
+		for k, v in pairs(ents.FindInSphere(Clockwork.Client:GetPos(), 1200)) do
 			local player;
 			
 			if v:IsPlayer() then
@@ -237,25 +245,36 @@ function cwRituals:PostDrawOpaqueRenderables()
 				player = Clockwork.entity:GetPlayer(v);
 			end
 			
-			if player and player ~= Clockwork.Client then
-				if player:GetSharedVar("soulscorchActive") or player:GetSharedVar("auraMotherActive") then
+			if player then
+				if player:GetNetVar("powderheelActive") then
 					table.insert(self.storedPlayers, player);
+				end
+				
+				if player:GetNetVar("enlightenmentActive") then
+					table.insert(self.storedPlayers, player);
+				end
+				
+				if player ~= Clockwork.Client then
+					if player:GetNetVar("soulscorchActive") or player:GetNetVar("auraMotherActive") then
+						table.insert(self.storedPlayers, player);
+					end
 				end
 			end
 		end;
 	end
 	
 	for k, v in pairs(self.storedPlayers) do
-		if IsValid(v) and (v:GetMoveType() == MOVETYPE_WALK or v:GetMoveType() == MOVETYPE_LADDER) then
-			if v:GetSharedVar("soulscorchActive") then
-				local clientPosition = LocalPlayer():GetPos();
-				local entityPosition = v:GetPos();
-				local headBone = v:LookupBone("ValveBiped.Bip01_Head1");
+		if IsValid(v) and v:Alive() and ((v:GetMoveType() == MOVETYPE_WALK or v:GetMoveType() == MOVETYPE_LADDER) or v:IsRagdolled()) then
+			local entityPosition = v:GetPos();
+			local vEnt = v:GetRagdollEntity() or v;
+		
+			if v:GetNetVar("soulscorchActive") then
+				local headBone = vEnt:LookupBone("ValveBiped.Bip01_Head1");
 				
 				if (headBone) then
-					local bonePosition, boneAngles = v:GetBonePosition(headBone);
-					local eyes = v:LookupAttachment("eyes");
-					local eyesAttachment = v:GetAttachment(eyes);
+					local bonePosition, boneAngles = vEnt:GetBonePosition(headBone);
+					local eyes = vEnt:LookupAttachment("eyes");
+					local eyesAttachment = vEnt:GetAttachment(eyes);
 					
 					if (bonePosition and eyesAttachment) then
 						local glowColor = Color(255, 215, 0, 255);
@@ -265,15 +284,15 @@ function cwRituals:PostDrawOpaqueRenderables()
 						render.DrawSprite(position, 32, 32, glowColor);
 					end;
 				end;
-			elseif v:GetSharedVar("auraMotherActive") then
-				local clientPosition = LocalPlayer():GetPos();
-				local entityPosition = v:GetPos();
-				local headBone = v:LookupBone("ValveBiped.Bip01_Head1");
+			end
+			
+			if v:GetNetVar("auraMotherActive") then
+				local headBone = vEnt:LookupBone("ValveBiped.Bip01_Head1");
 				
 				if (headBone) then
-					local bonePosition, boneAngles = v:GetBonePosition(headBone);
-					local eyes = v:LookupAttachment("eyes");
-					local eyesAttachment = v:GetAttachment(eyes);
+					local bonePosition, boneAngles = vEnt:GetBonePosition(headBone);
+					local eyes = vEnt:LookupAttachment("eyes");
+					local eyesAttachment = vEnt:GetAttachment(eyes);
 					
 					if (bonePosition and eyesAttachment) then
 						local glowColor = Color(0, 255, 0, 255);
@@ -284,64 +303,51 @@ function cwRituals:PostDrawOpaqueRenderables()
 					end;
 				end;
 			end
+			
+			if v:GetNetVar("enlightenmentActive") then
+				local dynamicLight = DynamicLight(v:EntIndex());
+				
+				if (dynamicLight) then
+					dynamicLight.Pos = entityPosition + Vector(0, 0, 90);
+					dynamicLight.r = 255;
+					dynamicLight.g = 255;
+					dynamicLight.b = 224;
+					dynamicLight.Brightness = 1;
+					dynamicLight.Size = 2048;
+					dynamicLight.DieTime = curTime + 0.1;
+					dynamicLight.Style = 0;
+				end;
+			end
+			
+			if v:GetNetVar("powderheelActive") and v:GetPos():DistToSqr(Clockwork.Client:GetPos()) < powderheelAuraDistance then
+				cam.Start3D2D(v:GetPos(), angle_zero, 1);
+					cam.IgnoreZ(true);
+
+					surface.SetDrawColor(0, 150, 0, TimedCos(0.25, 50, 75, 0));
+					surface.SetMaterial(glowMaterial);
+
+					local radius = config.Get("talk_radius"):Get();
+					local halfRadius = radius*.5;
+
+					surface.DrawTexturedRect(-halfRadius,-halfRadius,radius,radius);
+
+					cam.IgnoreZ(false);
+				cam.End3D2D();
+			end
 		end;
 	end
 end;
 
-Clockwork.datastream:Hook("HotkeyMenu", function(data)
+netstream.Hook("HotkeyMenu", function(data)
 	if cwPosession and (IsValid(Clockwork.Client.possessor) or IsValid(Clockwork.Client.victim)) then
 		return;
 	end
 	
-	local hotkeyRituals = {};
+	Clockwork.Client:ConCommand("begotten_rituals");
 	
-	for k, v in pairs(cwRituals.hotkeyRituals) do
-		if istable(v) and not table.IsEmpty(v) and #v == 3 then
-			local combination = {};
-			local combinationString;
-			
-			for i = 1, 3 do
-				local itemTable = Clockwork.item:FindByID(v[i]);
-				
-				if (itemTable) then
-					table.insert(combination, v[i]);
-					
-					if not combinationString then
-						combinationString = itemTable.name;
-					else
-						combinationString = combinationString..", "..itemTable.name;
-					end
-				end;
-			end
-			
-			if combinationString and #combination == 3 then
-				table.insert(hotkeyRituals, {combinationString, combination});
-			end
-		end
-	end;
-	
-	if (hotkeyRituals) then
-		local options = {};
-		
-		for i, v in ipairs(hotkeyRituals) do
-			options[i..": "..v[1]] = function()
-				--Clockwork.datastream:Start("DoRitual", v[2])
-				cwRituals:AttemptRitual(cwRituals:FindRitualByItems(v[2]), v[2]);
-			end;
-		end;
-		
-		cwRituals.hotkeyMenu = Clockwork.kernel:AddMenuFromData(nil, options);
-		
-		if (IsValid(cwRituals.hotkeyMenu)) then
-			cwRituals.hotkeyMenu:SetPos(
-				(ScrW() / 2) - (cwRituals.hotkeyMenu:GetWide() / 2),
-				(ScrH() / 2) - (cwRituals.hotkeyMenu:GetTall() / 2)
-			);
-		end;
-	end;
 end);
 
-Clockwork.datastream:Hook("LoadRitualBinds", function(data)
+netstream.Hook("LoadRitualBinds", function(data)
 	if data and istable(data) then
 		cwRituals.hotkeyRituals = data;
 	else
@@ -349,13 +355,13 @@ Clockwork.datastream:Hook("LoadRitualBinds", function(data)
 	end
 end);
 
-Clockwork.datastream:Hook("OpenAppearanceAlterationMenu", function(data)
+netstream.Hook("OpenAppearanceAlterationMenu", function(data)
 	local menu = vgui.Create("cwRitualAppearanceChange");
 	
 	menu:MakePopup();
 end);
 
-Clockwork.datastream:Hook("OpenRegrowthMenu", function(data)
+netstream.Hook("OpenRegrowthMenu", function(data)
 	local hitgroupToString = {
 		[HITGROUP_CHEST] = "Chest",
 		[HITGROUP_HEAD] = "Head",
@@ -369,7 +375,7 @@ Clockwork.datastream:Hook("OpenRegrowthMenu", function(data)
 	
 	for k, v in SortedPairs(hitgroupToString) do
 		options[v] = function()
-			Clockwork.datastream:Start("RegrowthMenu", k);
+			netstream.Start("RegrowthMenu", k);
 		end;
 	end
 	

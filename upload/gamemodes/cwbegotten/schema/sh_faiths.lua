@@ -116,7 +116,7 @@ local COMMAND = Clockwork.command:New("CharTransferFaith");
 	COMMAND.text = "<string Name> <string Faith>";
 	COMMAND.access = "o";
 	COMMAND.arguments = 2;
-	COMMAND.alias = {"TransferFaith", "PlyTransferFaith"};
+	COMMAND.alias = {"TransferFaith", "PlyTransferFaith", "SetFaith", "CharSetFaith", "PlySetFaith"};
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
@@ -160,9 +160,16 @@ local COMMAND = Clockwork.command:New("CharTransferFaith");
 					end
 					
 					target:SetCharacterData("Faith", faithTable.name, true);
-					target:GetCharacter().subfaith = nil;
+					target.cwCharacter.subfaith = nil;
+					
+					local targetAngles = target:EyeAngles();
+					local targetPos = target:GetPos();
 					
 					Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+					
+					target:SetPos(targetPos);
+					target:SetEyeAngles(targetAngles);
+					
 					Clockwork.player:NotifyAll(player:Name().." has transferred "..name.." to the "..faithTable.name.." faith.");
 				else
 					Clockwork.player:Notify(player, target:GetName().." is already a member of the "..faithTable.name.." faith!");

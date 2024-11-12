@@ -4,7 +4,7 @@
 --]]
 
 -- Called to get whether a player can perform a ritual or not.
-function cwRituals:PlayerCanPerformRitual(player, uniqueID, bIgnoreItems)
+function cwRituals:PlayerCanPerformRitual(player, uniqueID, bIgnoreItems, bIgnoreBeliefs)
 	local ritualTable = self.rituals.stored[uniqueID];
 	local requirements = ritualTable.requirements;
 	
@@ -21,9 +21,9 @@ function cwRituals:PlayerCanPerformRitual(player, uniqueID, bIgnoreItems)
 	local requiredBeliefsSubfactionOverride = ritualTable.requiredBeliefsSubfactionOverride;
 	local onerequiredbelief = ritualTable.onerequiredbelief;
 	local subfaction = player:GetSubfaction();
-	local subfaith = player:GetSharedVar("subfaith");
+	local subfaith = player:GetNetVar("subfaith");
 	
-	if Clockwork.player:GetAction(player) ~= "" or player:IsRagdolled() or !player:Alive() or player.opponent or (cwDueling and cwDueling:PlayerIsInMatchmaking(player)) or player:GetNetVar("tied") != 0 or player.possessor then
+	if Clockwork.player:GetAction(player) or player:IsRagdolled() or !player:Alive() or player.opponent or (cwDueling and cwDueling:PlayerIsInMatchmaking(player)) or player:GetNetVar("tied") != 0 or player.possessor then
 		Schema:EasyText(player, "peru", "Your character cannot perform a ritual at this moment!");
 		return false;
 	end
@@ -34,7 +34,7 @@ function cwRituals:PlayerCanPerformRitual(player, uniqueID, bIgnoreItems)
 		end;
 	end;
 	
-	if cwBeliefs and player.HasBelief then
+	if !bIgnoreBeliefs and cwBeliefs and player.HasBelief then
 		if !subfaith or (subfaith and (subfaith == "" or subfaith == "N/A")) then
 			Schema:EasyText(player, "chocolate", "You must have a subfaith in order to perform a ritual!");
 			return false;
@@ -141,14 +141,14 @@ function cwRituals:PlayerFailedRitual(player, uniqueID, ritualTable, bHasRequire
 end;
 
 -- A function used to peform a ritual.
-function cwRituals:PerformRitual(player, uniqueID, itemIDs, bIgnoreItems)
+function cwRituals:PerformRitual(player, uniqueID, itemIDs, bIgnoreItems, bIgnoreBeliefs)
 	local curTime = CurTime();
 	
 	if (IsValid(player) and uniqueID and isstring(uniqueID)) then
-		if (!player.cwNextRitual or player.cwNextRitual < curTime) then
-			player.cwNextRitual = curTime + 10;
+		if (!player:GetNWInt("cwNextRitual") or player:GetNWInt("cwNextRitual")  < curTime) then
+			player:SetNWInt("cwNextRitual", curTime + 10);
 	
-			local bHasFlags, bHasRequirements = hook.Run("PlayerCanPerformRitual", player, uniqueID, bIgnoreItems);
+			local bHasFlags, bHasRequirements = hook.Run("PlayerCanPerformRitual", player, uniqueID, bIgnoreItems, bIgnoreBeliefs);
 			local ritualTable = self.rituals.stored[uniqueID];
 
 			if (ritualTable and bHasFlags != false and bHasRequirements != false) then
@@ -172,7 +172,7 @@ function cwRituals:PerformRitual(player, uniqueID, itemIDs, bIgnoreItems)
 									end
 								end;
 								
-								ritualTable:PerformRitual(player, itemIDs, false, bIgnoreItems);
+								ritualTable:PerformRitual(player, itemIDs, false, bIgnoreItems, bIgnoreBeliefs);
 								
 								if player:GetSubfaction() ~= "Rekh-khet-sa" then
 									if ritualTable.corruptionCost then
@@ -184,7 +184,7 @@ function cwRituals:PerformRitual(player, uniqueID, itemIDs, bIgnoreItems)
 						
 						return true;
 					else
-						ritualTable:PerformRitual(player, itemIDs, true, bIgnoreItems);
+						ritualTable:PerformRitual(player, itemIDs, true, bIgnoreItems, bIgnoreBeliefs);
 						
 						return true;
 					end;
@@ -197,7 +197,7 @@ function cwRituals:PerformRitual(player, uniqueID, itemIDs, bIgnoreItems)
 			
 			hook.Run("PlayerFailedRitual", player, uniqueID, ritualTable, bHasRequirements, bHasFlags)
 		else
-			Schema:EasyText(player, "peru", "You must wait another "..-math.ceil(curTime - player.cwNextRitual).." seconds before attempting to perform a ritual again!")
+			Schema:EasyText(player, "peru", "You must wait another "..-math.ceil(curTime - player:GetNWInt("cwNextRitual")).." seconds before attempting to perform a ritual again!")
 		end;
 	end;
 end;
@@ -277,12 +277,56 @@ function cwRituals:PlayerMeetsRitualItemRequirements(player, ritualTable, itemID
 	return true;
 end
 
+function cwRituals:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
+	if player:GetNetVar("enlightenmentActive") and !plyTab.opponent then
+		if !plyTab.nextEnlightenmentTick or plyTab.nextEnlightenmentTick > curTime then
+			plyTab.nextEnlightenmentTick = curTime + 5;
+		
+			for k, v in pairs(ents.FindInSphere(player:GetPos(), 666)) do
+				if v:IsPlayer() and v:Alive() then
+					if v:GetFaith() == "Faith of the Light" and v:GetSubfaith() ~= "Voltism" then
+						if cwSanity then
+							v:HandleSanity(2);
+						end
+					elseif v:GetSubfaction() == "Rekh-khet-sa" and !v.ritualOfShadow and !v.cwObserverMode and !v.cwWakingUp then
+						local d = DamageInfo()
+						d:SetDamage(3);
+						d:SetDamageType(DMG_BURN);
+						d:SetDamagePosition(v:GetPos() + Vector(0, 0, 48));
+						d:SetAttacker(player);
+						d:SetInflictor(player);
+						
+						v:TakeDamageInfo(d);
+						v:EmitSound("player/pl_burnpain"..math.random(1, 3)..".wav");
+						
+						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, v:Name().." has taken 3 damage from "..player:Name().."'s 'Enlightenment' ritual, leaving them at "..v:Health().." health.");
+			
+						netstream.Start(v, "Stunned", 3);
+					end
+				end
+			end
+		end
+	end
+end
+
 -- Called when an item entity has taken damage (before armor damage is calculated).
 function cwRituals:PreEntityTakeDamage(entity, damageInfo)
 	if !entity.opponent then
 		if entity.nobleStatureActive then
 			if entity:GetVelocity():Length() == 0 then
 				damageInfo:ScaleDamage(0.5);
+			end
+		end
+		
+		if damageInfo:IsDamageType(DMG_BULLET) or damageInfo:IsDamageType(DMG_BUCKSHOT) then
+			local entPos = entity:GetPos();
+			
+			for _, v in _player.Iterator() do
+				if v:GetNetVar("powderheelActive") and v:GetPos():Distance(entPos) <= config.Get("talk_radius"):Get() then
+					damageInfo:ScaleDamage(0.5);
+					
+					break;
+				end
 			end
 		end
 	end
@@ -297,7 +341,7 @@ function cwRituals:PlayerCharacterLoaded(player)
 		if subfaction == "Kinisger" then
 			local lastAppearanceChange = player:GetCharacterData("lastAppearanceChange");
 		
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) and v ~= player and v:HasInitialized() and v:GetFaction() ~= "Children of Satan" then
 					local vCharLastPlayed = v:QueryCharacter("LastPlayed");
 
@@ -307,7 +351,7 @@ function cwRituals:PlayerCharacterLoaded(player)
 				end
 			end
 		elseif player:GetFaction() ~= "Children of Satan" then
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) and v ~= player and v:HasInitialized() and v:GetSubfaction() == "Kinisger" then
 					local lastAppearanceChange = v:GetCharacterData("lastAppearanceChange");
 					
@@ -319,31 +363,45 @@ function cwRituals:PlayerCharacterLoaded(player)
 		end
 	end
 	
-	if subfaction == "Kinisger" then
-		local kinisgerOverride = player:GetCharacterData("kinisgerOverride");
-		local kinisgerOverrideSubfaction = player:GetCharacterData("kinisgerOverrideSubfaction");
-		
-		if kinisgerOverride then
-			player:SetSharedVar("kinisgerOverride", kinisgerOverride);
+	if self.summonedNPCs then
+		for i, v in ipairs(self.summonedNPCs) do
+			if IsValid(v) and v.summonedFaith then
+				if player:GetFaith() == v.summonedFaith then
+					v:AddEntityRelationship(player, D_LI, 99);
+				elseif v.summonedFaith == "Faith of the Family" then
+					local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+					
+					if faction == "Goreic Warrior" then
+						v:AddEntityRelationship(player, D_LI, 99);
+					else
+						v:AddEntityRelationship(player,  D_HT, 99);
+					end
+				else
+					v:AddEntityRelationship(player,  D_HT, 99);
+				end
+			end
 		end
-		
-		if kinisgerOverrideSubfaction then
-			player:SetSharedVar("kinisgerOverrideSubfaction", kinisgerOverrideSubfaction);
-		end
-	else
-		if player:GetSharedVar("kinisgerOverride") then
-			player:SetSharedVar("kinisgerOverride", nil);
-		end
-		
-		if player:GetSharedVar("kinisgerOverrideSubfaction") then
-			player:SetSharedVar("kinisgerOverrideSubfaction", nil);
-		end
+	end
+	
+	local kinisgerOverride = player:GetCharacterData("kinisgerOverride");
+	local kinisgerOverrideSubfaction = player:GetCharacterData("kinisgerOverrideSubfaction");
+	
+	if kinisgerOverride then
+		player:SetNetVar("kinisgerOverride", kinisgerOverride);
+	elseif player:GetNetVar("kinisgerOverride") then
+		player:SetNetVar("kinisgerOverride", nil);
+	end
+	
+	if kinisgerOverrideSubfaction then
+		player:SetNetVar("kinisgerOverrideSubfaction", kinisgerOverrideSubfaction);
+	elseif player:GetNetVar("kinisgerOverrideSubfaction") then
+		player:SetNetVar("kinisgerOverrideSubfaction", nil);
 	end
 	
 	if timer.Exists("auraMotherTimer_"..entIndex) then
 		timer.Remove("auraMotherTimer_"..entIndex);
 		
-		player:SetSharedVar("auraMotherActive", false);
+		player:SetNetVar("auraMotherActive", false);
 	end
 	
 	if player:GetNetVar("blessingOfCoin") == true then
@@ -461,7 +519,7 @@ function cwRituals:PlayerCharacterLoaded(player)
 	
 	if player.soulscorchActive then
 		player.soulscorchActive = nil;
-		player:SetSharedVar("soulscorchActive", false);
+		player:SetNetVar("soulscorchActive", false);
 		
 		if timer.Exists("SoulScorchTimer_"..entIndex) then
 			timer.Remove("SoulScorchTimer_"..entIndex);
@@ -485,23 +543,53 @@ function cwRituals:PlayerCharacterLoaded(player)
 	end
 	
 	if player:GetCharacterData("markedBySatanist") == true then
-		player:SetSharedVar("markedBySatanist", true);
+		player:SetNetVar("markedBySatanist", true);
 	else
-		if player:GetSharedVar("markedBySatanist") == true then
-			player:SetSharedVar("markedBySatanist", false);
+		if player:GetNetVar("markedBySatanist") == true then
+			player:SetNetVar("markedBySatanist", false);
 		end
 	end
 	
-	if player:GetSharedVar("yellowBanner") == true then
-		player:SetSharedVar("yellowBanner", false);
+	if player:GetNetVar("yellowBanner") == true then
+		player:SetNetVar("yellowBanner", false);
 		
 		if timer.Exists("YellowBannerTimer_"..entIndex) then
 			timer.Remove("YellowBannerTimer_"..entIndex);
 		end
 	end
 	
-	netstream.Start(player, "LoadRitualBinds", player:GetCharacterData("BoundRituals", {}));
+	if player:GetNetVar("powderheelActive") then
+		player:SetNetVar("powderheelActive", false);
+		
+		if timer.Exists("PowderheelTimer_"..entIndex) then
+			timer.Remove("PowderheelTimer_"..entIndex);
+		end
+	end
+	
+	if player:GetNetVar("enlightenmentActive") then
+		player:SetNetVar("enlightenmentActive", false);
+		
+		if timer.Exists("EnlightenmentTimer_"..entIndex) then
+			timer.Remove("EnlightenmentTimer_"..entIndex);
+		end
+	end
+	
+	netstream.Start(player, "LoadRitualBinds", player:GetCharacterData("BoundRitualsNew", {}));
 end;
+
+function cwRituals:EntityRemoved(entity)
+	if entity:IsNPC() or entity:IsNextBot() then
+		if self.summonedNPCs then
+			for i, v in ipairs(self.summonedNPCs) do
+				if v == entity then
+					table.remove(self.summonedNPCs, i);
+					
+					break;
+				end
+			end
+		end
+	end
+end
 
 function cwRituals:FuckMyLife(entity, damageInfo)
 	if !entity.opponent then
@@ -540,11 +628,7 @@ function cwRituals:DoPlayerDeath(player, attacker, damageInfo)
 				
 				Clockwork.chatBox:Add(attacker, nil, "itnofake", "As you strike down "..player:Name().." and fulfill the blood contract, you feel your pockets suddenly become heavier.");
 				
-				local playerCount = _player.GetCount();
-				local players = _player.GetAll();
-
-				for i = 1, playerCount do
-					local v, k = players[i], i;
+				for _, v in _player.Iterator() do
 					if v:HasInitialized() then
 						if v == player or v:GetFaith() == "Faith of the Dark" then
 							Clockwork.chatBox:Add(v, nil, "darkwhispernoprefix", "Death has been delivered to a marked one. "..player:Name().." has been dispatched and his soul now belongs to the Dark Lord.");
@@ -554,7 +638,7 @@ function cwRituals:DoPlayerDeath(player, attacker, damageInfo)
 			end
 			
 			player:SetCharacterData("markedBySatanist", false);
-			player:SetSharedVar("markedBySatanist", false);
+			player:SetNetVar("markedBySatanist", false);
 		end
 	end
 end
@@ -621,7 +705,7 @@ function cwRituals:PlayerDeath(player)
 			end
 		
 			player.soulscorchActive = nil;
-			player:SetSharedVar("soulscorchActive", false);
+			player:SetNetVar("soulscorchActive", false);
 			
 			if timer.Exists("SoulScorchTimer_"..entIndex) then
 				timer.Remove("SoulScorchTimer_"..entIndex);
@@ -631,13 +715,13 @@ function cwRituals:PlayerDeath(player)
 		if timer.Exists("auraMotherTimer_"..entIndex) then
 			timer.Remove("auraMotherTimer_"..entIndex);
 			
-			player:SetSharedVar("auraMotherActive", false);
+			player:SetNetVar("auraMotherActive", false);
 		end
 		
 		if timer.Exists("BlessingOfCoinTimer_"..entIndex) then
 			timer.Remove("BlessingOfCoinTimer_"..entIndex);
 			
-			player:SetSharedVar("blessingOfCoin", false);
+			player:SetNetVar("blessingOfCoin", false);
 		end
 		
 		if player.bloodHowlActive then
@@ -757,11 +841,27 @@ function cwRituals:PlayerDeath(player)
 			end
 		end
 		
-		if player:GetSharedVar("yellowBanner") == true then
-			player:SetSharedVar("yellowBanner", false);
+		if player:GetNetVar("yellowBanner") == true then
+			player:SetNetVar("yellowBanner", false);
 			
 			if timer.Exists("YellowBannerTimer_"..entIndex) then
 				timer.Remove("YellowBannerTimer_"..entIndex);
+			end
+		end
+		
+		if player:GetNetVar("powderheelActive") then
+			player:SetNetVar("powderheelActive", false);
+			
+			if timer.Exists("PowderheelTimer_"..entIndex) then
+				timer.Remove("PowderheelTimer_"..entIndex);
+			end
+		end
+		
+		if player:GetNetVar("enlightenmentActive") then
+			player:SetNetVar("enlightenmentActive", false);
+			
+			if timer.Exists("EnlightenmentTimer_"..entIndex) then
+				timer.Remove("EnlightenmentTimer_"..entIndex);
 			end
 		end
 	end
@@ -769,7 +869,7 @@ end;
 
 -- Called to check if a player does recognise another player.
 function cwRituals:PlayerDoesRecognisePlayer(player, target, status, isAccurate, realValue)
-	if player:GetFaith() == "Faith of the Dark" and target:GetSharedVar("markedBySatanist") then
+	if player:GetFaith() == "Faith of the Dark" and target:GetNetVar("markedBySatanist") then
 		return true;
 	end
 end;
@@ -807,7 +907,7 @@ function cwRituals:ModifyPlayerSpeed(player, infoTable, action)
 	end
 end
 
-Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
+netstream.Hook("AppearanceAlterationMenu", function(player, data)
 	if player.selectingNewAppearance then
 		if data and data[1] and data[2] and data[3] and data[4] and data[5] then
 			local blacklistedNames = {};
@@ -815,7 +915,9 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 			if Schema.Ranks then
 				for k, v in pairs(Schema.Ranks) do
 					for i, v2 in ipairs(v) do
-						table.insert(blacklistedNames, string.lower(v2));
+						if v2 ~= "" then
+							table.insert(blacklistedNames, string.lower(v2));
+						end
 					end
 				end
 			end
@@ -891,7 +993,7 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 				player:SetCharacterData("PhysDesc", Clockwork.kernel:ModifyPhysDesc(data[4]));
 				player:SetCharacterData("lastAppearanceChange", os.time());
 				
-				if cwShacks then
+				if cwShacks and cwShacks.shacks then
 					local characterKey = player:GetCharacterKey();
 					local shack = player:GetOwnedShack();
 					
@@ -912,17 +1014,19 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 					end
 				end
 				
+				player:SetCharacterData("rankOverride", nil);
+				
 				if selectedFaction == "Wanderer" then
 					player:SetCharacterData("kinisgerOverride", nil);
-					player:SetSharedVar("kinisgerOverride", nil);
+					player:SetNetVar("kinisgerOverride", nil);
 					player:SetCharacterData("kinisgerOverrideSubfaction", nil);
-					player:SetSharedVar("kinisgerOverrideSubfaction", nil);
+					player:SetNetVar("kinisgerOverrideSubfaction", nil);
 					player:SetCharacterData("rank", nil);
 					player:OverrideName(nil);
 				else
 					if factionTable.imposters and !factionTable.disabled then
 						player:SetCharacterData("kinisgerOverride", selectedFaction);
-						player:SetSharedVar("kinisgerOverride", selectedFaction);
+						player:SetNetVar("kinisgerOverride", selectedFaction);
 						
 						if factionTable.subfactions then
 							local selectedSubfaction = data[6];
@@ -931,7 +1035,7 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 								for k, v in pairs(factionTable.subfactions) do
 									if v.name == selectedSubfaction then
 										player:SetCharacterData("kinisgerOverrideSubfaction", selectedSubfaction);
-										player:SetSharedVar("kinisgerOverrideSubfaction", selectedSubfaction);
+										player:SetNetVar("kinisgerOverrideSubfaction", selectedSubfaction);
 										
 										break;
 									end
@@ -969,26 +1073,19 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 								end
 
 								local name = player:Name();
-								
-								for k, v in pairs (Schema.Ranks[selectedFaction]) do
-									if (string.find(name, v)) then
-										player:SetCharacterData("rank", k);
-										local newName = Schema:StripRank(name, v)
-										Clockwork.player:SetName(player, string.Trim(newName));
-									end;
-								end;
-								
 								local rank = math.Clamp(player:GetCharacterData("rank", 1), 1, #Schema.Ranks[selectedFaction]);
 								
 								if (rank and isnumber(rank) and Schema.Ranks[selectedFaction][rank]) then
-									player:OverrideName(Schema.Ranks[selectedFaction][rank].." "..player:Name());
+									if Schema.Ranks[selectedFaction][rank] ~= "" then
+										player:OverrideName(Schema.Ranks[selectedFaction][rank].." "..player:Name());
+									end
 								end;
 							end;
 						end
 					end
 				end
 				
-				for k, v in pairs(_player.GetAll()) do
+				for _, v in _player.Iterator() do
 					if IsValid(v) and v:HasInitialized() and v:GetFaction() ~= "Children of Satan" then
 						Clockwork.player:SetRecognises(v, player, false);
 					end
@@ -1005,7 +1102,7 @@ Clockwork.datastream:Hook("AppearanceAlterationMenu", function(player, data)
 	end
 end)
 
-Clockwork.datastream:Hook("ClosedAppearanceAlterationMenu", function(player, data)
+netstream.Hook("ClosedAppearanceAlterationMenu", function(player, data)
 	if player.selectingNewAppearance then
 		-- Refund items from the Kinisger Appearance Alteration ritual.
 		local ritualTable = cwRituals.rituals.stored["kinisger_appearance_alteration"];
@@ -1022,13 +1119,13 @@ Clockwork.datastream:Hook("ClosedAppearanceAlterationMenu", function(player, dat
 	end
 end)
 
-Clockwork.datastream:Hook("DoRitual", function(player, data)
+netstream.Hook("DoRitual", function(player, data)
 	if data and data[1] and data[2] then
 		cwRituals:PerformRitual(player, data[1], data[2]);
 	end
 end)
 
-Clockwork.datastream:Hook("RegrowthMenu", function(player, data)
+netstream.Hook("RegrowthMenu", function(player, data)
 	if player.selectingRegrowthLimb then
 		if data and isnumber(data) then
 			local hitGroup = data;
@@ -1052,8 +1149,8 @@ Clockwork.datastream:Hook("RegrowthMenu", function(player, data)
 	end
 end)
 
-Clockwork.datastream:Hook("SaveRitualBinds", function(player, data)
+netstream.Hook("SaveRitualBinds", function(player, data)
 	if data and istable(data) then
-		player:SetCharacterData("BoundRituals", data);
+		player:SetCharacterData("BoundRitualsNew", data);
 	end
 end)

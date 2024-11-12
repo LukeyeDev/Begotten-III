@@ -57,9 +57,9 @@ function Clockwork.storage:Close(player, bServer)
 		OnClose(player, storageTable, entity)
 	end
 
-	if (!bServer) then
+	--if (!bServer) then
 		netstream.Start(player, "StorageClose", true)
-	end
+	--end
 
 	player.cwStorageTab = nil
 end
@@ -161,7 +161,7 @@ function Clockwork.storage:UpdateCash(player, cash)
 		if (storageTable) then
 			local inventory = self:Query(player, "inventory")
 
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized() and v:GetStorageTable()) then
 					if (self:Query(v, "inventory") == inventory) then
 						if istable(cash) then
@@ -183,7 +183,7 @@ function Clockwork.storage:UpdateWeight(player, weight)
 	if (player:GetStorageTable()) then
 		local inventory = self:Query(player, "inventory")
 
-		for k, v in pairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized() and v:GetStorageTable()) then
 				if (self:Query(v, "inventory") == inventory) then
 						if istable(weight) then
@@ -204,7 +204,7 @@ function Clockwork.storage:UpdateSpace(player, space)
 	if (player:GetStorageTable()) then
 		local inventory = self:Query(player, "inventory")
 
-		for k, v in pairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized() and v:GetStorageTable()) then
 				if (self:Query(v, "inventory") == inventory) then
 						if istable(space) then
@@ -271,7 +271,7 @@ function Clockwork.storage:SyncCash(player)
 	local cash = player:GetCash()
 
 	if (config.Get("cash_enabled"):Get()) then
-		for k, v in pairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized() and self:Query(v, "inventory") == inventory) then
 				local storageTable = v:GetStorageTable()
 					recipients[#recipients + 1] = v
@@ -292,16 +292,16 @@ function Clockwork.storage:SyncItem(player, itemTable)
 			definition.index = nil;
 		local players = {};
 		
-		for k, v in pairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized() and self:Query(v, "inventory") == inventory) then
 				players[#players + 1] = v;
 			end;
 		end;
 		
 		if (player:HasItemInstance(itemTable)) then
-			Clockwork.datastream:Start(players, "StorageGive", {index = itemTable("index"), itemList = {definition}});
+			netstream.Start(players, "StorageGive", {index = itemTable("index"), itemList = {definition}});
 		else
-			Clockwork.datastream:Start(players, "StorageTake", Clockwork.item:GetSignature(itemTable));
+			netstream.Start(players, "StorageTake", Clockwork.item:GetSignature(itemTable));
 		end;
 	end;
 end;
@@ -349,7 +349,7 @@ function Clockwork.storage:GiveTo(player, itemTable, bMultiple)
 			definition.index = nil
 		local players = {}
 			
-		for k, v in pairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized() and self:Query(v, "inventory") == inventory) then
 				players[#players + 1] = v
 			end
@@ -414,7 +414,7 @@ function Clockwork.storage:TakeFrom(player, itemTable, bMultiple)
 				storageTable.entity:TakeItem(itemTable)
 			end
 				
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized() and self:Query(v, "inventory") == inventory) then
 					players[#players + 1] = v
 				end

@@ -7,11 +7,11 @@
 local ITEM = Clockwork.item:New();
 	ITEM.name = "Breakdown Kit";
 	ITEM.category = "Tools";
-	ITEM.model = "models/props/de_prodigy/ammo_can_02.mdl";
-	ITEM.weight = 0.8;
+	ITEM.model = "models/mosi/fallout4/props/junk/modcrate.mdl";
+	ITEM.weight = 1;
 	ITEM.uniqueID = "breakdown_kit";
 	ITEM.description = "A kit of tools that can be used to break down items into their component pieces.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit.png";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/breakdown_kit.png";
 	ITEM.stackable = false;
 	
 	ITEM.itemSpawnerInfo = {category = "Repair Kits", rarity = 300, bNoSupercrate = true};
@@ -287,12 +287,12 @@ local ITEM = Clockwork.item:New();
 ITEM:Register();
 
 local ITEM = Clockwork.item:New();
-	ITEM.name = "Human Bone";
+	ITEM.name = "Bone";
 	ITEM.category = "Crafting Materials";
 	ITEM.model = "models/Gibs/HGIBS_rib.mdl";
 	ITEM.weight = 0.3;
 	ITEM.uniqueID = "human_bone";
-	ITEM.description = "A fragment of Human bone that can be used in the creation of weapons or armor.";
+	ITEM.description = "A fragment of bone that can be used in the creation of weapons or armor.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/"..ITEM.uniqueID..".png";
 	ITEM.stackable = true;
 
@@ -399,15 +399,18 @@ local ITEM = Clockwork.item:New();
 	
 ITEM:Register();
 
-local ITEM = Clockwork.item:New();
+local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.name = "Stone";
 	ITEM.category = "Crafting Materials";
 	ITEM.model = "models/props_mining/rock_caves01b.mdl";
-	ITEM.weight = 0.3;
+	ITEM.weight = 0.5;
 	ITEM.uniqueID = "stone";
-	ITEM.description = "A chunk of stone that can be used in the crafting of blunt weapons.";
+	ITEM.description = "A chunk of stone that can be used in the crafting of blunt weapons, or as a blunt weapon.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/"..ITEM.uniqueID..".png";
 	ITEM.stackable = true;
+	ITEM.weaponClass = "begotten_javelin_throwing_stone";
+	ITEM.isJavelin = true;
+	ITEM.canUseShields = true;
 
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position) end;

@@ -49,12 +49,64 @@ if (Schema.MapLocations) then
 	COMMAND:Register()
 end
 
+local COMMAND = Clockwork.command:New("Discord");
+	COMMAND.tip = "Open a redirect to the server's Discord.";
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		player:SendLua([[gui.OpenURL(config.Get("discord_url"):Get())]]);
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("Warhorn");
+	COMMAND.tip = "Sound a signal from your warhorn or death whistle.";
+	COMMAND.text = "[string Signal]";
+	COMMAND.flags = bit.bor(CMD_DEFAULT, CMD_DEATHCODE, CMD_FALLENOVER);
+	COMMAND.arguments = 1;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local warhornStr = "warhorn";
+		local faction = player:GetFaction();
+	
+		if player:GetFaction() == "Children of Satan" then
+			if player:HasItemByID("death_whistle") then
+				warhornStr = "death_whistle";
+			end
+		end
+
+		if !player:HasItemByID(warhornStr) then
+			Schema:EasyText(player, "darkgrey", "You do not possess a warhorn item!")
+		
+			return;
+		end
+		
+		local warhornItemTable = Clockwork.item:FindByID(warhornStr);
+		
+		if warhornItemTable then
+			local signalStr = string.lower(table.concat(arguments, " "));
+			
+			for i, v in ipairs(warhornItemTable.customFunctions) do
+				if string.find(string.lower(v), signalStr) then
+					warhornItemTable:OnCustomFunction(player, v);
+				
+					return;
+				end
+			end
+			
+			Schema:EasyText(player, "darkgrey", "The signal you entered is invalid!");
+		else
+			Schema:EasyText(player, "darkgrey", "The warhorn item does not exist!");
+		end
+	end
+COMMAND:Register();
+
 local COMMAND = Clockwork.command:New("Enlist")
-	COMMAND.tip = "Enlist a character into the ranks of the Gatekeepers. This will only work if you are an Emissary or higher."
-	COMMAND.text = "[string Subfaction]"
+	COMMAND.tip = "Enlist a character into your faction or a specified faction. This will only work if you are a rank of authority."
+	COMMAND.text = "[string Faction] [string Subfaction]"
 	COMMAND.flags = CMD_DEFAULT;
 	--COMMAND.access = "o"
-	COMMAND.optionalArguments = 1;
+	COMMAND.optionalArguments = 2;
 	COMMAND.alias = {"PlyEnlist", "CharEnlist", "Recruit", "PlyRecruit", "CharRecruit"};
 
 	-- Called when the command has been run.
@@ -63,81 +115,183 @@ local COMMAND = Clockwork.command:New("Enlist")
 		
 		if (target and target:Alive()) then
 			if (target:GetShootPos():Distance(player:GetShootPos()) <= 192) then
-				local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-				local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+				local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+				local playerFactionTable = Clockwork.faction:GetStored()[playerFaction];
+				local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
+				local enlistFaction = arguments[1] or playerFaction;
+				local enlistFactionTable = Clockwork.faction:GetStored()[enlistFaction];
+				
+				if !enlistFactionTable then
+					Schema:EasyText(player, "firebrick", enlistFaction.." is not a valid faction!");
+					
+					return;
+				end
+				
+				if !enlistFactionTable.enlist then
+					Schema:EasyText(player, "firebrick", "Characters cannot be enlisted into the "..enlistFaction.." faction!");
+					
+					return;
+				end
+				
+				local isMasterFaction = (enlistFactionTable.masterfactions and table.HasValue(enlistFactionTable.masterfactions, playerFaction));
 			
-				if player:IsAdmin() or (playerFaction == "Gatekeeper" and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or playerFaction == "Holy Hierarchy" then
-					if targetFaction == "Gatekeeper" then
-						Schema:EasyText(player, "grey", target:Name().." is already a Gatekeeper!");
+				if player:IsAdmin() or (enlistFaction == playerFaction and enlistFactionTable and enlistFactionTable.enlist and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or isMasterFaction then
+					if targetFaction == enlistFaction then
+						Schema:EasyText(player, "grey", target:Name().." is already a "..enlistFaction.."!");
 
 						return;
 					end
 					
-					if (!Clockwork.faction:IsGenderValid("Gatekeeper", target:GetGender())) then
-						Schema:EasyText(player, "firebrick", target:Name().." is not the correct gender for the Gatekeeper faction!");
+					if !Clockwork.faction:IsGenderValid(enlistFaction, target:GetGender()) then
+						Schema:EasyText(player, "firebrick", target:Name().." is not the correct gender for the "..enlistFaction.." faction!");
 						
 						return;
 					end;
 					
 					if player:InTower() then
 						if !Schema.towerSafeZoneEnabled then
-							Schema:EasyText(player, "firebrick", "The tower safezone must be enabled in order to run this commmand!");
+							Schema:EasyText(player, "firebrick", "The safezone must be enabled in order to run this commmand!");
 							
 							return;
 						end
 					else
-						Schema:EasyText(player, "firebrick", "You must do this inside the Tower of Light!");
+						Schema:EasyText(player, "firebrick", "You must do this inside a safezone!");
 						
 						return;
 					end
 					
-					local subfaction = arguments[1] or "Legionary";
-					local factionSubfactions = Clockwork.faction:GetStored()["Gatekeeper"].subfactions;
+					local subfaction;
+					local factionSubfactions = enlistFactionTable.subfactions;
 					
-					for i, v in ipairs(factionSubfactions) do
-						if v.name == subfaction then
-							subfaction = v;
-							
-							break;
+					if enlistFactionTable then
+						subfaction = arguments[2];
+					
+						for i, v in ipairs(factionSubfactions) do
+							if i == 1 and !subfaction then
+								subfaction = v;
+								
+								break;
+							elseif v.name == subfaction then
+								subfaction = v;
+								
+								break;
+							end
 						end
 					end
+					
+					if playerFactionTable.CanEnlist and playerFactionTable:CanEnlist(player, target, enlistFaction, subfaction) == false then
+						return;
+					end
 				
-					if istable(subfaction) then
-						if targetFaction == "Wanderer" or (targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger") then
-							Clockwork.dermaRequest:RequestConfirmation(target, "Gatekeeper Enlistment", player:Name().." has invited you to enlist in the Gatekeepers!", function()
-								targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+					if !subfaction or istable(subfaction) then
+						if targetFaction == "Wanderer" or (enlistFaction ~= "Children of Satan" and targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger") then
+							local playerName = player:Name();
+						
+							Clockwork.dermaRequest:RequestConfirmation(target, enlistFaction.." Enlistment", playerName.." has invited you to enlist into the "..enlistFaction.." faction!", function()
+								targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 								
-								if (targetFaction == "Wanderer" or (targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger")) and target:Alive() and Clockwork.faction:IsGenderValid("Gatekeeper", target:GetGender()) then
-									local bSuccess, fault = Clockwork.faction:GetStored()["Gatekeeper"]:OnTransferred(target, Clockwork.faction:GetStored()[targetFaction]);
+								if (targetFaction == "Wanderer" or (enlistFaction ~= "Children of Satan" and targetFaction == "Children of Satan" and target:GetSubfaction() == "Kinisger")) and target:Alive() and Clockwork.faction:IsGenderValid(enlistFaction, target:GetGender()) then
+									local bSuccess, fault = Clockwork.faction:GetStored()[enlistFaction]:OnTransferred(target, Clockwork.faction:GetStored()[targetFaction]);
 									
 									if (bSuccess != false) then
 										if target:GetFaction() ~= "Children of Satan" then
-											target:SetCharacterData("Faction", "Gatekeeper", true);
-											target:SetCharacterData("Subfaction", subfaction.name, true);
+											target:SetCharacterData("Faction", enlistFaction, true);
+											
+											if subfaction then
+												target:SetCharacterData("Subfaction", subfaction.name, true);
+												
+												if cwBeliefs then
+													-- Remove any subfaction locked beliefs.
+													local beliefsTab = cwBeliefs:GetBeliefs();
+													local targetBeliefs = target:GetCharacterData("beliefs");
+													local targetEpiphanies = target:GetCharacterData("points", 0);
+													
+													for k, v in pairs(beliefsTab) do
+														if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction) then
+															if targetBeliefs[k] then
+																targetBeliefs[k] = false;
+																
+																targetEpiphanies = targetEpiphanies + 1;
+																
+																local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+																
+																if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+																	targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+																end
+															end
+														end
+													end
+													
+													target:SetCharacterData("beliefs", targetBeliefs);
+													target:SetLocalVar("points", targetEpiphanies);
+													target:SetCharacterData("points", targetEpiphanies);
+													
+													--local max_poise = target:GetMaxPoise();
+													--local poise = target:GetNWInt("meleeStamina");
+													local max_stamina = target:GetMaxStamina();
+													local max_stability = target:GetMaxStability();
+													local stamina = target:GetNWInt("Stamina", 100);
+													
+													target:SetMaxHealth(target:GetMaxHealth());
+													target:SetLocalVar("maxStability", max_stability);
+													--target:SetLocalVar("maxMeleeStamina", max_poise);
+													--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+													target:SetLocalVar("Max_Stamina", max_stamina);
+													target:SetCharacterData("Max_Stamina", max_stamina);
+													target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+													target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+													
+													hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+													
+													target:NetworkBeliefs();
+												end
+											end
 										else
-											target:SetCharacterData("kinisgerOverride", "Gatekeeper");
-											target:SetSharedVar("kinisgerOverride", "Gatekeeper");
-											target:SetCharacterData("kinisgerOverrideSubfaction", subfaction.name);
-											target:SetSharedVar("kinisgerOverrideSubfaction", subfaction.name);
+											target:SetCharacterData("kinisgerOverride", enlistFaction);
+											target:SetNetVar("kinisgerOverride", enlistFaction);
+											
+											if subfaction then
+												target:SetCharacterData("kinisgerOverrideSubfaction", subfaction.name);
+												target:SetNetVar("kinisgerOverrideSubfaction", subfaction.name);
+											end
 										end
 										
-										if subfaction.name == "Praeventor" then
-											target:SetCharacterData("rank", 12);
+										if subfaction then
+											for i, v in ipairs(enlistFactionTable.subfactions) do
+												if v.name == subfaction then
+													if v.startingRank then
+														target:SetCharacterData("rank", v.startingRank);
+													end
+													
+													break;
+												end
+											end
 										end
+										
+										local targetAngles = target:EyeAngles();
+										local targetPos = target:GetPos();
 										
 										Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
-										Clockwork.player:NotifyAll(player:Name().." has enlisted "..target:Name().." into the Gatekeepers.");
+										
+										target:SetPos(targetPos);
+										target:SetEyeAngles(targetAngles);
+										
+										Clockwork.player:NotifyAll(playerName.." has enlisted "..target:Name().." into the "..enlistFaction.." faction!");
 									end;
 								end
 							end)
 							
-							Schema:EasyText(player, "green", "You have invited "..target:Name().." to enlist into the Gatekeepers!");
-							Clockwork.kernel:PrintLog(LOGTYPE_MINOR, player:Name().." has invited "..target:Name().." to join the Gatekeepers!");
+							Schema:EasyText(player, "green", "You have invited "..target:Name().." to enlist into the "..enlistFaction.." faction!");
+							Clockwork.kernel:PrintLog(LOGTYPE_MINOR, player:Name().." has invited "..target:Name().." to join the "..enlistFaction.." faction!");
+						elseif targetFaction == "Children of Satan" then
+							-- Bogus text to prevent metagame.
+							Schema:EasyText(target, "red", player:Name().." has tried to enlist you into the "..enlistFaction.." faction, but as a Child of Satan you are unable to accept! They have been sent a fake message saying you were invited.");
+							Schema:EasyText(player, "green", "You have invited "..target:Name().." to enlist into the "..enlistFaction.." faction!");
 						else
-							Schema:EasyText(player, "firebrick", target:Name().." is not the right faction to be enlisted into the Gatekeepers!");
+							Schema:EasyText(player, "firebrick", target:Name().." is not the right faction to be enlisted into this faction!");
 						end
 					else
-						Schema:EasyText(player, "firebrick", subfaction.." is not a valid subfaction for the Gatekeepers!");
+						Schema:EasyText(player, "firebrick", subfaction.." is not a valid subfaction for this faction!");
 					end
 				else
 					Schema:EasyText(player, "firebrick", "You do not have permissions to enlist "..target:Name().."!");
@@ -151,23 +305,31 @@ local COMMAND = Clockwork.command:New("Enlist")
 	end
 COMMAND:Register()
 
-local COMMAND = Clockwork.command:New("Promote")
-	COMMAND.tip = "Promote a character if they belong to a faction with ranks. 2nd argument allows you to directly set the rank."
-	COMMAND.text = "<string Character> <string Rank> [bool NotifyTarget]"
-	--COMMAND.access = "o"
+local COMMAND = Clockwork.command:New("SetCustomRank")
+	COMMAND.tip = "Set a character's custom rank. If blank, it will be reset. The optional rank index should correspond to what their actual rank would be (i.e. 2 for Acolyte)."
+	COMMAND.text = "<string Character> [string Rank] [number RankIndex]"
+	COMMAND.access = "o"
 	COMMAND.arguments = 2;
 	COMMAND.optionalArguments = 1;
-
+	COMMAND.alias = {"CharSetCustomRank", "PlySetCustomRank", "PromoteCustom", "SetRankOverride", "SetRankCustom"};
+	
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
 		local target = Clockwork.player:FindByID(arguments[1]);
-		local rank = string.lower(tostring(arguments[2]));
+		local rankOverride = arguments[2];
+		local rank;
+		
+		if arguments[3] then
+			rank = string.lower(tostring(arguments[3]));
+		end
 		
 		if (target) then
-			local faction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
-			local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+			local faction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
+			local factionTable = Clockwork.faction:FindByID(faction);
+			local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+			local isMasterFaction = (factionTable and factionTable.masterfactions and table.HasValue(factionTable.masterfactions, playerFaction));
 		
-			if player:IsAdmin() or ((playerFaction == faction and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or playerFaction == "Holy Hierarchy") then
+			if player:IsAdmin() or ((playerFaction == faction and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or isMasterFaction) then
 				local name = target:Name();
 				local ranks = Schema.Ranks;
 
@@ -176,14 +338,215 @@ local COMMAND = Clockwork.command:New("Promote")
 					return;
 				end;
 				
-				if (rank != nil) then
-						for k, v in pairs (ranks[faction]) do
-							if (string.lower(v) == tostring(rank) or k == tonumber(rank)) then
-								rank = k;
-							end;
+				if rank then
+					for k, v in pairs (ranks[faction]) do
+						if (string.lower(v) == tostring(rank) or k == tonumber(rank)) then
+							rank = k;
 						end;
+					end;
+				end;
+
+				if !rank or ranks[faction][rank] then
+					if !isMasterFaction and Schema:GetRankTier(faction, rank) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
+						if !player:IsAdmin() then
+							Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().."!");
+							
+							return false;
+						end
+					end
+					
+					if !isMasterFaction and Schema:GetRankTier(faction, target:GetCharacterData("rank", 1)) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
+						if !player:IsAdmin() then
+							Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().."!");
+							
+							return false;
+						end
+					end
+					
+					if factionTable.CanPromote and factionTable:CanPromote(player, target, faction, targetSubfaction) == false then
+						Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().."!");
+					
+						return false;
+					end
+				
+					if rank then
+						target:SetCharacterData("rank", rank);
+					end
+					
+					target:SetCharacterData("rankOverride", rankOverride);
+					hook.Run("PlayerChangedRanks", target);
+					
+					if Schema.RanksToSubfaction and Schema.RanksToSubfaction[faction] then
+						local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
+						
+						if subfaction then
+							if target:GetNetVar("kinisgerOverride") then
+								target:SetCharacterData("kinisgerOverrideSubfaction", subfaction);
+								target:SetNetVar("kinisgerOverrideSubfaction", subfaction);
+							else
+								target:SetCharacterData("Subfaction", subfaction, true);
+								
+								if cwBeliefs then
+									-- Remove any subfaction locked beliefs.
+									local beliefsTab = cwBeliefs:GetBeliefs();
+									local targetBeliefs = target:GetCharacterData("beliefs");
+									local targetEpiphanies = target:GetCharacterData("points", 0);
+									
+									for k, v in pairs(beliefsTab) do
+										if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction) then
+											if targetBeliefs[k] then
+												targetBeliefs[k] = false;
+												
+												targetEpiphanies = targetEpiphanies + 1;
+												
+												local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+												
+												if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+													targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+												end
+											end
+										end
+									end
+									
+									target:SetCharacterData("beliefs", targetBeliefs);
+									target:SetLocalVar("points", targetEpiphanies);
+									target:SetCharacterData("points", targetEpiphanies);
+									
+									--local max_poise = target:GetMaxPoise();
+									--local poise = target:GetNWInt("meleeStamina");
+									local max_stamina = target:GetMaxStamina();
+									local max_stability = target:GetMaxStability();
+									local stamina = target:GetNWInt("Stamina", 100);
+									
+									target:SetMaxHealth(target:GetMaxHealth());
+									target:SetLocalVar("maxStability", max_stability);
+									--target:SetLocalVar("maxMeleeStamina", max_poise);
+									--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+									target:SetLocalVar("Max_Stamina", max_stamina);
+									target:SetCharacterData("Max_Stamina", max_stamina);
+									target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+									target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+									
+									hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+									
+									target:NetworkBeliefs();
+								end
+							end
+							
+							local targetAngles = target:EyeAngles();
+							local targetPos = target:GetPos();
+							
+							Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+							
+							target:SetPos(targetPos);
+							target:SetEyeAngles(targetAngles);
+						end
+					end
+					
+					local notifyTarget = true;
+					
+					if (target == player) then
+						name = "yourself";
+						notifyTarget = false;
+					end;
+					
+					if rankOverride then
+						if (notifyTarget) then
+							Schema:EasyText(target, "olivedrab", "You have been promoted to the rank of \""..rankOverride.."\".")
+						end;
+						
+						Schema:EasyText(player, "cornflowerblue", "You have promoted "..name.." to the rank of \""..rankOverride.."\".");
+						
+						if target == player then
+							Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has promoted themself to the custom rank of \""..rankOverride.."\".");
+						else
+							Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has promoted "..name.." to the custom rank of \""..rankOverride.."\".");
+						end
+					end
 				else
-					rank = math.Clamp(target:GetCharacterData("rank", 1) + 1, 1, #ranks[faction]);
+					Schema:EasyText(player, "darkgrey", "The rank index specified is not valid!");
+				end;
+			else
+				Schema:EasyText(player, "grey", "You do not have permissions to change the rank of "..target:Name().."!");
+			end;
+		else
+			Schema:EasyText(player, "grey", arguments[1].." is not a valid character!");
+		end;
+	end
+COMMAND:Register()
+
+local COMMAND = Clockwork.command:New("Promote")
+	COMMAND.tip = "Promote a character if they belong to a faction with ranks. Optional 2nd argument allows you to directly set the rank, otherwise they will be automatically promoted to the next rank available for their subfaction."
+	COMMAND.text = "<string Character> [string Rank]"
+	--COMMAND.access = "o"
+	COMMAND.arguments = 1;
+	COMMAND.optionalArguments = 1;
+	COMMAND.types = {"Player", "Rank"}
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local target = Clockwork.player:FindByID(arguments[1]);
+		local rank;
+		
+		if arguments[2] then
+			rank = string.lower(tostring(arguments[2]));
+		end
+		
+		if (target) then
+			local faction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
+			local factionTable = Clockwork.faction:FindByID(faction);
+			local targetSubfaction = target:GetNetVar("kinisgerOverrideSubfaction") or target:GetSubfaction();
+			local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+			local targetCurrentRank = target:GetCharacterData("rank", 1);
+			local isMasterFaction = (factionTable and factionTable.masterfactions and table.HasValue(factionTable.masterfactions, playerFaction));
+		
+			if player:IsAdmin() or ((playerFaction == faction and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or isMasterFaction) then
+				local name = target:Name();
+				local ranks = Schema.Ranks;
+
+				if (!ranks[faction]) then
+					Schema:EasyText(player, "darkgrey", target:Name().." does not belong to a faction with ranks!");
+					return;
+				end;
+
+				if rank then
+					for k, v in pairs(ranks[faction]) do
+						if (string.lower(v) == tostring(rank) or k == tonumber(rank)) then
+							rank = k;
+						end;
+					end;
+				else
+					local rankTier = Schema:GetRankTier(faction, targetCurrentRank);
+					local nextTierRanks = Schema.RankTiers[faction][rankTier + 1];
+					
+					if nextTierRanks then
+						local defaultRank;
+						local ranksToSubfactions = Schema.RanksToSubfaction[faction];
+						
+						for i, v in ipairs(nextTierRanks) do
+							if !ranksToSubfactions[v] then
+								if !defaultRank then
+									defaultRank = table.KeyFromValue(ranks[faction], v);
+								end
+							elseif ranksToSubfactions[v] == targetSubfaction then
+								rank = table.KeyFromValue(ranks[faction], v);
+								
+								break;
+							end
+							
+							if i == #nextTierRanks then
+								if defaultRank then
+									rank = defaultRank;
+								else
+									rank = table.KeyFromValue(ranks[faction], nextTierRanks[1]);
+								end
+							end
+						end
+					end
+					
+					if !rank then
+						rank = math.Clamp(target:GetCharacterData("rank", 1) + 1, 1, #ranks[faction]);
+					end
 				end;
 
 				if (ranks[faction][rank]) then
@@ -193,7 +556,7 @@ local COMMAND = Clockwork.command:New("Promote")
 						return false;
 					end
 				
-					if playerFaction ~= "Holy Hierarchy" and Schema:GetRankTier(faction, rank) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
+					if !isMasterFaction and Schema:GetRankTier(faction, rank) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
 						if !player:IsAdmin() then
 							Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().." to "..ranks[faction][rank].."!");
 							
@@ -201,30 +564,91 @@ local COMMAND = Clockwork.command:New("Promote")
 						end
 					end
 					
-					if playerFaction ~= "Holy Hierarchy" and Schema:GetRankTier(faction, target:GetCharacterData("rank", 1)) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
+					if !isMasterFaction and Schema:GetRankTier(faction, target:GetCharacterData("rank", 1)) >= Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) then
 						if !player:IsAdmin() then
 							Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().." to "..ranks[faction][rank].."!");
 							
 							return false;
 						end
+					end
+					
+					if factionTable.CanPromote and factionTable:CanPromote(player, target, faction, targetSubfaction) == false then
+						Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().."!");
+					
+						return false;
 					end
 					
 					target:SetCharacterData("rank", rank);
 					hook.Run("PlayerChangedRanks", target);
-					local notifyTarget = tobool(arguments[3]);
 					
-					local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
-					
-					if subfaction then
-						if target:GetSharedVar("kinisgerOverride") then
-							target:SetCharacterData("kinisgerOverrideSubfaction", subfaction);
-							target:SetSharedVar("kinisgerOverrideSubfaction", subfaction);
-						else
-							target:SetCharacterData("Subfaction", subfaction, true);
-						end
+					if Schema.RanksToSubfaction and Schema.RanksToSubfaction[faction] then
+						local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
 						
-						Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+						if subfaction then
+							if target:GetNetVar("kinisgerOverride") then
+								target:SetCharacterData("kinisgerOverrideSubfaction", subfaction);
+								target:SetNetVar("kinisgerOverrideSubfaction", subfaction);
+							else
+								target:SetCharacterData("Subfaction", subfaction, true);
+								
+								if cwBeliefs then
+									-- Remove any subfaction locked beliefs.
+									local beliefsTab = cwBeliefs:GetBeliefs();
+									local targetBeliefs = target:GetCharacterData("beliefs");
+									local targetEpiphanies = target:GetCharacterData("points", 0);
+									
+									for k, v in pairs(beliefsTab) do
+										if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction) then
+											if targetBeliefs[k] then
+												targetBeliefs[k] = false;
+												
+												targetEpiphanies = targetEpiphanies + 1;
+												
+												local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+												
+												if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+													targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+												end
+											end
+										end
+									end
+									
+									target:SetCharacterData("beliefs", targetBeliefs);
+									target:SetLocalVar("points", targetEpiphanies);
+									target:SetCharacterData("points", targetEpiphanies);
+									
+									--local max_poise = target:GetMaxPoise();
+									--local poise = target:GetNWInt("meleeStamina");
+									local max_stamina = target:GetMaxStamina();
+									local max_stability = target:GetMaxStability();
+									local stamina = target:GetNWInt("Stamina", 100);
+									
+									target:SetMaxHealth(target:GetMaxHealth());
+									target:SetLocalVar("maxStability", max_stability);
+									--target:SetLocalVar("maxMeleeStamina", max_poise);
+									--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+									target:SetLocalVar("Max_Stamina", max_stamina);
+									target:SetCharacterData("Max_Stamina", max_stamina);
+									target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+									target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+									
+									hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+									
+									target:NetworkBeliefs();
+								end
+							end
+							
+							local targetAngles = target:EyeAngles();
+							local targetPos = target:GetPos();
+							
+							Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+							
+							target:SetPos(targetPos);
+							target:SetEyeAngles(targetAngles);
+						end
 					end
+					
+					local notifyTarget = true;
 					
 					if (target == player) then
 						name = "yourself";
@@ -236,6 +660,12 @@ local COMMAND = Clockwork.command:New("Promote")
 					end;
 					
 					Schema:EasyText(player, "cornflowerblue", "You have promoted "..name.." to the rank of \""..ranks[faction][rank].."\".");
+					
+					if target == player then
+						Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has promoted themself to the rank of \""..ranks[faction][rank].."\".");
+					else
+						Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has promoted "..name.." to the rank of \""..ranks[faction][rank].."\".");
+					end
 				else
 					Schema:EasyText(player, "darkgrey", "The rank specified is not valid!");
 				end;
@@ -259,10 +689,14 @@ local COMMAND = Clockwork.command:New("Demote")
 		local target = Clockwork.player:FindByID(arguments[1]);
 
 		if (target) then
-			local faction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
-			local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-
-			if player:IsAdmin() or ((playerFaction == faction and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or playerFaction == "Holy Hierarchy") then
+			local faction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
+			local factionTable = Clockwork.faction:FindByID(faction);
+			local targetSubfaction = target:GetNetVar("kinisgerOverrideSubfaction") or target:GetSubfaction();
+			local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+			local targetCurrentRank = target:GetCharacterData("rank", 1);
+			local isMasterFaction = (factionTable and factionTable.masterfactions and table.HasValue(factionTable.masterfactions, playerFaction));
+		
+			if player:IsAdmin() or ((playerFaction == faction and Schema:GetRankTier(playerFaction, player:GetCharacterData("rank", 1)) >= 3) or isMasterFaction) then
 				local name = target:Name();
 				local ranks = Schema.Ranks;
 				
@@ -271,15 +705,21 @@ local COMMAND = Clockwork.command:New("Demote")
 					return;
 				end;
 				
-				if playerFaction ~= "Holy Hierarchy" and Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) <= Schema:GetRankTier(faction, target:GetCharacterData("rank", 1)) then
+				if !isMasterFaction and Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) <= Schema:GetRankTier(faction, target:GetCharacterData("rank", 1)) then
 					if !player:IsAdmin() then
 						Schema:EasyText(player, "grey", "You cannot demote "..target:Name().."!");
 						
 						return false;
 					end
 				end
+				
+				if factionTable.CanDemote and factionTable:CanDemote(player, target, faction, targetSubfaction) == false then
+					Schema:EasyText(player, "grey", "You cannot change the rank of "..target:Name().."!");
+				
+					return false;
+				end
 
-				local rankTier = Schema:GetRankTier(faction, target:GetCharacterData("rank", 1));
+				local rankTier = Schema:GetRankTier(faction, targetCurrentRank);
 				
 				if rankTier == 1 then
 					Schema:EasyText(player, "grey", target:Name().." cannot be demoted any further!");
@@ -287,15 +727,124 @@ local COMMAND = Clockwork.command:New("Demote")
 					return false;
 				end
 				
-				local rank = table.KeyFromValue(Schema.Ranks[faction], Schema.RankTiers[faction][math.max(1, rankTier - 1)][1]);
+				local rank;
+				local rankTier = Schema:GetRankTier(faction, targetCurrentRank);
+				local prevTierRanks = Schema.RankTiers[faction][rankTier - 1];
+				
+				if prevTierRanks then
+					local defaultRank;
+					local ranksToSubfactions = Schema.RanksToSubfaction[faction];
+					
+					for i, v in ipairs(prevTierRanks) do
+						if !ranksToSubfactions[v] then
+							if !defaultRank then
+								defaultRank = table.KeyFromValue(ranks[faction], v);
+							end
+						elseif ranksToSubfactions[v] == targetSubfaction then
+							rank = table.KeyFromValue(ranks[faction], v);
+							
+							break;
+						end
+						
+						if i == #prevTierRanks then
+							if defaultRank then
+								rank = defaultRank;
+							else
+								rank = table.KeyFromValue(ranks[faction], prevTierRanks[1]);
+							end
+						end
+					end
+				end
+				
+				if !rank then
+					rank = math.Clamp(target:GetCharacterData("rank", 1) - 1, 1, #ranks[faction]);
+				end
+				
+				if rank == targetCurrentRank then
+					Schema:EasyText(player, "grey", target:Name().." cannot be demoted any further!");
+				
+					return false;
+				end
+				
 				target:SetCharacterData("rank", rank);
 				hook.Run("PlayerChangedRanks", target);
+				
+					if Schema.RanksToSubfaction and Schema.RanksToSubfaction[faction] then
+						local subfaction = Schema.RanksToSubfaction[faction][ranks[faction][rank]];
+						
+						if subfaction then
+							if target:GetNetVar("kinisgerOverride") then
+								target:SetCharacterData("kinisgerOverrideSubfaction", subfaction);
+								target:SetNetVar("kinisgerOverrideSubfaction", subfaction);
+							else
+								target:SetCharacterData("Subfaction", subfaction, true);
+								
+								-- Remove any subfaction locked beliefs.
+								local beliefsTab = cwBeliefs:GetBeliefs();
+								local targetBeliefs = target:GetCharacterData("beliefs");
+								local targetEpiphanies = target:GetCharacterData("points", 0);
+								
+								for k, v in pairs(beliefsTab) do
+									if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction) then
+										if targetBeliefs[k] then
+											targetBeliefs[k] = false;
+											
+											targetEpiphanies = targetEpiphanies + 1;
+											
+											local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+											
+											if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+												targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+											end
+										end
+									end
+								end
+								
+								target:SetCharacterData("beliefs", targetBeliefs);
+								target:SetLocalVar("points", targetEpiphanies);
+								target:SetCharacterData("points", targetEpiphanies);
+								
+								--local max_poise = target:GetMaxPoise();
+								--local poise = target:GetNWInt("meleeStamina");
+								local max_stamina = target:GetMaxStamina();
+								local max_stability = target:GetMaxStability();
+								local stamina = target:GetNWInt("Stamina", 100);
+								
+								target:SetMaxHealth(target:GetMaxHealth());
+								target:SetLocalVar("maxStability", max_stability);
+								--target:SetLocalVar("maxMeleeStamina", max_poise);
+								--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+								target:SetLocalVar("Max_Stamina", max_stamina);
+								target:SetCharacterData("Max_Stamina", max_stamina);
+								target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+								target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+								
+								hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+								
+								target:NetworkBeliefs();
+							end
+							
+							local targetAngles = target:EyeAngles();
+							local targetPos = target:GetPos();
+							
+							Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+							
+							target:SetPos(targetPos);
+							target:SetEyeAngles(targetAngles);
+						end
+					end
 				
 				if (target == player) then
 					name = "yourself";
 				end;
 
 				Schema:EasyText(player, "cornflowerblue", "You have demoted "..name.." to the rank of \""..ranks[faction][rank].."\".");
+				
+				if target == player then
+					Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has demoted themself to the rank of \""..ranks[faction][rank].."\".");
+				else
+					Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has promoted "..name.." to the rank of \""..ranks[faction][rank].."\".");
+				end
 			else
 				Schema:EasyText(player, "grey", "You do not have permissions to change the rank of "..target:Name().."!");
 			end
@@ -324,7 +873,7 @@ local COMMAND = Clockwork.command:New("Vector")
 		
 		local vectorString = "Vector("..x..", "..y..", "..z..")"
 		Schema:EasyText(player, "blue", vectorString)
-		Clockwork.datastream:Start(player, "cwClipboardText", vectorString)
+		netstream.Start(player, "cwClipboardText", vectorString)
 	end
 COMMAND:Register()
 
@@ -414,7 +963,7 @@ local COMMAND = Clockwork.command:New("CharPermaKill");
 				return;
 			end;
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." permanently killed the character '"..target:Name().."'.")
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." permanently killed the character '"..target:Name().."'.")
 		else
 			Schema:EasyText(player, "grey", arguments[1].." is not a valid character!");
 		end;
@@ -435,7 +984,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 		if (target) then
 			if (target:GetCharacterData("permakilled")) then
 				Schema:UnPermaKillPlayer(target, target:GetRagdollEntity());
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..target:SteamName().."'s character \""..target:Name().."\"!");
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..target:SteamName().."'s character \""..target:Name().."\"!");
 				
 				return;
 			else
@@ -445,7 +994,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 			end;
 		end;
 		
-		for i, target in ipairs(_player.GetAll()) do
+		for _, target in _player.Iterator() do
 			if target.cwCharacterList then
 				for k, character in pairs(target.cwCharacterList) do
 					if character.name == arguments[1] then
@@ -458,7 +1007,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 								Clockwork.player:CharacterScreenAdd(target, v);
 							end
 							
-							Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..target:SteamName().."'s character \""..character.name.."\"!");
+							Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..target:SteamName().."'s character \""..character.name.."\"!");
 							
 							return;
 						end
@@ -468,6 +1017,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 		end
 		
 		local charactersTable = config.Get("mysql_characters_table"):Get();
+		local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 		local charName = arguments[1];
 		
 		local queryObj = Clockwork.database:Select(charactersTable);
@@ -485,7 +1035,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 									queryObj:Where("_Name", charName);
 								queryObj:Execute();
 								
-								Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..tostring(v2._SteamName).."'s character '"..tostring(v2._Name).."' from the database.");
+								Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..tostring(v2._SteamName).."'s character '"..tostring(v2._Name).."' from the database.");
 							end
 						end
 					end
@@ -493,8 +1043,42 @@ local COMMAND = Clockwork.command:New("CharUnPermakill");
 					Schema:EasyText(player, "grey", arguments[1].." is not a valid character in the database!");
 				end;
 			end);
+			
+			queryObj:Where("_Schema", schemaFolder)
 			queryObj:Where("_Name", charName);
 		queryObj:Execute()
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("CharUnPermakillStay");
+	COMMAND.tip = "Un-permanently kill a character and teleport them to where they died.";
+	COMMAND.text = "<string Name>";
+	COMMAND.access = "o";
+	COMMAND.arguments = 1;
+	COMMAND.alias = {"PlyUnPermakillStay", "UnPermakillStay"};
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local target = Clockwork.player:FindByID(arguments[1])
+		
+		if (target) then
+			if (target:GetCharacterData("permakilled")) then
+				local targetPos = target:GetPos();
+				
+				Schema:UnPermaKillPlayer(target, target:GetRagdollEntity());
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." un-permanently killed "..target:SteamName().."'s character \""..target:Name().."\"!");
+				
+				target:SetPos(targetPos + Vector(0, 0, 16));
+				
+				return;
+			else
+				Schema:EasyText(player, "darkgrey", "This character is not permanently killed!");
+				
+				return;
+			end;
+		else
+			Schema:EasyText(player, "grey", arguments[1].." is not a valid character that can be respawned!");
+		end;
 	end;
 COMMAND:Register();
 
@@ -505,7 +1089,7 @@ local COMMAND = Clockwork.command:New("CharUnPermakillAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:GetCharacterData("permakilled")) then
 				Schema:UnPermaKillPlayer(v, v:GetRagdollEntity());
 			end;
@@ -528,8 +1112,16 @@ local COMMAND = Clockwork.command:New("EventLocal");
 	end;
 COMMAND:Register();
 
+local zoneEventClasses = {
+	["gore"] = {"gore", "gore_tree", "gore_hallway", "supragore"},
+	["wasteland"] = {"wasteland", "suprawasteland"},
+	["tower"] = {"tower"},
+	["hell"] = {"hell", "manor", "suprahell"},
+	["caves"] = {"caves"},
+};
+
 local COMMAND = Clockwork.command:New("EventZone");
-	COMMAND.tip = "Send an event to characters in a specified zone (wasteland, tower, gore, hell).";
+	COMMAND.tip = "Send an event to characters in a specific suprazone (suprawasteland will play for both wasteland and tower for example, or suprahell and supragore) or zone (i.e. wasteland, tower, caves, hell, gore).";
 	COMMAND.text = "<string Zone> <string Text>";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.access = "o";
@@ -537,16 +1129,48 @@ local COMMAND = Clockwork.command:New("EventZone");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		local valid_zones = {"wasteland", "tower", "gore", "hell"};
+		local valid_zones = {};
 		local zone = string.lower(arguments[1]);
 		
+		table.insert(valid_zones, zones.cwDefaultZone.uniqueID);
+		
+		for k, v in pairs(zones:GetAll()) do
+			table.insert(valid_zones, k);
+		end
+		
+		for k, v in pairs(zones.supraZones) do
+			table.insert(valid_zones, k);
+		end
+		
+		local eventClass = "localevent";
+		
+		for k, v in pairs(zoneEventClasses) do
+			if table.HasValue(v, zone) then
+				eventClass = k.."event";
+				
+				break;
+			end
+		end
+		
 		if table.HasValue(valid_zones, zone) then
-			for k, v in pairs (_player.GetAll()) do
-				if v:HasInitialized() then
-					local lastZone = v:GetCharacterData("LastZone");
-					
-					if lastZone == zone or (zone == "gore" and (lastZone == "gore_tree" or lastZone == "gore_hallway") or (zone == "hell" and lastZone == "manor") or (zone == "tower" and lastZone == "theater")) or v == player then
-						Clockwork.chatBox:Add(v, nil, zone.."event",  table.concat(arguments, " ", 2));
+			if zones:IsSupraZone(zone) then
+				for _, v in _player.Iterator() do
+					if v:HasInitialized() then
+						local vSupraZone = zones:GetPlayerSupraZone(v);
+							
+						if vSupraZone == zone then
+							Clockwork.chatBox:Add(v, nil, eventClass,  table.concat(arguments, " ", 2));
+						end
+					end
+				end
+			else
+				for _, v in _player.Iterator() do
+					if v:HasInitialized() then
+						local vZone = v:GetCharacterData("LastZone", "wasteland");
+							
+						if vZone == zone then
+							Clockwork.chatBox:Add(v, nil, eventClass,  table.concat(arguments, " ", 2));
+						end
 					end
 				end
 			end
@@ -557,7 +1181,7 @@ local COMMAND = Clockwork.command:New("EventZone");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("PlaySoundZone");
-	COMMAND.tip = "Play a sound to all players in a specific zone.";
+	COMMAND.tip = "Play a sound to all players in a specific suprazone (suprawasteland will play for both wasteland and tower for example, or suprahell and supragore) or zone (i.e. wasteland, tower, caves, hell, gore).";
 	COMMAND.text = "<string Zone> <string SoundName> [int Level] [int Pitch]";
 	COMMAND.access = "o";
 	COMMAND.arguments = 2;
@@ -565,8 +1189,18 @@ local COMMAND = Clockwork.command:New("PlaySoundZone");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		local valid_zones = {"wasteland", "tower", "gore", "hell"};
+		local valid_zones = {};
 		local zone = string.lower(arguments[1]);
+		
+		table.insert(valid_zones, zones.cwDefaultZone.uniqueID);
+		
+		for k, v in pairs(zones:GetAll()) do
+			table.insert(valid_zones, k);
+		end
+		
+		for k, v in pairs(zones.supraZones) do
+			table.insert(valid_zones, k);
+		end
 		
 		if (arguments[2]) then
 			local info = {name = arguments[2], pitch = 100, level = 75};
@@ -585,27 +1219,85 @@ local COMMAND = Clockwork.command:New("PlaySoundZone");
 				end;
 				
 				local playerTable = _player.GetAll();
-				
-				for k, v in pairs (playerTable) do
-					if v:HasInitialized() then
-						local lastZone = v:GetCharacterData("LastZone");
-						
-						if lastZone == zone or (zone == "gore" and (lastZone == "gore_tree" or lastZone == "gore_hallway") or (zone == "hell" and lastZone == "manor") or (zone == "tower" and lastZone == "theater")) or v == player then
-							-- nothing
-						else
-							playerTable[k] = nil;
+
+				if zones:IsSupraZone(zone) then
+					for k, v in pairs(playerTable) do
+						if v:HasInitialized() then
+							local vSupraZone = zones:GetPlayerSupraZone(v);
+							
+							if vSupraZone ~= zone then
+								playerTable[k] = nil;
+							end
 						end
-					end
+					end;
+				else
+					for k, v in pairs(playerTable) do
+						if v:HasInitialized() then
+							local vZone = v:GetCharacterData("LastZone", "wasteland");
+							
+							if vZone ~= zone then
+								playerTable[k] = nil;
+							end
+						end
+					end;
 				end;
 				
 				netstream.Start(playerTable, "EmitSound", info);
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has played the sound sound \""..arguments[2].."\" in zone \""..zone.."\".");
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has played the sound sound \""..arguments[2].."\" in zone \""..zone.."\".");
 			else
 				Schema:EasyText(player, "grey", "You must specify a valid zone!");
 			end
 		else
 			Schema:EasyText(player, "grey", "You must specify a valid sound!");
 		end;
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("StopSoundZone");
+	COMMAND.tip = "Stop all sounds for all players in a specified zone.";
+	COMMAND.access = "s";
+	COMMAND.arguments = 1;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local valid_zones = {};
+		local zone = string.lower(arguments[1]);
+		
+		table.insert(valid_zones, zones.cwDefaultZone.uniqueID);
+		
+		for k, v in pairs(zones:GetAll()) do
+			table.insert(valid_zones, k);
+		end
+		
+		for k, v in pairs(zones.supraZones) do
+			table.insert(valid_zones, k);
+		end
+		
+		if table.HasValue(valid_zones, zone) then
+			if zones:IsSupraZone(zone) then
+				for _, v in _player.Iterator() do
+					if v:HasInitialized() then
+						local vSupraZone = zones:GetPlayerSupraZone(v);
+						
+						if vSupraZone == zone then
+							v:SendLua([[RunConsoleCommand("stopsound")]]);
+						end
+					end
+				end;
+			else
+				for _, v in _player.Iterator() do
+					if v:HasInitialized() then
+						local vZone = v:GetCharacterData("LastZone", "wasteland");
+						
+						if vZone == zone then
+							v:SendLua([[RunConsoleCommand("stopsound")]]);
+						end
+					end
+				end;
+			end;
+		else
+			Schema:EasyText(player, "grey", "You must specify a valid zone!");
+		end
 	end;
 COMMAND:Register();
 
@@ -634,13 +1326,13 @@ local COMMAND = Clockwork.command:New("PlyStripAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if IsValid(v) then
 				v:StripWeapons();
 			end
 		end;
 		
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has stripped the weapons of all players.", nil);
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has stripped the weapons of all players.", nil);
 	end;
 COMMAND:Register();
 
@@ -672,13 +1364,13 @@ local COMMAND = Clockwork.command:New("PlyGiveWeaponAll");
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
 		if arguments[1] and istable(weapons.Get(arguments[1])) then
-			for k, v in pairs (_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) then
 					v:Give(arguments[1]);
 				end
 			end;
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has given the weapon "..arguments[1].." to all players.", nil);
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has given the weapon "..arguments[1].." to all players.", nil);
 		else
 			Schema:EasyText(player, "grey", arguments[1].." is not a valid weapon!");
 		end
@@ -699,37 +1391,127 @@ local COMMAND = Clockwork.command:New("BlowWarhorn");
 		local lastZone = player:GetCharacterData("LastZone");
 		
 		if lastZone == "wasteland" or lastZone == "tower" or lastZone == "theater" then
-			local players = _player.GetAll()
-			
-			for k, v in pairs(players) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) and v:HasInitialized() then
 					local vLastZone = v:GetCharacterData("LastZone");
 					
 					if vLastZone == "wasteland" or vLastZone == "tower" or vLastZone == "theater" then
 						Clockwork.chatBox:Add(v, nil, "event", "The ground quakes as the terrifying sound of a Goreic Warfighter horn pierces the sky.");
-						--Clockwork.datastream:Start(v, "FadeAmbientMusic");
-						--Clockwork.datastream:Start(v, "EmitSound", {name = "warhorns/warhorn_gore.mp3", pitch = 100, level = 75});
-						Clockwork.datastream:Start(v, "GoreWarhorn");
+						--netstream.Start(v, "FadeAmbientMusic");
+						--netstream.Start(v, "EmitSound", {name = "warhorns/warhorn_gore.mp3", pitch = 100, level = 75});
+						netstream.Start(v, "GoreWarhorn");
 					end
 				end
 			end
 		elseif lastZone == "gore" or lastZone == "gore_hallway" or lastZone == "gore_tree" then
-			local players = _player.GetAll()
-			
-			for k, v in pairs(players) do
+			for _, v in _player.Iterator() do
 				if IsValid(v) and v:HasInitialized() then
 					local vLastZone = v:GetCharacterData("LastZone");
 					
 					if vLastZone == "gore" or vLastZone == "gore_hallway" or vLastZone == "gore_tree" then
 						Clockwork.chatBox:Add(v, nil, "event", "The ground quakes as the sound of a Goreic Warfighter horn pierces the sky.");
-						--Clockwork.datastream:Start(v, "FadeAmbientMusic");
-						--Clockwork.datastream:Start(v, "EmitSound", {name = "warhorns/warhorn_gore.mp3", pitch = 100, level = 75});
-						Clockwork.datastream:Start(v, "GoreWarhorn");
+						--netstream.Start(v, "FadeAmbientMusic");
+						--netstream.Start(v, "EmitSound", {name = "warhorns/warhorn_gore.mp3", pitch = 100, level = 75});
+						netstream.Start(v, "GoreWarhorn");
 					end
 				end
 			end
 		else
 			Schema:EasyText(player, "peru", "This command cannot be used in this area!");
+		end
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("GoreicHornSummonAll");
+	COMMAND.tip = "Summon all Goreic warriors to the village center using the Goreic Gathering Horn. Utilize discretion before doing so.";
+
+	function COMMAND:OnRun(player, arguments)
+		local trace = player:GetEyeTrace();
+
+		if (trace.Entity) then
+			local entity = trace.Entity;
+
+			if entity:GetClass() == "cw_gorevillagehorn" then
+				local faction = player:GetFaction();
+				local subfaction = player:GetSubfaction();
+				
+				if faction == "Goreic Warrior" then
+					local curTime = CurTime();
+				
+					if player.nextWarHorn and player.nextWarHorn > curTime then
+						Schema:EasyText(player, "chocolate", "You must wait another "..-math.ceil(curTime - player.nextWarHorn).." seconds before blowing the gathering horn again!");
+						
+						return false;
+					end
+					
+					player.nextWarHorn = curTime + 30;
+					
+					for _, v in _player.Iterator() do
+						local lastZone = v:GetCharacterData("LastZone");
+						if (lastZone == "gore" or lastZone == "gore_tree" or lastZone == "gore_hallway") then
+							if v:GetFaction() == "Goreic Warrior" then
+								Clockwork.chatBox:Add(v, nil, "event", "A familiar call of "..subfaction.." echoes throughout the forest. All Goreic warriors have been summoned to the village center.");
+							else
+								Clockwork.chatBox:Add(v, nil, "event", "The sound of a warhorn echoes throughout the forest, but you do not know its meaning!");
+							end
+							
+							v:SendLua([[Clockwork.Client:EmitSound("warhorns/summonhorn.mp3", 60, 100)]]);
+							util.ScreenShake(v:GetPos(), 1, 5, 10, 1024);
+						end
+					end
+				else
+					Schema:EasyText(player, "firebrick", "You are not the correct faction to blow the Goreic Gathering Horn!");
+				end
+			else
+				Schema:EasyText(player, "firebrick", "You must be looking at a Goreic Gathering Horn to do this!");
+			end
+		end
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("GoreicHornSummonRaid");
+	COMMAND.tip = "Summon all Goreic warriors to the village center to organize for a raid.";
+
+	function COMMAND:OnRun(player, arguments)
+		local trace = player:GetEyeTrace();
+
+		if (trace.Entity) then
+			local entity = trace.Entity;
+
+			if entity:GetClass() == "cw_gorevillagehorn" then
+				local faction = player:GetFaction();
+				local subfaction = player:GetSubfaction();
+				
+				if faction == "Goreic Warrior" then
+					local curTime = CurTime();
+				
+					if player.nextWarHorn and player.nextWarHorn > curTime then
+						Schema:EasyText(player, "chocolate", "You must wait another "..-math.ceil(curTime - player.nextWarHorn).." seconds before blowing the gathering horn again!");
+						
+						return false;
+					end
+					
+					player.nextWarHorn = curTime + 30;
+				
+					for _, v in _player.Iterator() do
+						local lastZone = v:GetCharacterData("LastZone");
+						if (lastZone == "gore" or lastZone == "gore_tree" or lastZone == "gore_hallway") then
+							if v:GetFaction() == "Goreic Warrior" then
+								Clockwork.chatBox:Add(v, nil, "event", "A familiar call of "..subfaction.." echoes throughout the forest. A raiding party has been requested to organize at the village center.");
+							else
+								Clockwork.chatBox:Add(v, nil, "event", "The sound of a warhorn echoes throughout the forest, but you do not know its meaning!");
+							end
+							
+							v:SendLua([[Clockwork.Client:EmitSound("warhorns/raidhorn.mp3", 60, 100)]]);
+							util.ScreenShake(v:GetPos(), 1, 5, 11, 1024);
+						end
+					end
+				else
+					Schema:EasyText(player, "firebrick", "You are not the correct faction to blow the Goreic Gathering Horn!");
+				end
+			else
+				Schema:EasyText(player, "firebrick", "You must be looking at a Goreic Gathering Horn to do this!");
+			end
 		end
 	end;
 COMMAND:Register();
@@ -745,35 +1527,32 @@ local COMMAND = Clockwork.command:New("CallCongregation");
 			cwDayNight:ModifyCycleTimeLeft(120);
 		end
 		
-		local players = _player.GetAll()
 		local close_players = {};
 		local far_players = {};
 		
-		for i = 1, _player.GetCount() do
-			local player = players[i];
-		
-			if IsValid(player) and player:HasInitialized() then
-				local lastZone = player:GetCharacterData("LastZone");
+		for _, v in _player.Iterator() do
+			if IsValid(v) and v:HasInitialized() then
+				local lastZone = v:GetCharacterData("LastZone");
 				
 				if lastZone == "wasteland" then
-					table.insert(far_players, player);
-					Clockwork.chatBox:Add(player, nil, "event", "The church bell tolls and the holy word is spread: A congregation has been called, and all beings high and lowly are required to attend... or else risk being marked for corpsing.");
-					Clockwork.datastream:Start(player, "FadeAmbientMusic");
+					table.insert(far_players, v);
+					Clockwork.chatBox:Add(v, nil, "event", "The church bell tolls and the holy word is spread: A congregation has been called, and all beings high and lowly are required to attend... or else risk being marked for corpsing.");
+					netstream.Start(v, "FadeAmbientMusic");
 				elseif lastZone == "tower" or lastZone == "theater" then
-					table.insert(close_players, player);
-					Clockwork.chatBox:Add(player, nil, "event", "The church bell tolls and the holy word is spread: A congregation has been called, and all beings high and lowly are required to attend... or else risk being marked for corpsing.");
-					Clockwork.datastream:Start(player, "FadeAmbientMusic");
+					table.insert(close_players, v);
+					Clockwork.chatBox:Add(v, nil, "event", "The church bell tolls and the holy word is spread: A congregation has been called, and all beings high and lowly are required to attend... or else risk being marked for corpsing.");
+					netstream.Start(v, "FadeAmbientMusic");
 				end
 			end
 		end
 		
-		Clockwork.datastream:Start(close_players, "EmitSound", {name = "cosmicrupture/bellsclose.wav", pitch = 90, level = 60});
-		Clockwork.datastream:Start(far_players, "EmitSound", {name = "cosmicrupture/bellsdistant.wav", pitch = 100, level = 75});
+		netstream.Start(close_players, "EmitSound", {name = "cosmicrupture/bellsclose.wav", pitch = 90, level = 60});
+		netstream.Start(far_players, "EmitSound", {name = "cosmicrupture/bellsdistant.wav", pitch = 100, level = 75});
 	end;
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("FuckerJoeAlarm");
-	COMMAND.tip = "Sound the Fucker Joe alarm. Fucker Joe is coming!!!! This disables charswapping for alive non-admins for 10 minutes.";
+	COMMAND.tip = "Sound the Fucker Joe alarm. Fucker Joe is coming!!!! This disables charswapping for alive non-admins. Re-enable by using /ToggleCharSwapping.";
 	COMMAND.access = "s";
 
 	-- Called when the command has been run.
@@ -783,27 +1562,19 @@ local COMMAND = Clockwork.command:New("FuckerJoeAlarm");
 			cwDayNight:ModifyCycleTimeLeft(120);
 		end
 		
-		local players = _player.GetAll()
-		
-		for i = 1, _player.GetCount() do
-			local player = players[i];
-		
-			if IsValid(player) and player:HasInitialized() then
-				local lastZone = player:GetCharacterData("LastZone");
+		for _, v in _player.Iterator() do
+			if IsValid(v) and v:HasInitialized() then
+				local lastZone = v:GetCharacterData("LastZone");
 				
 				if lastZone == "wasteland" or lastZone == "tower" or lastZone == "theater" then
-					Clockwork.chatBox:Add(player, nil, "event", "Is it...? No, it cannot be... The alarms sound, for Fucker Joe comes...");
-					Clockwork.datastream:Start(player, "FadeAmbientMusic");
-					Clockwork.datastream:Start(player, "EmitSound", {name = "warhorns/fuckerjoealarm.mp3", pitch = 90, level = 60});
+					Clockwork.chatBox:Add(v, nil, "event", "Is it...? No, it cannot be... The alarms sound, for Fucker Joe comes...");
+					netstream.Start(v, "FadeAmbientMusic");
+					netstream.Start(v, "EmitSound", {name = "warhorns/fuckerjoealarm.mp3", pitch = 90, level = 60});
 				end
 			end
 		end
 		
 		Schema.fuckerJoeActive = true;
-		
-		timer.Create("FuckerJoeAlarm", 600, 1, function()
-			Schema.fuckerJoeActive = nil;
-		end);
 	end;
 COMMAND:Register();
 
@@ -814,7 +1585,7 @@ local COMMAND = Clockwork.command:New("Proclaim");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+		local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 		local text = table.concat(arguments, " ");
 		
 		if (text == "") then
@@ -822,45 +1593,47 @@ local COMMAND = Clockwork.command:New("Proclaim");
 			
 			return;
 		end;
-	
-		if (faction == "Gatekeeper" and Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) >= 3) or faction == "Holy Hierarchy" or player:IsAdmin() or Clockwork.player:HasFlags(player, "P") then
-			Clockwork.chatBox:SetMultiplier(1.35);
-			
-			if player.victim and IsValid(player.victim) then
-				Clockwork.chatBox:AddInRadius(player.victim, "proclaim", text, player.victim:GetPos(), config.Get("talk_radius"):Get() * 4);
+		
+		if hook.Run("PlayerCanSayIC", player, text) then 
+			if (Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) >= 3) or faction == "Holy Hierarchy" or player:IsAdmin() or Clockwork.player:HasFlags(player, "P") then
+				Clockwork.chatBox:SetMultiplier(1.35);
 				
-				if player.victim:GetSubfaith() == "Voltism" then
-					if cwBeliefs and (player.victim:HasBelief("the_storm") or player.victim:HasBelief("the_paradox_riddle_equation")) then
-						if !Clockwork.player:HasFlags(player.victim, "T") then
-							player.victim:EmitSound(voltistSounds[math.random(1, #voltistSounds)], 90, 150);
+				if player.victim and IsValid(player.victim) then
+					Clockwork.chatBox:AddInRadius(player.victim, "proclaim", text, player.victim:GetPos(), config.Get("talk_radius"):Get() * 4);
+					
+					if player.victim:GetSubfaith() == "Voltism" then
+						if cwBeliefs and (player.victim:HasBelief("the_storm") or player.victim:HasBelief("the_paradox_riddle_equation")) then
+							if !Clockwork.player:HasFlags(player.victim, "T") then
+								player.victim:EmitSound(voltistSounds[math.random(1, #voltistSounds)], 90, 150);
+							end
 						end
+					end
+					
+					if cwZombies then
+						cwZombies:GiveAwayPosition(player.victim, 900);
+					end
+				elseif player.possessor and IsValid(player.possessor) then
+					-- do nothing lol
+				else
+					Clockwork.chatBox:AddInRadius(player, "proclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
+					
+					if player:GetSubfaith() == "Voltism" then
+						if cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
+							if !Clockwork.player:HasFlags(player, "T") then
+								player:EmitSound(voltistSounds[math.random(1, #voltistSounds)], 90, 150);
+							end
+						end
+					end
+					
+					if cwZombies then
+						cwZombies:GiveAwayPosition(player, 900);
 					end
 				end
 				
-				if cwZombies then
-					cwZombies:GiveAwayPosition(player.victim, 900);
-				end
-			elseif player.possessor and IsValid(player.possessor) then
-				-- do nothing lol
+				--Clockwork.chatBox:AddInRadius(player, "proclaim", arguments[1], player:GetPos(), config.Get("talk_radius"):Get() * 4);
 			else
-				Clockwork.chatBox:AddInRadius(player, "proclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
-				
-				if player:GetSubfaith() == "Voltism" then
-					if cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
-						if !Clockwork.player:HasFlags(player, "T") then
-							player:EmitSound(voltistSounds[math.random(1, #voltistSounds)], 90, 150);
-						end
-					end
-				end
-				
-				if cwZombies then
-					cwZombies:GiveAwayPosition(player, 900);
-				end
+				Schema:EasyText(player, "peru", "You are not important enough to do this!");
 			end
-			
-			--Clockwork.chatBox:AddInRadius(player, "proclaim", arguments[1], player:GetPos(), config.Get("talk_radius"):Get() * 4);
-		else
-			Schema:EasyText(player, "peru", "You are not important enough to do this!");
 		end
 	end;
 COMMAND:Register();
@@ -880,7 +1653,7 @@ function COMMAND:OnRun(player, arguments)
 		local subfaction = player:GetSubfaction();
 		
 		if subfaction == "Clan Crast" then
-			local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+			local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 			
 			if targetFaction == "Goreic Warrior" then
 				if player:HasBelief("watchful_raven") then
@@ -929,8 +1702,8 @@ local COMMAND = Clockwork.command:New("RavenSpeakClan");
 				player:SendLua([[Clockwork.Client:EmitSound("npc/crow/die"..math.random(1, 2)..".wav", 70, 100)]]);
 				netstream.Start(player, "TriggerCrows");
 
-				for k, v in pairs (_player.GetAll()) do
-					if v:HasInitialized() and v:Alive() and (v:GetSubfaction() == "Clan Crast") then
+				for _, v in _player.Iterator() do
+					if v:HasInitialized() and v:Alive() and (v:GetSubfaction() == "Clan Crast" or Clockwork.player:HasFlags(v, "L")) then
 						Clockwork.chatBox:Add(v, player, "ravenspeakclan", message);
 						v:SendLua([[Clockwork.Client:EmitSound("crow"..math.random(3, 4)..".wav", 90, 100)]]);
 						netstream.Start(v, "TriggerCrows");
@@ -965,12 +1738,12 @@ local COMMAND = Clockwork.command:New("RavenSpeakFaction");
 					player:SendLua([[Clockwork.Client:EmitSound("npc/crow/die"..math.random(1, 2)..".wav", 70, 100)]]);
 					netstream.Start(player, "TriggerCrows");
 
-					for k, v in pairs (_player.GetAll()) do
+					for _, v in _player.Iterator() do
 						if v:HasInitialized() and v:Alive() then
-							local vFaction = v:GetSharedVar("kinisgerOverride") or v:GetFaction();
+							local vFaction = v:GetNetVar("kinisgerOverride") or v:GetFaction();
 							local vLastZone = v:GetCharacterData("LastZone");
 							
-							if vFaction == "Goreic Warrior" and vLastZone ~= "hell" and vLastZone ~= "manor" then
+							if (vFaction == "Goreic Warrior" and vLastZone ~= "hell" and vLastZone ~= "manor") or Clockwork.player:HasFlags(v, "L") then
 								Clockwork.chatBox:Add(v, player, "ravenspeakfaction", message);
 								v:SendLua([[Clockwork.Client:EmitSound("crow"..math.random(3, 4)..".wav", 90, 100)]]);
 								netstream.Start(v, "TriggerCrows");
@@ -1057,7 +1830,7 @@ COMMAND:Register();
 if (SERVER) then
 	function Schema:EmitSoundFromSpeakersDSP(sound, level, pitch)
 		local listeners = nil --{};
-		--[[for k, v in pairs (_player.GetAll()) do
+		--[[for _, v in _player.Iterator() do
 			if (Schema:InSpeakerZone(v)) then
 				listeners[#listeners + 1] = v;
 			end;
@@ -1118,20 +1891,22 @@ local COMMAND = Clockwork.command:New("ProclaimMe");
 			return;
 		end;
 	
-		if (faction == "Gatekeeper" and Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) >= 3) or faction == "Holy Hierarchy" or player:IsAdmin() or Clockwork.player:HasFlags(player, "P") then
-			Clockwork.chatBox:SetMultiplier(1.35);
-			
-			if player.victim and IsValid(player.victim) then
-				Clockwork.chatBox:AddInRadius(player.victim, "meproclaim", text, player.victim:GetPos(), config.Get("talk_radius"):Get() * 4);
-			elseif player.possessor and IsValid(player.possessor) then
-				-- do nothing lol
+		if hook.Run("PlayerCanSayIC", player, text) then 
+			if (faction == "Gatekeeper" and Schema:GetRankTier(faction, player:GetCharacterData("rank", 1)) >= 3) or faction == "Holy Hierarchy" or player:IsAdmin() or Clockwork.player:HasFlags(player, "P") then
+				Clockwork.chatBox:SetMultiplier(1.35);
+				
+				if player.victim and IsValid(player.victim) then
+					Clockwork.chatBox:AddInRadius(player.victim, "meproclaim", text, player.victim:GetPos(), config.Get("talk_radius"):Get() * 4);
+				elseif player.possessor and IsValid(player.possessor) then
+					-- do nothing lol
+				else
+					Clockwork.chatBox:AddInRadius(player, "meproclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
+				end
+				
+				--Clockwork.chatBox:AddInRadius(player, "meproclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
 			else
-				Clockwork.chatBox:AddInRadius(player, "meproclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
+				Schema:EasyText(player, "peru", "You are not important enough to do this!");
 			end
-			
-			--Clockwork.chatBox:AddInRadius(player, "meproclaim", text, player:GetPos(), config.Get("talk_radius"):Get() * 4);
-		else
-			Schema:EasyText(player, "peru", "You are not important enough to do this!");
 		end
 	end;
 COMMAND:Register();
@@ -1150,7 +1925,7 @@ local COMMAND = Clockwork.command:New("SpeakerIt");
 	end;
 COMMAND:Register();
 
-local COMMAND = Clockwork.command:New("CharSetCustomClass");
+--[[local COMMAND = Clockwork.command:New("CharSetCustomClass");
 	COMMAND.tip = "Set a character's custom class.";
 	COMMAND.text = "<string Name> <string Class>";
 	COMMAND.access = "o";
@@ -1162,7 +1937,7 @@ local COMMAND = Clockwork.command:New("CharSetCustomClass");
 		
 		if (target) then
 			target:SetCharacterData("customclass", arguments[2]);
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." set "..target:Name().."'s custom class to "..arguments[2]..".")
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." set "..target:Name().."'s custom class to "..arguments[2]..".")
 		else
 			Schema:EasyText(player, "grey", arguments[1].." is not a valid character!");
 		end;
@@ -1181,34 +1956,29 @@ local COMMAND = Clockwork.command:New("CharTakeCustomClass");
 		
 		if (target) then
 			target:SetCharacterData("customclass", nil);
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." took "..target:Name().."'s custom class.")
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." took "..target:Name().."'s custom class.")
 		else
 			Schema:EasyText(player, "grey", arguments[1].." is not a valid character!");
 		end;
 	end;
-COMMAND:Register();
+COMMAND:Register();]]--
 
-local COMMAND = Clockwork.command:New("InvZipTie");
-	COMMAND.tip = "Use a zip tie from your inventory.";
+local COMMAND = Clockwork.command:New("InvTie");
+	COMMAND.tip = "Use bindings from your inventory to restrain a character that is looking away from you.";
 	COMMAND.flags = CMD_DEFAULT;
+	COMMAND.alias = {"InvZipTie", "InvBind", "InvRestrain"};
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		local curTime = CurTime();
+		local itemTable = player:FindItemByID("bindings");
 		
-		if !player.nextZipTie or player.nextZipTie < curTime then
-			local itemTable = player:FindItemByID("bindings");
+		if (!itemTable) then
+			Schema:EasyText(player, "chocolate", "You have nothing to tie with!");
 			
-			if (!itemTable) then
-				Schema:EasyText(player, "chocolate", "You have nothing to tie with!");
-				
-				return;
-			end;
+			return;
+		end;
 
-			Clockwork.player:InventoryAction(player, "use", itemTable.uniqueID, itemTable.itemID);
-		else
-			Schema:EasyText(player, "peru", "You must wait another "..-math.ceil(curTime - player.nextZipTie).." seconds before attempting to tie someone again!");
-		end
+		Clockwork.player:InventoryAction(player, itemTable, "use");
 	end;
 COMMAND:Register();
 
@@ -1278,7 +2048,7 @@ local COMMAND = Clockwork.command:New("RemoveAllBelongings");
 			v:Remove();
 		end;
 		
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all belongings entities on the map for a total of "..tostring(items_removed).." entities.", nil);
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all belongings entities on the map for a total of "..tostring(items_removed).." entities.", nil);
 	end;
 COMMAND:Register();
 
@@ -1308,11 +2078,11 @@ local COMMAND = Clockwork.command:New("RemoveAllItems");
 			end;
 			
 			if selection == "1" then
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all item spawned items on the map for a total of "..tostring(items_removed).." items.", nil);
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all item spawned items on the map for a total of "..tostring(items_removed).." items.", nil);
 			elseif selection == "2" then
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all non-item spawned items on the map for a total of "..tostring(items_removed).." items.", nil);
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all non-item spawned items on the map for a total of "..tostring(items_removed).." items.", nil);
 			elseif selection == "3" then
-				Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all decoy items on the map for a total of "..tostring(items_removed).." items.", nil);
+				Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all decoy items on the map for a total of "..tostring(items_removed).." items.", nil);
 			end
 		else
 			for k, v in pairs (ents.FindByClass("cw_item")) do
@@ -1322,7 +2092,7 @@ local COMMAND = Clockwork.command:New("RemoveAllItems");
 				end
 			end
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all non-decoy items on the map for a total of "..tostring(items_removed).." items.", nil);
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all non-decoy items on the map for a total of "..tostring(items_removed).." items.", nil);
 		end
 	end;
 COMMAND:Register();
@@ -1350,7 +2120,7 @@ local COMMAND = Clockwork.command:New("RemoveItemsRadius");
 			end;
 		end;
 		
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all items in a 512 unit radius of themselves for a total of "..tostring(items_removed).." items.", nil);
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all items in a 512 unit radius of themselves for a total of "..tostring(items_removed).." items.", nil);
 	end;
 COMMAND:Register();
 
@@ -1377,7 +2147,7 @@ local COMMAND = Clockwork.command:New("RemoveAllRagdolls");
 			end
 		end;
 		
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has removed all ragdolls on the map for a total of "..tostring(ragdolls_removed).." ragdolls.", nil);
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has removed all ragdolls on the map for a total of "..tostring(ragdolls_removed).." ragdolls.", nil);
 	end;
 COMMAND:Register();
 
@@ -1402,7 +2172,7 @@ local COMMAND = Clockwork.command:New("PlyHealFull");
 			name = "themself";
 		end;
 		
-		local max_poise = target:GetMaxPoise();
+		--local max_poise = target:GetMaxPoise();
 		local max_sanity = 100;
 		local max_stability = target:GetMaxStability();
 		local max_stamina = target:GetMaxStamina();
@@ -1411,6 +2181,7 @@ local COMMAND = Clockwork.command:New("PlyHealFull");
 			max_sanity = 40;
 		end
 
+		target:Extinguish();
 		target:ResetInjuries();
 		target:TakeAllDiseases();
 		target:SetHealth(target:GetMaxHealth() or 100);
@@ -1418,15 +2189,15 @@ local COMMAND = Clockwork.command:New("PlyHealFull");
 		target:SetNeed("hunger", 0);
 		target:SetNeed("corruption", 0);
 		target:SetNeed("sleep", 0);
-		target:SetSharedVar("sanity", max_sanity);
+		target:SetNetVar("sanity", max_sanity);
 		target:SetCharacterData("sanity", max_sanity);
 		target:SetCharacterData("Stamina", max_stamina);
 		target:SetNWInt("Stamina", max_stamina);
 		target:SetCharacterData("stability", max_stability);
 		target:SetNWInt("stability", max_stability);
 		--target:SetCharacterData("meleeStamina", max_poise);
-		target:SetNWInt("meleeStamina", max_poise);
-		target:SetNWInt("freeze", 0);
+		--target:SetNWInt("meleeStamina", max_poise);
+		target:SetLocalVar("freeze", 0);
 		target:SetBloodLevel(5000);
 		target:StopAllBleeding();
 		Clockwork.limb:HealBody(target, 100);
@@ -1434,10 +2205,12 @@ local COMMAND = Clockwork.command:New("PlyHealFull");
 		Clockwork.player:SetAction(target, "die_bleedout", false);
 		
 		if target:GetRagdollState() == RAGDOLL_KNOCKEDOUT then
-			Clockwork.player:SetRagdollState(target, RAGDOLL_NONE);
+			Clockwork.player:SetRagdollState(target, RAGDOLL_FALLENOVER);
 		end
 		
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has fully healed "..name..".");
+		hook.Run("PlayerHealedFull", target);
+		
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has fully healed "..name..".");
 	end;
 COMMAND:Register();
 
@@ -1456,10 +2229,10 @@ local COMMAND = Clockwork.command:New("PlyHealFullAll");
 			affect_duelists = true;
 		end
 	
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if IsValid(v) and v:HasInitialized() and v:Alive() then
 				if !v.opponent or (v.opponent and affect_duelists) then
-					local max_poise = v:GetMaxPoise();
+					--local max_poise = v:GetMaxPoise();
 					local max_sanity = 100;
 					local max_stability = v:GetMaxStability();
 					local max_stamina = v:GetMaxStamina();
@@ -1468,6 +2241,7 @@ local COMMAND = Clockwork.command:New("PlyHealFullAll");
 						max_sanity = 40;
 					end
 					
+					v:Extinguish();
 					v:ResetInjuries();
 					v:TakeAllDiseases();
 					v:SetHealth(v:GetMaxHealth() or 100);
@@ -1475,32 +2249,34 @@ local COMMAND = Clockwork.command:New("PlyHealFullAll");
 					v:SetNeed("hunger", 0);
 					v:SetNeed("corruption", 0);
 					v:SetNeed("sleep", 0);
-					v:SetSharedVar("sanity", max_sanity);
+					v:SetNetVar("sanity", max_sanity);
 					v:SetCharacterData("sanity", max_sanity);
 					v:SetCharacterData("Stamina", max_stamina);
 					v:SetNWInt("Stamina", max_stamina);
 					v:SetCharacterData("stability", max_stability);
 					v:SetNWInt("stability", max_stability);
 					--v:SetCharacterData("meleeStamina", max_poise);
-					v:SetNWInt("meleeStamina", max_poise);
-					v:SetNWInt("freeze", 0);
+					--v:SetNWInt("meleeStamina", max_poise);
+					v:SetLocalVar("freeze", 0);
 					v:SetBloodLevel(5000);
 					v:StopAllBleeding();
 					Clockwork.limb:HealBody(v, 100);
 					Clockwork.player:SetAction(v, "die", false);
 					Clockwork.player:SetAction(v, "die_bleedout", false);
 					
+					hook.Run("PlayerHealedFull", v);
+					
 					if v:GetRagdollState() == RAGDOLL_KNOCKEDOUT then
-						Clockwork.player:SetRagdollState(v, RAGDOLL_NONE);
+						Clockwork.player:SetRagdollState(v, RAGDOLL_FALLENOVER);
 					end
 				end;
 			end;
 		end;
 		
 		if affect_duelists then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has fully healed all players on the server, including duelists.");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has fully healed all players on the server, including duelists.");
 		else
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has fully healed all players on the server.");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has fully healed all players on the server.");
 		end
 	end;
 COMMAND:Register();
@@ -1566,7 +2342,7 @@ function COMMAND:OnRun(player, arguments)
 
 		local activeWeapon = target:GetActiveWeapon()
 		
-		if IsValid(activeWeapon) then
+		if activeWeapon:IsValid() then
 			local weaponItem = item.GetByWeapon(activeWeapon);
 		
 			if (weaponItem) then
@@ -1611,14 +2387,38 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if Schema.autoTieEnabled then
 		Schema.autoTieEnabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled the auto-tie system.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled the auto-tie system.");
 	else
 		Schema.autoTieEnabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled the auto-tie system, all players who spawn will be tied.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled the auto-tie system, all players who spawn will be tied.");
 	end
 end;
 
 COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("AddNPCSpawn")
+	COMMAND.tip = "Add an npc spawn location at your cursor. (Valid types: animal, thrall)"
+	COMMAND.text = "<string Category>"
+	COMMAND.access = "s"
+	COMMAND.arguments = 1;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		Schema:AddNPCSpawn(player:GetEyeTrace().HitPos, arguments[1], player);
+	end
+COMMAND:Register()
+
+local COMMAND = Clockwork.command:New("RemoveNPCSpawn")
+	COMMAND.tip = "Remove an npc spawn location at your cursor."
+	COMMAND.access = "s"
+	COMMAND.optionalArguments = 1;
+	COMMAND.text = "[int Distance]"
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		Schema:RemoveNPCSpawn(player:GetEyeTrace().HitPos, tonumber(arguments[1]) or 64, player);
+	end
+COMMAND:Register()
 
 local COMMAND = Clockwork.command:New("ToggleNPCSpawns");
 COMMAND.tip = "Toggle the automatic NPC spawning system.";
@@ -1629,10 +2429,10 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if Schema.npcSpawnsEnabled ~= false then
 		Schema.npcSpawnsEnabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled automatic NPC spawning.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled automatic NPC spawning.");
 	else
 		Schema.npcSpawnsEnabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled automatic NPC spawning.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled automatic NPC spawning.");
 	end
 end;
 
@@ -1647,10 +2447,10 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if !Schema.hellJauntDisabled then
 		Schema.hellJauntDisabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled helljaunting.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled helljaunting.");
 	else
 		Schema.hellJauntDisabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled helljaunting.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled helljaunting.");
 	end
 end;
 
@@ -1665,10 +2465,10 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if !Schema.hellTeleportDisabled then
 		Schema.hellTeleportDisabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled teleporting to Hell.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled teleporting to Hell.");
 	else
 		Schema.hellTeleportDisabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled teleporting to Hell.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled teleporting to Hell.");
 	end
 end;
 
@@ -1683,10 +2483,10 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if Schema.towerSafeZoneEnabled then
 		Schema.towerSafeZoneEnabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled the Tower of Light safe zone.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled the Tower of Light safe zone.");
 	else
 		Schema.towerSafeZoneEnabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled the Tower of Light safe zone.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled the Tower of Light safe zone.");
 	end
 end;
 
@@ -1701,10 +2501,10 @@ COMMAND.access = "s";
 function COMMAND:OnRun(player, arguments)
 	if Schema.falloverDisabled then
 		Schema.falloverDisabled = false;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has enabled falling over for players.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has enabled falling over for players.");
 	else
 		Schema.falloverDisabled = true;
-		Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has disabled falling over for players.");
+		Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has disabled falling over for players.");
 	end
 end;
 
@@ -1735,6 +2535,7 @@ local COMMAND = Clockwork.command:New("CoinslotCollect");
 							Clockwork.player:GiveCash(player, cash, nil, true);
 							Schema:ModifyTowerTreasury(-cash);
 							
+							Schema:EasyText(Schema:GetAdmins(), color, player:Name().." has collected "..cash.." coin from the treasury.");
 							Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has collected "..cash.." coin from the coinslot. The treasury now sits at "..Schema.towerTreasury..".");
 							
 							return;
@@ -1754,11 +2555,55 @@ local COMMAND = Clockwork.command:New("CoinslotCollect");
 	end;
 COMMAND:Register();
 
+local COMMAND = Clockwork.command:New("CoinslotTax");
+	COMMAND.tip = "Set the Tower of Light's tax rate.";
+	COMMAND.text = "<number Coin>";
+	COMMAND.flags = CMD_DEFAULT;
+	COMMAND.arguments = 1;
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local faction = player:GetFaction();
+		
+		if (faction == "Holy Hierarchy" and player:GetSubfaction() == "Minister") or player:IsAdmin() then
+			local trace = player:GetEyeTrace();
+
+			if (trace.Entity) then
+				local entity = trace.Entity;
+
+				if (entity:GetClass() == "cw_coinslot") then
+					if arguments[1] and tonumber(arguments[1]) then
+						local taxRate = math.floor(tonumber(arguments[1]));
+						
+						if taxRate > 0 and taxRate < 100 then
+							Schema.towerTax = (taxRate / 100);
+							
+							Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has set the tax rate in the Tower of Light to "..tostring(taxRate).."%.");
+							Schema:EasyText(Schema:GetAdmins(), "gold", player:Name().." has set the tax rate in the Tower of Light to "..tostring(taxRate).."%.");
+							
+							return;
+						else
+							Schema:EasyText(player, "firebrick", "This is an invalid tax rate!");
+							return;
+						end
+					end
+				end;
+			end;
+		else
+			Schema:EasyText(player, "peru", "You must be of noble stature to set the tax rate!");
+			return;
+		end
+		
+		Schema:EasyText(player, "peru", "You must be looking at the Coinslot to set the tax rate!");
+	end;
+COMMAND:Register();
+
 local COMMAND = Clockwork.command:New("CoinslotDonate");
 	COMMAND.tip = "Offer your coin to the Coinslot.";
 	COMMAND.text = "<number Coin>";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.arguments = 1;
+	COMMAND.optionalArguments = 1;
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
@@ -1770,6 +2615,21 @@ local COMMAND = Clockwork.command:New("CoinslotDonate");
 			if (entity:GetClass() == "cw_coinslot") then
 				if arguments[1] and tonumber(arguments[1]) then
 					local cash = math.floor(tonumber(arguments[1]));
+					
+					if arguments[2] and player:IsAdmin() then
+						Schema:ModifyTowerTreasury(cash);
+						
+						local color = "green";
+						
+						if cash < 0 then
+							color = "red";
+						end
+						
+						Schema:EasyText(Schema:GetAdmins(), color, player:Name().." has modified the Tower treasury by "..cash.." coin.");
+						Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has modified the Tower treasury by "..cash.." coin. The treasury now sits at "..Schema.towerTreasury..".");
+					
+						return;
+					end
 						
 					if (cash and Clockwork.player:CanAfford(player, cash)) then
 						if cash < 1 then
@@ -1801,13 +2661,13 @@ local COMMAND = Clockwork.command:New("CoinslotDonate");
 						Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has donated "..cash.." coin to the coinslot. The treasury now sits at "..Schema.towerTreasury..".");
 						
 						if cash >= 500 then
-							Schema:EasyText(GetAdmins(), "green", player:Name().." has made a large donation to the coinslot: "..cash.." coin.", nil);
+							Schema:EasyText(Schema:GetAdmins(), "green", player:Name().." has made a large donation to the coinslot: "..cash.." coin.", nil);
 						end
 						
 						entity:EmitSound("ambient/levels/labs/coinslot1.wav");
 						return;
 					else
-						Schema:EasyText(player, "darkgrey", "You need to enter a valid value to donate coin!");
+						Schema:EasyText(player, "darkgrey", "You do not have enough coin to donate this amount!");
 						return;
 					end;
 				else
@@ -1915,21 +2775,45 @@ local COMMAND = Clockwork.command:New("HellJaunt");
 				return false;
 			end
 			
-			if player:GetNWBool("Parried") == true then
+			if player:GetNetVar("Parried") == true then
 				Schema:EasyText(player, "peru", "You are too discombobulated to helljaunt right now!");
 				
 				return false;
 			end
 			
-			if not player.opponent and not player:IsRagdolled() and player:GetSharedVar("tied") == 0 then
+			if player:GetNWBool("bliz_frozen") then
+				Schema:EasyText(player, "peru", "You cannot helljaunt while frozen solid!");
+				
+				return false;
+			end
+			
+			if player:GetNWBool("PickingUpRagdoll") then
+				Schema:EasyText(player, "peru", "You cannot helljaunt while in the process of picking up a ragdoll!");
+				
+				return false;
+			end
+			
+			local holdingEnt = player.cwHoldingEnt;
+			
+			if IsValid(holdingEnt) and holdingEnt:GetClass() == "prop_ragdoll" then
+				local ragdollPlayer = Clockwork.entity:GetPlayer(holdingEnt);
+				
+				if ragdollPlayer and ragdollPlayer:GetFaction() == "Children of Satan" and ragdollPlayer:Alive() and ragdollPlayer.OverEncumbered then
+					Schema:EasyText(player, "peru", "You cannot helljaunt while holding another overencumbered Child of Satan!");
+					
+					return false;
+				end
+			end
+			
+			if not player.opponent and not player:IsRagdolled() and player:GetNetVar("tied") == 0 then
 				local lastZone = player:GetCharacterData("LastZone");
 				
 				if lastZone ~= "hell" and lastZone ~= "manor" then
 					local nextTeleport = player:GetCharacterData("nextTeleport", 0);
 					
 					if nextTeleport <= 0 then
-						for k, v in pairs(_player.GetAll()) do
-							if v:HasInitialized() and v:GetSharedVar("yellowBanner") == true and v:Alive() then
+						for _, v in _player.Iterator() do
+							if v:HasInitialized() and v:GetNetVar("yellowBanner") == true and v:Alive() then
 								if v:GetMoveType() == MOVETYPE_WALK or v:IsRagdolled() or v:InVehicle() then
 									if v:GetPos():Distance(player:GetPos()) <= 2048 then
 										Schema:EasyText(player, "peru", "There is one with a yellow banner raised, chaining you to this mortal plane! Vanquish them or distance yourself greatly!");
@@ -1986,6 +2870,11 @@ local COMMAND = Clockwork.command:New("HellJaunt");
 									
 										if target:GetClass() == "prop_ragdoll" then
 											local targetPos = target:GetPos();
+											local ragdollPlayer = Clockwork.entity:GetPlayer(target);
+											
+											if IsValid(ragdollPlayer) then
+												ragdollPlayer:GodEnable();
+											end
 											
 											for i = 0, target:GetPhysicsObjectCount() - 1 do
 												local phys = target:GetPhysicsObjectNum(i);
@@ -1996,6 +2885,12 @@ local COMMAND = Clockwork.command:New("HellJaunt");
 												phys:Wake()
 												phys:SetPos(newPos)
 											end
+											
+											timer.Simple(1, function()
+												if IsValid(ragdollPlayer) then
+													ragdollPlayer:GodDisable();
+												end
+											end);
 										else
 											target:SetPos(destinationRaised);
 										end
@@ -2072,6 +2967,11 @@ local COMMAND = Clockwork.command:New("HellJauntAdmin");
 					
 						if target:GetClass() == "prop_ragdoll" then
 							local targetPos = target:GetPos();
+							local ragdollPlayer = Clockwork.entity:GetPlayer(target);
+							
+							if IsValid(ragdollPlayer) then
+								ragdollPlayer:GodEnable();
+							end
 							
 							for i = 0, target:GetPhysicsObjectCount() - 1 do
 								local phys = target:GetPhysicsObjectNum(i);
@@ -2082,6 +2982,12 @@ local COMMAND = Clockwork.command:New("HellJauntAdmin");
 								phys:Wake()
 								phys:SetPos(newPos)
 							end
+							
+							timer.Simple(1, function()
+								if IsValid(ragdollPlayer) then
+									ragdollPlayer:GodDisable();
+								end
+							end);
 						else
 							target:SetPos(destinationRaised);
 						end
@@ -2113,7 +3019,7 @@ local COMMAND = Clockwork.command:New("HellTeleport");
 				return false;
 			end
 		
-			if not player.opponent and not player:IsRagdolled() and player:GetSharedVar("tied") == 0 then
+			if not player.opponent and not player:IsRagdolled() and player:GetNetVar("tied") == 0 then
 				local lastZone = player:GetCharacterData("LastZone");
 				
 				if lastZone ~= "hell" and lastZone ~= "manor" then
@@ -2127,7 +3033,7 @@ local COMMAND = Clockwork.command:New("HellTeleport");
 							
 							Clockwork.player:SetAction(player, "hell_teleporting", 30, 2, function()
 								if IsValid(player) then
-									if not player.opponent and not player:IsRagdolled() and player:GetSharedVar("tied") == 0 then
+									if not player.opponent and not player:IsRagdolled() and player:GetNetVar("tied") == 0 then
 										local lastZone = player:GetCharacterData("LastZone");
 										
 										if lastZone ~= "hell" and lastZone ~= "manor" then
@@ -2156,19 +3062,38 @@ local COMMAND = Clockwork.command:New("HellTeleport");
 															local target = player.cwHoldingEnt;
 															
 															if IsValid(target) then
-																target:GetPhysicsObject():EnableMotion(false);
+																local destinationRaised = destination + Vector(0, 0, 32);
 															
-																timer.Simple(0.1, function()
-																	if IsValid(target) then
-																		target:GetPhysicsObject():EnableMotion(true);
-																		
-																		if target:GetClass() == "prop_ragdoll" then
-																			target:GetPhysicsObject():SetPos(destination + Vector(0, 0, 16), true);
-																		else
-																			target:SetPos(destination + Vector(0, 0, 16));
-																		end
+																if IsValid(player.cwHoldingGrab) then
+																	player.cwHoldingGrab:SetComputePosition(destinationRaised);
+																end
+															
+																if target:GetClass() == "prop_ragdoll" then
+																	local targetPos = target:GetPos();
+																	local ragdollPlayer = Clockwork.entity:GetPlayer(target);
+																	
+																	if IsValid(ragdollPlayer) then
+																		ragdollPlayer:GodEnable();
 																	end
-																end);
+																	
+																	for i = 0, target:GetPhysicsObjectCount() - 1 do
+																		local phys = target:GetPhysicsObjectNum(i);
+																		local newPos = target:GetPos();
+																		
+																		newPos:Sub(targetPos);
+																		newPos:Add(destinationRaised);
+																		phys:Wake()
+																		phys:SetPos(newPos)
+																	end
+																	
+																	timer.Simple(1, function()
+																		if IsValid(ragdollPlayer) then
+																			ragdollPlayer:GodDisable();
+																		end
+																	end);
+																else
+																	target:SetPos(destinationRaised);
+																end
 															end
 														
 															Clockwork.player:SetSafePosition(player, destination);
@@ -2356,11 +3281,11 @@ function COMMAND:OnRun(player, arguments)
 		if fogDistance == "false" then
 			Schema:OverrideFogDistance(zone, false);
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has set the fog distance of the "..zone.." to its default value.");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has set the fog distance of the "..zone.." to its default value.");
 		elseif tonumber(fogDistance) then
 			Schema:OverrideFogDistance(zone, tonumber(fogDistance));
 			
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has set the fog distance of the "..zone.." to "..tostring(fogDistance)..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has set the fog distance of the "..zone.." to "..tostring(fogDistance)..".");
 		end
 	end
 end;
@@ -2374,7 +3299,7 @@ local COMMAND = Clockwork.command:New("PoisonedWineSequence")
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
 		if Schema.poisonedWinePlayers then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", player:Name().." has started the poisoned wine sequence!");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", player:Name().." has started the poisoned wine sequence!");
 			
 			for i = 1, #Schema.poisonedWinePlayers do
 				local player = Schema.poisonedWinePlayers[i];
@@ -2396,7 +3321,7 @@ local COMMAND = Clockwork.command:New("PoisonedWineSequence")
 							ParticleEffect("blood_advisor_puncture_withdraw", headPos + (player:GetForward() * 8) - Vector(0, 0, 1), Angle(180, 0, 0), player);
 							util.Decal("BloodLarge", playerPos - Vector(0, 0, 2), playerPos + Vector(0, 0, 2));
 							
-							Clockwork.datastream:Start(player, "TriggerCrazyBob", 75);
+							netstream.Start(player, "TriggerCrazyBob", 75);
 							
 							timer.Simple(3, function()
 								if IsValid(player) then

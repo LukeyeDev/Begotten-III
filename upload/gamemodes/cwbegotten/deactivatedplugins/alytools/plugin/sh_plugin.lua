@@ -216,7 +216,7 @@ function playerMeta:CalcLoyaltyScore()
 	local charKey = self:GetCharacterKey();
 	local charLoyal = self:GetCharacterData("loyaltochar", "none")
 	
-	for k, v in pairs (_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if v:HasInitialized() and v:Alive() then
 			local tgtLoyal = v:GetCharacterData("loyaltochar", "none")
 			local tgtLevel = v:GetCharacterData("level", 1);
@@ -240,7 +240,7 @@ function playerMeta:CalcLoyaltyScore()
 	local max_stability = self:GetMaxStability();
 	local max_health = self:GetMaxHealth();
 	self:SetLocalVar("maxStability", max_stability);
-	self:SetLocalVar("maxMeleeStamina", max_poise);
+	--self:SetLocalVar("maxMeleeStamina", max_poise);
 	self:SetLocalVar("Max_Stamina", max_stamina);
 	self:SetCharacterData("Max_Stamina", max_stamina);
 	return {total=points,people=pledges}

@@ -2,12 +2,12 @@
 
 local map = game.GetMap() == "rp_begotten3" or game.GetMap() == "rp_begotten_redux" or game.GetMap() == "rp_scraptown";
 
-CW_CONVAR_AMBIENTMUSIC = Clockwork.kernel:CreateClientConVar("cwAmbientMusic", 1, true, true)
-CW_CONVAR_AMBIENTMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwAmbientMusicVolume", 100, true, true)
-CW_CONVAR_BATTLEMUSIC = Clockwork.kernel:CreateClientConVar("cwBattleMusic", 1, true, true)
-CW_CONVAR_BATTLEMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwBattleMusicVolume", 100, true, true)
-CW_CONVAR_MENUMUSIC = Clockwork.kernel:CreateClientConVar("cwMenuMusic", 1, true, true)
-CW_CONVAR_MENUMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwMenuMusicVolume", 100, true, true)
+Clockwork.ConVars.AMBIENTMUSIC = Clockwork.kernel:CreateClientConVar("cwAmbientMusic", 1, true, true)
+Clockwork.ConVars.AMBIENTMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwAmbientMusicVolume", 100, true, true)
+Clockwork.ConVars.BATTLEMUSIC = Clockwork.kernel:CreateClientConVar("cwBattleMusic", 1, true, true)
+Clockwork.ConVars.BATTLEMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwBattleMusicVolume", 100, true, true)
+Clockwork.ConVars.MENUMUSIC = Clockwork.kernel:CreateClientConVar("cwMenuMusic", 1, true, true)
+Clockwork.ConVars.MENUMUSICVOLUME = Clockwork.kernel:CreateClientConVar("cwMenuMusicVolume", 100, true, true)
 
 cwMusic.AmbientMusicTable = {
 	["tower"] = { -- ambient music for the tower of light
@@ -26,7 +26,6 @@ cwMusic.AmbientMusicTable = {
 		{track = "begotten3soundtrack/ambiencetower/mo-logos.mp3", length = 354},
 		{track = "begotten3soundtrack/ambiencetower/mo-transfiguration-edited.mp3", length = 261},
 	},
-
 	["wasteland"] = { -- ambient music for the wasteland
 		{track = "begotten3soundtrack/ambiencewasteland/acclb-thegreatorderofthings.mp3", length = 289},
 		{track = "begotten3soundtrack/ambiencewasteland/co9-fragmentsofmyself.mp3", length = 458},
@@ -42,7 +41,6 @@ cwMusic.AmbientMusicTable = {
 		{track = "begotten3soundtrack/ambiencewasteland/mo-thylight.mp3", length = 570},
 		{track = "begotten3soundtrack/ambiencewasteland/ss-transference.mp3", length = 332},
 	},
-
 	["wastelandnight"] = { -- ambient music for the wasteland (night)
 		{track = "begotten3soundtrack/ambiencenight/dw-untitled3.mp3", length = 128, volume = 0.75},
 		{track = "begotten3soundtrack/ambiencenight/dw-dream.mp3", length = 317, volume = 0.75},
@@ -53,7 +51,6 @@ cwMusic.AmbientMusicTable = {
 		{track = "begotten3soundtrack/ambiencenight/ns-blackmoonpt1.mp3", length = 369},
 		{track = "begotten3soundtrack/ambiencenight/pa-frozencaveofwhispers.mp3", length = 696, volume = 0.75},
 	},
-	
 	["goericforest"] = { -- ambient music for the goeric forest
 		{track = "begotten3soundtrack/ambiencegoeric/hb_surtrsart.mp3", length = 141},
 		{track = "begotten3soundtrack/ambiencegoeric/hb-surtrbacktrack.mp3", length = 61},
@@ -66,7 +63,6 @@ cwMusic.AmbientMusicTable = {
 		{track = "begotten3soundtrack/ambiencegoeric/twa-menofthesea.mp3", length = 114, volume = 0.75},
 		{track = "begotten3soundtrack/ambiencegoeric/twa-wintersbard.mp3", length = 116, volume = 0.75},
 	},
-	
 	["insanity"] = { -- ambient music for insane players
 		{track = "begotten3soundtrack/insanity/scorntrailertheme.mp3", length = 97},
 	},
@@ -92,7 +88,6 @@ cwMusic.BattleMusicTable = {
 		{track = "begotten3soundtrack/combat/bt-warmaster.mp3", length = 190},
 		{track = "begotten3soundtrack/combat/bt-whatdwellswithin.mp3", length = 174},
 	},
-	
 	["combat_goeric"] = { -- combat music for gores
 		{track = "begotten3soundtrack/combatgoeric/hb-bridgecombatthird.mp3", length = 136},
 		{track = "begotten3soundtrack/combatgoeric/hb-combatvalravnbalcony.mp3", length = 86},
@@ -112,21 +107,21 @@ function cwMusic:ClockworkConVarChanged(name, previousValue, newValue)
 		end
 	elseif (name == "cwAmbientMusicVolume" and newValue) then
 		if newValue == "0" then
-			CW_CONVAR_AMBIENTMUSIC:SetInt(0);
+			Clockwork.ConVars.AMBIENTMUSIC:SetInt(0);
 		elseif previousValue == "0" and newValue ~= "0" then
-			CW_CONVAR_AMBIENTMUSIC:SetInt(1);
+			Clockwork.ConVars.AMBIENTMUSIC:SetInt(1);
 		elseif self.AmbientMusic then
 			self.AmbientMusic:ChangeVolume(math.max(0, (tonumber(newValue) / 100) * (self.TrackVolume or 1)));
 		end
 	elseif (name == "cwBattleMusic" and newValue) then
-		if newValue == "0" then
+		if newValue == "0" or newValue == "2" and cwDueling and !Clockwork.Client.dueling then
 			self:StopBattleMusic();
 		end
 	elseif (name == "cwBattleMusicVolume" and newValue) then
 		if newValue == "0" then
-			CW_CONVAR_BATTLEMUSIC:SetInt(0);
+			Clockwork.ConVars.BATTLEMUSIC:SetInt(0);
 		elseif previousValue == "0" and newValue ~= "0" then
-			CW_CONVAR_BATTLEMUSIC:SetInt(1);
+			Clockwork.ConVars.BATTLEMUSIC:SetInt(1);
 		elseif self.BattleMusic then
 			self.BattleMusic:ChangeVolume(math.max(0, (tonumber(newValue) / 100) * (self.TrackVolume or 1)));
 		end
@@ -139,11 +134,9 @@ function cwMusic:ClockworkConVarChanged(name, previousValue, newValue)
 		end
 	elseif (name == "cwMenuMusicVolume" and newValue) then
 		if newValue == "0" then
-			CW_CONVAR_MENUMUSIC:SetInt(0);
+			Clockwork.ConVars.MENUMUSIC:SetInt(0);
 		elseif previousValue == "0" and newValue ~= "0" then
-			CW_CONVAR_MENUMUSIC:SetInt(1);
-		elseif Clockwork.MusicSound then
-			Clockwork.MusicSound:ChangeVolume(math.max(0, (tonumber(newValue) / 100) * (self.TrackVolume or 1)));
+			Clockwork.ConVars.MENUMUSIC:SetInt(1);
 		end
 	end
 end
@@ -265,10 +258,10 @@ function cwMusic:StartAmbientMusic()
 		
 		local musicTable = self:GetRandomAmbientMusic(trackType)
 		local trackName = musicTable.track
-		local trackLength = musicTable.length
+		local trackLength = musicTable.length or SoundDuration(trackName)
 		
 		cwMusic.MusicStartTime = curTime
-		cwMusic.MusicEndTime = curTime + trackLength + 10;
+		cwMusic.MusicEndTime = curTime + trackLength + 10
 		cwMusic.MaxAmbientLength = trackLength
 		cwMusic.AmbientMusic = CreateSound(Clockwork.Client, trackName)
 		
@@ -290,10 +283,10 @@ function cwMusic:StartAmbientMusic()
 		
 		if musicTable.volume then
 			cwMusic.TrackVolume = musicTable.volume;
-			cwMusic.AmbientMusic:PlayEx(math.max((CW_CONVAR_AMBIENTMUSICVOLUME:GetInt() or 100) * musicTable.volume, 0) / 100, 100);
+			cwMusic.AmbientMusic:PlayEx(math.max((Clockwork.ConVars.AMBIENTMUSICVOLUME:GetInt() or 100) * musicTable.volume, 0) / 100, 100);
 		else
 			cwMusic.TrackVolume = 1;
-			cwMusic.AmbientMusic:PlayEx((CW_CONVAR_AMBIENTMUSICVOLUME:GetInt() or 100) / 100, 100);
+			cwMusic.AmbientMusic:PlayEx((Clockwork.ConVars.AMBIENTMUSICVOLUME:GetInt() or 100) / 100, 100);
 		end
 	end
 end
@@ -318,13 +311,13 @@ function cwMusic:GetRandomAmbientMusic(musicType)
 				if self.AmbientMusicTable[musicType][i].track == randomTrackName then
 					local randomTrack = self.AmbientMusicTable[musicType][i];
 					
-					return {track = randomTrack.track, length = randomTrack.length, volume = randomTrack.volume or 1};
+					return {track = randomTrack.track, length = randomTrack.length or SoundDuration(randomTrack.track), volume = randomTrack.volume or 1};
 				end
 			end
 		else
 			local randomTrack = self.AmbientMusicTable[musicType][math.random(1, #self.AmbientMusicTable[musicType])];
 			
-			return {track = randomTrack.track, length = randomTrack.length, volume = randomTrack.volume or 1};
+			return {track = randomTrack.track, length = randomTrack.length or SoundDuration(randomTrack.track), volume = randomTrack.volume or 1};
 		end
 	end
 end
@@ -347,7 +340,7 @@ function cwMusic:CanPlayAmbientMusic()
 	end
 
 	--if (Clockwork.Client:IsAdmin()) then
-		if (CW_CONVAR_AMBIENTMUSIC and CW_CONVAR_AMBIENTMUSIC:GetInt() != 1) then
+		if (Clockwork.ConVars.AMBIENTMUSIC and Clockwork.ConVars.AMBIENTMUSIC:GetInt() < 1) then
 			return false
 		end
 	--end
@@ -475,7 +468,7 @@ function cwMusic:StartBattleMusic(limit)
 		
 		local musicTable = self:GetRandomBattleMusic(trackType)
 		local trackName = musicTable.track
-		local trackLength = musicTable.length
+		local trackLength = musicTable.length or SoundDuration(trackName)
 		
 		if limit == false then
 			cwMusic.NextBattleMusic = curTime + trackLength
@@ -507,10 +500,10 @@ function cwMusic:StartBattleMusic(limit)
 		
 		if musicTable.volume then
 			cwMusic.TrackVolume = musicTable.volume;
-			cwMusic.BattleMusic:PlayEx(math.max((CW_CONVAR_BATTLEMUSICVOLUME:GetInt() or 100) * musicTable.volume, 0) / 100, 100);
+			cwMusic.BattleMusic:PlayEx(math.max((Clockwork.ConVars.BATTLEMUSICVOLUME:GetInt() or 100) * musicTable.volume, 0) / 100, 100);
 		else
 			cwMusic.TrackVolume = 1;
-			cwMusic.BattleMusic:PlayEx((CW_CONVAR_BATTLEMUSICVOLUME:GetInt() or 100) / 100, 100);
+			cwMusic.BattleMusic:PlayEx((Clockwork.ConVars.BATTLEMUSICVOLUME:GetInt() or 100) / 100, 100);
 		end
 	end
 end
@@ -535,13 +528,13 @@ function cwMusic:GetRandomBattleMusic(musicType)
 				if self.BattleMusicTable[musicType][i].track == randomTrackName then
 					local randomTrack = self.BattleMusicTable[musicType][i];
 					
-					return {track = randomTrack.track, length = randomTrack.length, volume = randomTrack.volume or 1};
+					return {track = randomTrack.track, length = randomTrack.length or SoundDuration(randomTrack.track), volume = randomTrack.volume or 1};
 				end
 			end
 		else
 			local randomTrack = self.BattleMusicTable[musicType][math.random(1, #self.BattleMusicTable[musicType])];
 			
-			return {track = randomTrack.track, length = randomTrack.length, volume = randomTrack.volume or 1};
+			return {track = randomTrack.track, length = randomTrack.length or SoundDuration(randomTrack.track), volume = randomTrack.volume or 1};
 		end
 	end
 end
@@ -564,7 +557,7 @@ function cwMusic:CanPlayBattleMusic()
 	end
 
 	--if (Clockwork.Client:IsAdmin()) then
-		if (CW_CONVAR_BATTLEMUSIC and CW_CONVAR_BATTLEMUSIC:GetInt() != 1) then
+		if (Clockwork.ConVars.BATTLEMUSIC and Clockwork.ConVars.BATTLEMUSIC:GetInt() < 1) then
 			return false
 		end
 	--end
@@ -630,27 +623,27 @@ function cwMusic:StopBattleMusic()
 	cwMusic.TrackVolume = nil
 end
 
-Clockwork.datastream:Hook("EnableDynamicMusic", function(data)
+netstream.Hook("EnableDynamicMusic", function(data)
 	cwMusic.enabled = true;
 end)
 
-Clockwork.datastream:Hook("DisableDynamicMusic", function(data)
+netstream.Hook("DisableDynamicMusic", function(data)
 	cwMusic.enabled = false;
 end)
 
-Clockwork.datastream:Hook("StartAmbientMusic", function(data)
+netstream.Hook("StartAmbientMusic", function(data)
 	cwMusic:StartAmbientMusic();
 end)
 
-Clockwork.datastream:Hook("StartBattleMusic", function(data)
+netstream.Hook("StartBattleMusic", function(data)
 	cwMusic:StartBattleMusic(true);
 end)
 
-Clockwork.datastream:Hook("StartBattleMusicNoLimit", function(data)
+netstream.Hook("StartBattleMusicNoLimit", function(data)
 	cwMusic:StartBattleMusic(false);
 end)
 
-Clockwork.datastream:Hook("FadeAllMusic", function(data)
+netstream.Hook("FadeAllMusic", function(data)
 	if cwMusic.AmbientMusic then
 		cwMusic:FadeOutAmbientMusic(4, 1);
 	end
@@ -660,25 +653,25 @@ Clockwork.datastream:Hook("FadeAllMusic", function(data)
 	end
 end)
 
-Clockwork.datastream:Hook("FadeAmbientMusic", function(data)
+netstream.Hook("FadeAmbientMusic", function(data)
 	cwMusic:FadeOutAmbientMusic(4, 1);
 end)
 
-Clockwork.datastream:Hook("StopAmbientMusic", function(data)
+netstream.Hook("StopAmbientMusic", function(data)
 	cwMusic:StopAmbientMusic();
 end)
 
-Clockwork.datastream:Hook("FadeBattleMusic", function(data)
+netstream.Hook("FadeBattleMusic", function(data)
 	cwMusic:FadeOutBattleMusic(4, 1);
 end)
 
-Clockwork.datastream:Hook("StopBattleMusic", function(data)
+netstream.Hook("StopBattleMusic", function(data)
 	cwMusic:StopBattleMusic();
 end)
 
-Clockwork.setting:AddCheckBox("Dynamic Music", "Enable dynamic ambient music.", "cwAmbientMusic", "Click to enable/disable the dynamic ambient music system.")
+Clockwork.setting:AddCheckBox("Dynamic Music", "Enable dynamic ambient music.", "cwAmbientMusic", "Click to toggle the dynamic ambient music system.")
 Clockwork.setting:AddNumberSlider("Dynamic Music", "Ambient music volume:", "cwAmbientMusicVolume", 0, 100, 0, "Adjust the volume of the ambient music.");
-Clockwork.setting:AddCheckBox("Dynamic Music", "Enable dynamic battle music.", "cwBattleMusic", "Click to enable/disable the dynamic battle music system.")
+Clockwork.setting:AddMultiChoice("Dynamic Music", "Enable dynamic battle music:", "cwBattleMusic", {{"Enable", "Click to enable the dynamic battle music system."}, {"Enable (Duels Only)", "Click to enable the dynamic battle music system only in duels."}, {"Disable", "Click to disable the dynamic battle music system."}})
 Clockwork.setting:AddNumberSlider("Dynamic Music", "Battle music volume:", "cwBattleMusicVolume", 0, 100, 0, "Adjust the volume of the battle music.");
-Clockwork.setting:AddCheckBox("Dynamic Music", "Enable main menu music.", "cwMenuMusic", "Click to enable/disable the main menu music.")
+Clockwork.setting:AddCheckBox("Dynamic Music", "Enable main menu music.", "cwMenuMusic", "Click to toggle the main menu music.")
 Clockwork.setting:AddNumberSlider("Dynamic Music", "Main menu music volume:", "cwMenuMusicVolume", 0, 100, 0, "Adjust the volume of the main menu music.");

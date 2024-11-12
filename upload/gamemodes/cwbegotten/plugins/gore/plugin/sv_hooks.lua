@@ -38,7 +38,7 @@ function cwGore:Think()
 			end;
 		end;
 		
-		--[[for k, v in pairs (_player.GetAll()) do
+		--[[for _, v in _player.Iterator() do
 			v:ConCommand("r_cleardecals");
 		end;]]--
 
@@ -357,7 +357,7 @@ function cwGore:DispatchBoneScale(entity, bone, scale, removeGroup)
 	if (removeGroup) then
 		resizeTable.removeGroup = removeGroup
 	end
-	Clockwork.datastream:Start(nil, "ResizeBone", resizeTable)
+	netstream.Start(nil, "ResizeBone", resizeTable)
 end
 
 local tras = {["rightarm"] = "right arm", ["leftarm"] = "left arm", ["rightleg"] = "right leg", ["leftleg"] = "left leg"}

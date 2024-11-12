@@ -119,15 +119,15 @@ function cwAnimatedLegs:CreateLegs()
 				model = "models/begotten/"..clothesItem.group.."_"..string.lower(Clockwork.Client:GetGender())..".mdl"
 			end
 		else
-			local faction = Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction();
+			local faction = Clockwork.Client:GetNetVar("kinisgerOverride") or Clockwork.Client:GetFaction();
 			local factionTable = Clockwork.faction:FindByID(faction);
 			
 			if factionTable then
-				local subfaction = Clockwork.Client:GetSharedVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetSharedVar("subfaction");
+				local subfaction = Clockwork.Client:GetNetVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetNetVar("subfaction");
 				
 				if subfaction and factionTable.subfactions then
-					for k, v in pairs(factionTable.subfactions) do
-						if k == subfaction and v.models then
+					for i, v in ipairs(factionTable.subfactions) do
+						if v.name == subfaction and v.models then
 							model = v.models[string.lower(Clockwork.Client:GetGender())].clothes;
 						
 							break;
@@ -211,15 +211,15 @@ function cwAnimatedLegs:LegsThink(maxSeqGroundSpeed)
 					model = "models/begotten/"..clothesItem.group.."_"..string.lower(Clockwork.Client:GetGender())..".mdl"
 				end
 			else
-				local faction = Clockwork.Client:GetSharedVar("kinisgerOverride") or Clockwork.Client:GetFaction();
+				local faction = Clockwork.Client:GetNetVar("kinisgerOverride") or Clockwork.Client:GetFaction();
 				local factionTable = Clockwork.faction:FindByID(faction);
 				
 				if factionTable then
-					local subfaction = Clockwork.Client:GetSharedVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetSharedVar("subfaction");
+					local subfaction = Clockwork.Client:GetNetVar("kinisgerOverrideSubfaction") or Clockwork.Client:GetNetVar("subfaction");
 					
 					if subfaction and factionTable.subfactions then
-						for k, v in pairs(factionTable.subfactions) do
-							if k == subfaction and v.models then
+						for i, v in ipairs(factionTable.subfactions) do
+							if v.name == subfaction and v.models then
 								model = v.models[string.lower(Clockwork.Client:GetGender())].clothes;
 							
 								break;

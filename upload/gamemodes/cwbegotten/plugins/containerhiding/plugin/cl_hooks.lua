@@ -14,7 +14,7 @@ function cwContainerHiding:GetEntityMenuOptions(entity, options)
 		
 		if (table.HasValue(self.containerProps["white"], string.lower(model)) or table.HasValue(self.containerProps["black"], string.lower(model))) then
 			if (entity:GetNWBool("unlocked", true) == true) then
-				if (Clockwork.Client:GetSharedVar("hidden")) then
+				if (Clockwork.Client:GetNetVar("hidden")) then
 					options["Open"] = nil;
 					options["Unhide"] = "cw_entityUnHide";
 				else
@@ -30,18 +30,12 @@ function cwContainerHiding:GetEntityMenuOptions(entity, options)
 end;
 
 -- Called when the post progress bar info is needed.
-function cwContainerHiding:GetPostProgressBarInfo()
-	local alive = Clockwork.Client:Alive();
+function cwContainerHiding:GetProgressBarInfoAction(action, percentage)
+	if (action == "hide") then
+		return {text = "You are hiding in the closet.", percentage = percentage, flash = percentage > 75};
+	end;
 	
-	if (alive) then
-		local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true);
-
-		if (action == "hide") then
-			return {text = "You are hiding in the closet.", percentage = percentage, flash = percentage > 75};
-		end;
-		
-		if (action == "unhide") then
-			return {text = "You are coming out of the closet.", percentage = percentage, flash = percentage > 75};
-		end;
+	if (action == "unhide") then
+		return {text = "You are coming out of the closet.", percentage = percentage, flash = percentage > 75};
 	end;
 end;

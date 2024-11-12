@@ -53,6 +53,7 @@ local CRIMINAL = Clockwork.trait:New()
 	CRIMINAL.name = "Criminal"
 	CRIMINAL.description = "Your character is a common criminal, skilled in the art of lockpicking. This trait automatically unlocks the first 3 beliefs on the left side of the 'Litheness' tree: 'Nimble', 'Sly Fidget', and 'Safecracker', and also grants two starting lockpicks."
 	CRIMINAL.points = 4
+	CRIMINAL.excludedfactions = {"Holy Hierarchy"};
 Clockwork.trait:Register(CRIMINAL)
 
 local CROSSEYED = Clockwork.trait:New()
@@ -95,7 +96,7 @@ local FOLLOWED = Clockwork.trait:New()
 	FOLLOWED.description = "Long ago, your character made the blunder of ransacking an ancient tomb. Through their ignorance, they missed that it had been prophesied that those who would defile the tomb would be cursed to be hunted for all eternity..."
 	FOLLOWED.disables = {"pilgrim", "shrewd"}
 	FOLLOWED.points = -7
-	FOLLOWED.excludedfactions = {"Gatekeeper"};
+	FOLLOWED.excludedfactions = {"Gatekeeper", "Pope Adyssa's Gatekeepers"};
 Clockwork.trait:Register(FOLLOWED)
 
 local GLUTTONY = Clockwork.trait:New()
@@ -108,9 +109,12 @@ Clockwork.trait:Register(GLUTTONY)
 local GUNSLINGER = Clockwork.trait:New()
 	GUNSLINGER.uniqueID = "gunslinger"
 	GUNSLINGER.name = "Gunslinger"
-	GUNSLINGER.description = "What are people to your character other than moving targets? Your character will start with a Peppershot and a random assortment of ammunition, as well as two beliefs from the 'Ingenuity' tree: 'Ingenious' and 'Powder and Steel'."
-	GUNSLINGER.points = 7
-	GUNSLINGER.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy"}
+	--GUNSLINGER.description = "What are people to your character other than moving targets? Your character will start with a Peppershot and a random assortment of ammunition, as well as two beliefs from the 'Ingenuity' tree: 'Ingenious' and 'Powder and Steel'."
+	GUNSLINGER.description = "What are people to your character other than moving targets? Your character will start with two beliefs from the 'Ingenuity' tree: 'Ingenious' and 'Powder and Steel'."
+	GUNSLINGER.disables = {"pilgrim"}
+	--GUNSLINGER.points = 7
+	GUNSLINGER.points = 3
+	GUNSLINGER.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy", "Pope Adyssa's Gatekeepers"}
 	GUNSLINGER.excludedsubfactions = {"Clan Crast", "Clan Grock", "Clan Harald", "Clan Reaver", "Clan Gore"};
 Clockwork.trait:Register(GUNSLINGER)
 
@@ -138,7 +142,8 @@ local LEPER = Clockwork.trait:New()
 	LEPER.description = "Every waking moment of your character's very existence is hell, for they have been cursed to walk the Earth with a most unholy affliction: Leprosy. Their ravaged and deformed body leaves them a societal outcast and a target for persecution. Your character will suffer 50% more blood loss when bleeding and their repugnant affliction will be known to all who gaze upon them."
 	LEPER.points = -5
 	LEPER.disables = {"pilgrim"}
-	LEPER.excludedfactions = {"Gatekeeper", "Holy Hierarchy"};
+	LEPER.disablesSkins = true;
+	LEPER.excludedfactions = {"Gatekeeper", "Goreic Warrior", "Holy Hierarchy", "Pope Adyssa's Gatekeepers"};
 Clockwork.trait:Register(LEPER)
 
 local LITERATE = Clockwork.trait:New()
@@ -147,6 +152,7 @@ local LITERATE = Clockwork.trait:New()
 	LITERATE.description = "Your character is one of the rare few who have learned to read in these uncivilized times. This trait automatically unlocks the first belief of the 'Aptitude' tree: 'Literacy'."
 	LITERATE.points = 1
 	LITERATE.disables = {"blind", "imbecile", "scribe"}
+	LITERATE.excludedfactions = {"Pope Adyssa's Gatekeepers"}
 Clockwork.trait:Register(LITERATE)
 
 local LOGGER = Clockwork.trait:New()
@@ -170,7 +176,7 @@ Clockwork.trait:Register(MARKED)
 local MINER = Clockwork.trait:New()
 	MINER.uniqueID = "miner"
 	MINER.name = "Miner"
-	MINER.description = "Your character is a miner, spending much of their time deep under the earth. This trait grants a starting pickaxe, a lantern, and a bottle of oil to help you navigate the depths."
+	MINER.description = "Your character is a miner, spending much of their time deep under the earth. This trait grants a starting pickaxe for mining ore and a lantern to help you navigate the depths."
 	MINER.points = 7
 	MINER.disables = {"escapee", "weak"}
 	MINER.requiredfactions = {"Wanderer"}
@@ -180,7 +186,7 @@ Clockwork.trait:Register(MINER)
 local NIMBLE = Clockwork.trait:New()
 	NIMBLE.uniqueID = "nimble"
 	NIMBLE.name = "Nimble"
-	NIMBLE.description = "Your character is quick on their feet, able to escape dangerous situations with relative ease. This trait automatically unlocks the first 3 beliefs on the right side of the 'Litheness' tree: 'Nimble', 'Dexterity', and 'Swift'."
+	NIMBLE.description = "Your character is quick on their feet, able to escape dangerous situations with relative ease. This trait automatically unlocks the first 3 beliefs on the right side of the 'Litheness' tree: 'Nimble', 'Evasion', and 'Dexterity'."
 	NIMBLE.points = 4
 	NIMBLE.disables = {"winded"}
 Clockwork.trait:Register(NIMBLE)
@@ -192,7 +198,7 @@ local PACIFIST = Clockwork.trait:New()
 	PACIFIST.points = -4
 	PACIFIST.disables = {"cannibal", "insane"}
 	PACIFIST.excludedsubfactions = {"Legionary", "Clan Reaver", "Clan Gore"}
-	PACIFIST.excludedfactions = {"Children of Satan"}
+	PACIFIST.excludedfactions = {"Children of Satan", "Pope Adyssa's Gatekeepers"}
 Clockwork.trait:Register(PACIFIST)
 
 local PILGRIM = Clockwork.trait:New()
@@ -200,7 +206,7 @@ local PILGRIM = Clockwork.trait:New()
 	PILGRIM.name = "Pilgrim"
 	PILGRIM.description = "Your character has ventured far and wide to reach the Tower of Light, either in search of sanctuary or in pursuit of holy purpose. Your character will spawn inside the Tower of Light safezone."
 	PILGRIM.points = 2
-	PILGRIM.disables = {"escapee", "leper"}
+	PILGRIM.disables = {"escapee", "gunslinger", "leper"}
 	PILGRIM.requiredfactions = {"Wanderer"}
 Clockwork.trait:Register(PILGRIM)
 
@@ -209,7 +215,6 @@ local PIOUS = Clockwork.trait:New()
 	PIOUS.name = "Pious"
 	PIOUS.description = "Your character is pious and a firm believer in their faith. This trait grants a single free sacrament with an epiphany for use in the belief tree."
 	PIOUS.points = 1
-	PIOUS.disables = {"escapee"}
 	PIOUS.excludedsubfactions = {"Clan Grock"};
 Clockwork.trait:Register(PIOUS)
 
@@ -226,6 +231,7 @@ local POSSESSED = Clockwork.trait:New()
 	POSSESSED.description = "Your character is prone to possession by some demonic force, often speaking in tongues and unwillingly perpetrating extreme violence. Due to this malignant presence, your character will incur corruption passively up to 50%, at which point they will be able to be possessed."
 	POSSESSED.points = -6
 	POSSESSED.disables = {"favored", "zealous"}
+	POSSESSED.excludedsubfactions = {"Rekh-khet-sa"}
 Clockwork.trait:Register(POSSESSED)
 
 local SCAVENGER = Clockwork.trait:New()
@@ -260,7 +266,7 @@ local SURVIVALIST = Clockwork.trait:New()
 	SURVIVALIST.points = 10
 	SURVIVALIST.eventlocked = false;
 	SURVIVALIST.disables = {"escapee"}
-	SURVIVALIST.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy"}
+	SURVIVALIST.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy", "Pope Adyssa's Gatekeepers"}
 	SURVIVALIST.excludedsubfactions = {"Clan Crast", "Clan Grock"};
 Clockwork.trait:Register(SURVIVALIST)
 
@@ -270,8 +276,8 @@ local VETERAN = Clockwork.trait:New()
 	VETERAN.description = "Your character is a veteran of several battles, having accrued some fighting experience and basic equipment. This trait grants a starting random melee weapon and shield, and automatically unlocks the 4 beliefs on the left side of the 'Prowess' tree: 'Fighter', 'Halfsword and Sway', 'Blademaster', and 'Billman'."
 	VETERAN.points = 16
 	VETERAN.eventlocked = false;
-	VETERAN.disables = {"escapee"}
-	VETERAN.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy"}
+	VETERAN.disables = {"duelist", "escapee", "weak"}
+	VETERAN.excludedfactions = {"Children of Satan", "Gatekeeper", "Holy Hierarchy", "Pope Adyssa's Gatekeepers"}
 	VETERAN.excludedsubfactions = {"Clan Crast", "Clan Grock"};
 Clockwork.trait:Register(VETERAN)
 
@@ -288,7 +294,7 @@ local WEAK = Clockwork.trait:New()
 	WEAK.name = "Weak"
 	WEAK.description = "Your character has a flimsy physique, and is unable to tolerate much pain. The 'Prowess' belief tree will be locked and unable to be progressed."
 	WEAK.points = -5
-	WEAK.disables = {"brawny", "duelist", "miner", "logger", "vigorous"}
+	WEAK.disables = {"brawny", "duelist", "miner", "logger", "veteran", "vigorous"}
 Clockwork.trait:Register(WEAK)
 
 local WINDED = Clockwork.trait:New()

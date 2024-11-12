@@ -20,6 +20,10 @@ function ENT:Initialize()
 	self:SetSolid(SOLID_VPHYSICS);
 	self.ArmorPiercing = 80;
 	self.unblockable = true;
+	
+	if !self.condition then
+		self.condition = 100;
+	end
 
 	local physicsObject = self:GetPhysicsObject();
 	
@@ -79,7 +83,7 @@ function ENT:Touch(entity)
 			end
 			
 			if entity:IsNPC() or entity:IsNextBot() then
-				if string.find(entity:GetClass(), "npc_animal") then
+				if string.find(entity:GetClass(), "npc_drg_animals") then
 					damageInfo:SetDamage(1000);
 				end
 				
@@ -103,7 +107,7 @@ function ENT:Touch(entity)
 						if cwMedicalSystem and (!cwPowerArmor or !entity:IsWearingPowerArmor()) then
 							local injuries = cwMedicalSystem:GetInjuries(entity);
 							
-							if !(injuries[HITGROUP_LEFTLEG]["broken_bone"]) then
+							if !injuries or !(injuries[HITGROUP_LEFTLEG]["broken_bone"]) then
 								entity:AddInjury(cwMedicalSystem.cwHitGroupToString[HITGROUP_LEFTLEG], "broken_bone");
 								entity:StartBleeding(HITGROUP_LEFTLEG);
 							end
@@ -125,7 +129,7 @@ function ENT:Touch(entity)
 						if cwMedicalSystem and (!cwPowerArmor or !entity:IsWearingPowerArmor()) then
 							local injuries = cwMedicalSystem:GetInjuries(entity);
 							
-							if !(injuries[HITGROUP_RIGHTLEG]["broken_bone"]) then
+							if !injuries or !(injuries[HITGROUP_RIGHTLEG]["broken_bone"]) then
 								entity:AddInjury(cwMedicalSystem.cwHitGroupToString[HITGROUP_RIGHTLEG], "broken_bone");
 								entity:StartBleeding(HITGROUP_RIGHTLEG);
 							end

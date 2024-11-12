@@ -58,24 +58,23 @@ Clockwork.player.GetSharedVar = Clockwork.player.GetNetVar
 Clockwork.player.SetSharedVar = Clockwork.player.SetNetVar
 
 function player.Find(name, bCaseSensitive)
-	if (name == nil) then return end
+	if !name then return end
 	if (!isstring(name)) then return (IsValid(name) and name) or nil end
 
-	local players = _player.GetAll();
-	
-	for k, v in pairs(players) do
+	for _, v in _player.Iterator() do
 		if (!v:HasInitialized()) then continue end
 
-		local plyName = v:Name(true)
+		--local plyName = v:Name(true)
+		local plyName = v:Name()
 
-		if (!bCaseSensitive and plyName:utf8lower():find(name:utf8lower())) then
+		if (!bCaseSensitive and string.find(string.lower(plyName), string.lower(name), 1, true)) then
 			return v
-		elseif (plyName:find(name)) then
+		elseif string.find(plyName, name, 1, true) then
 			return v
 		elseif (v:SteamID() == name) then
 			return v
-		elseif (v:Name():find(name)) then
-			return v
+		--elseif (v:Name():find(name)) then
+			--return v
 		end
 	end
 end
@@ -203,37 +202,33 @@ function Clockwork.player:SayRadio(player, text, check, noEavesdrop, proclaim)
 	local listeners = {};
 	local radiospies = {};
 	local fault;
+	local frequencyOverride;
 	local info = {listeners = {}, noEavesdrop = noEavesdrop, text = text};
 
 	--Clockwork.plugin:Call("PlayerAdjustRadioInfo", player, info);
 	
 	if (check) then
-		fault, frequencyOverride = Clockwork.plugin:Call("PlayerCanRadio", player, info.text, listeners, eavesdroppers);
+		fault, frequencyOverride = hook.Run("PlayerCanRadio", player, info.text, listeners, eavesdroppers);
 	end;
 	
-	if fault then
+	if fault and fault ~= "" then
 		Schema:EasyText(player, "peru", fault);
 		
 		return;
 	end
 
-	local frequency = player:GetCharacterData("frequency");
-
-	if frequencyOverride then
-		frequency = frequencyOverride;
-	end
-	
+	local frequency = frequencyOverride or player:GetCharacterData("frequency");
 	local radios = ents.FindByClass("cw_radio");
 	local radius = Clockwork.config:Get("talk_radius"):Get();
 	local radiusSqr = (radius * radius);
 	local stationaryRadiusSqr = (80 * 80);
 	local jammed = false;
 	
-	for k, v in pairs( _player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
 			local vFreq = v:GetCharacterData("frequency");
 			
-			if ((v:HasItemByID("ecw_radio")) and v:GetCharacterData("radioState", false)) then
+			if ((v:HasItemByID("ecw_radio")) and v:GetCharacterData("radioState", false)) or Clockwork.player:HasFlags(v, "L") then
 				table.insert(radiospies, v);
 				
 				if ((v:GetCharacterData("radioJamming", false)) and (vFreq == frequency)) then
@@ -244,11 +239,15 @@ function Clockwork.player:SayRadio(player, text, check, noEavesdrop, proclaim)
 				local lastZone = v:GetCharacterData("LastZone");
 				
 				if lastZone == "tower" or lastZone == "wasteland" then
-					table.insert(listeners, v);
+					if !hook.Run("PlayerRadioJammed", v, vFreq, lastZone) then
+						table.insert(listeners, v);
+					else
+						info.text = "<STATIC>"
+					end
 				end
 				
 				if (v ~= player) then
-					if not v:IsNoClipping() and not v.cwWakingUp then
+					if not v:IsNoClipping() and not v.cwWakingUp and not v.victim then
 						if lastZone == "tower" or lastZone == "wasteland" or lastZone == "caves" or lastZone == "scrapper" then
 							v:EmitSound("radio/radio_out"..tostring(math.random(2, 3))..".wav", 75, math.random(95, 100), 0.75, CHAN_AUTO);
 						end
@@ -298,7 +297,7 @@ function Clockwork.player:SayRadio(player, text, check, noEavesdrop, proclaim)
 				Clockwork.chatBox:SetMultiplier(1.35);
 			end
 			
-			Clockwork.chatBox:Add(radiospies, info.speaker, "radiospy",  "["..frequency.."]: \""..info.text.."\"");
+			Clockwork.chatBox:Add(radiospies, info.speaker, "radiospy",  "["..(frequency or "INVALID").."]: \""..info.text.."\"");
 		end
 		
 		Clockwork.plugin:Call("PlayerRadioUsed", player, info.text, listeners, eavesdroppers);

@@ -17,10 +17,19 @@ function ENT:Initialize()
 	self:SetUseType(SIMPLE_USE);
 	self:SetHealth(25);
 	self:SetSolid(SOLID_VPHYSICS);
+	self:SetCollisionGroup(COLLISION_GROUP_INTERACTIVE_DEBRIS);
+	
+	if !self.cullLifetime then
+		self.cullLifetime = 0;
+	end
 	
 	local physicsObject = self:GetPhysicsObject();
 	
 	if (IsValid(physicsObject)) then
+		if physicsObject:GetMass() > 100 then
+			physicsObject:SetMass(100);
+		end
+	
 		physicsObject:Wake();
 		physicsObject:EnableMotion(true);
 	end;
@@ -60,8 +69,14 @@ end;
 function ENT:OnRemove()
 	local itemTable = self.cwItemTable;
 	
-	if (itemTable and itemTable.OnEntityRemoved) then
-		itemTable:OnEntityRemoved(self);
+	if (itemTable) then
+		if itemTable.OnEntityRemoved then
+			itemTable:OnEntityRemoved(self);
+		end
+		
+		if !self.bRetainInstance then
+			item.RemoveInstance(itemTable.itemID, true);
+		end
 	end;
 end;
 
@@ -121,6 +136,27 @@ function ENT:Think()
 	
 	local curTime = CurTime();
 	
+	if !self.lastThink then
+		self.lastThink = curTime;
+		
+		return;
+	end
+	
+	if !self.lifeTime then -- If it already has a scripted lifetime just ignore it.
+		if !self.cullLifetime then
+			self.cullLifetime = 0;
+		end
+		
+		local cullLifetime = self.cullLifetime + math.Round(curTime - (self.lastThink or (curTime - 1)));
+		
+		if cullLifetime >= config.Get("item_lifetime"):Get() then
+			self:Remove();
+			return;
+		end
+		
+		self.cullLifetime = cullLifetime;
+	end
+	
 	--[[if (!self:IsInWorld()) then
 		if (!self.cwOutOfWorldTime or curTime >= self.cwOutOfWorldTime) then
 			self.cwOutOfWorldTime = curTime + 5;
@@ -141,6 +177,10 @@ function ENT:Think()
 			end;
 		end;
 	end;]]--
+	
+	hook.Run("ItemEntityThink", self, itemTable);
 
+	self.lastThink = curTime;
 	self:NextThink(curTime + math.random(2, 5));
+	return true;
 end;

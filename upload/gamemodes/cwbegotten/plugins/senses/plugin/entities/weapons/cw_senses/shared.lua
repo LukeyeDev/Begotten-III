@@ -56,7 +56,7 @@ function SWEP:Deploy()
 			return;
 		end
 		
-		if !(cwBeliefs and (player:HasBelief("creature_of_the_dark") or player:HasBelief("the_black_sea"))) and !player:GetNWBool("hasThermal") and !player:GetNWBool("hasNV") then
+		if !(cwBeliefs and (player:HasBelief("creature_of_the_dark") or player:HasBelief("the_black_sea"))) and !player:GetNetVar("hasThermal") and !player:GetNetVar("hasNV") then
 			local clothesItem = player:GetClothesEquipped();
 			
 			if (!clothesItem or (clothesItem and !clothesItem.attributes) or (clothesItem and clothesItem.attributes and !table.HasValue(clothesItem.attributes, "thermal_vision"))) and !player:GetCharmEquipped("thermal_implant") then
@@ -71,7 +71,7 @@ function SWEP:Holster(newWeapon)
 		local player = self.Owner;
 		
 		if !IsValid(newWeapon) or newWeapon:GetClass() ~= "cw_senses" then
-			if !(cwBeliefs and (player:HasBelief("creature_of_the_dark") or player:HasBelief("the_black_sea"))) and !player:GetNWBool("hasThermal") and !player:GetNWBool("hasNV") then
+			if !(cwBeliefs and (player:HasBelief("creature_of_the_dark") or player:HasBelief("the_black_sea"))) and !player:GetNetVar("hasThermal") and !player:GetNetVar("hasNV") then
 				local clothesItem = player:GetClothesEquipped();
 			
 				if (!clothesItem or (clothesItem and !clothesItem.attributes) or (clothesItem and clothesItem.attributes and !table.HasValue(clothesItem.attributes, "thermal_vision"))) and !player:GetCharmEquipped("thermal_implant") then
@@ -126,9 +126,9 @@ function SWEP:SecondaryAttack()
 			self:SetNextSecondaryFire(CurTime() + 2);
 		elseif cwBeliefs and self.Owner.HasBelief and (self.Owner:HasBelief("embrace_the_darkness")) and !self.Owner.opponent then
 			local lastZone = self.Owner:GetCharacterData("LastZone");
-			local valid_zones = {"scrapper", "caves", "wasteland"};
+			local valid_zones = {"scrapper", "wasteland"};
 			
-			if cwDayNight and cwDayNight.currentCycle == "night" and table.HasValue(valid_zones, lastZone) then
+			if (((cwDayNight and cwDayNight.currentCycle == "night") or (!cwWeather or cwWeather.weather == "bloodstorm")) and table.HasValue(valid_zones, lastZone)) or lastZone == "caves" then
 				if self.Owner:Crouching() then
 					if !self.Owner.cloaked then
 						local curTime = CurTime();
@@ -137,8 +137,8 @@ function SWEP:SecondaryAttack()
 							local playerPos = self.Owner:GetPos();
 							local blockedCloak;
 							
-							for i, v in ipairs(_player.GetAll()) do
-								if v:GetSharedVar("yellowBanner") then
+							for _, v in _player.Iterator() do
+								if v:GetNetVar("yellowBanner") then
 									if (v:GetPos():Distance(playerPos) <= config.Get("talk_radius"):Get()) then
 										blockedCloak = true;
 									
@@ -150,8 +150,10 @@ function SWEP:SecondaryAttack()
 							if !blockedCloak then
 								self.Owner:Cloak();
 							end
+						elseif (self.Owner.cloakCooldown - curTime) > 5 then
+							Schema:EasyText(self.Owner, "chocolate", "You are covered in black powder and cannot cloak for another "..math.ceil(self.Owner.cloakCooldown - curTime).." seconds!");
 						else
-							Schema:EasyText(self.Owner, "chocolate", "You are covered in black powder and cannot cloak for "..math.Round(self.Owner.cloakCooldown - curTime).." seconds!");
+							Schema:EasyText(self.Owner, "chocolate", "You cannot cloak for another "..math.ceil(self.Owner.cloakCooldown - curTime).." seconds!");
 						end
 					else
 						self.Owner:Uncloak();
@@ -160,7 +162,7 @@ function SWEP:SecondaryAttack()
 					Schema:EasyText(self.Owner, "chocolate", "You must be crouching in order to toggle cloaking.");
 				end
 			else
-				Schema:EasyText(self.Owner, "peru", "You must be in the wasteland and it must be nighttime in order to toggle cloaking.");
+				Schema:EasyText(self.Owner, "peru", "You must be in the wasteland or the mines and it must currently be night or blood storming (if above ground) in order to toggle cloaking.");
 			end
 			
 			self:SetNextSecondaryFire(CurTime() + 2);

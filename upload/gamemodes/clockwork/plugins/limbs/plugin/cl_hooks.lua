@@ -22,10 +22,10 @@ cwLimbs.limbStates = {
 	["arms"] = {
 		["fine"] = {name = "Fine", effects = "None"},
 		["slightly_damaged"] = {name = "Slightly Damaged", effects = "Increased Injury Chance"},
-		["damaged"] = {name = "Damaged", effects = "Slightly Increased Poise Consumption\nIncreased Injury Chance"},
-		["heavily_damaged"] = {name = "Heavily Damaged", effects = "Increased Poise Consumption\nIncreased Injury Chance"},
-		["severely_damaged"] = {name = "Severely Damaged", effects = "Greatly Increased Poise Consumption\nIncreased Injury Chance"},
-		["mangled"] = {name = "Mangled", effects = "Greatly Increased Poise Consumption\nIncreased Injury Chance"},
+		["damaged"] = {name = "Damaged", effects = "Slightly Increased Stamina Consumption\nIncreased Injury Chance"},
+		["heavily_damaged"] = {name = "Heavily Damaged", effects = "Increased Stamina Consumption\nIncreased Injury Chance"},
+		["severely_damaged"] = {name = "Severely Damaged", effects = "Greatly Increased Stamina Consumption\nIncreased Injury Chance"},
+		["mangled"] = {name = "Mangled", effects = "Greatly Increased Stamina Consumption\nIncreased Injury Chance"},
 	},
 	["legs"] = {
 		["fine"] = {name = "Fine", effects = "None"},
@@ -84,7 +84,7 @@ end
 
 -- Called just after the date time box is drawn.
 function cwLimbs:PostDrawDateTimeBox(info)
-	if (!hook.Call("PlayerCanSeeLimbDamage")) then
+	--[[if (!hook.Call("PlayerCanSeeLimbDamage")) then
 		return
 	end
 
@@ -148,7 +148,7 @@ function cwLimbs:PostDrawDateTimeBox(info)
 				end
 			end
 		end
-	end
+	end]]--
 end
 
 -- Called when the local player's limb damage is received.

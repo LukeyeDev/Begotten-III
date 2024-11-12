@@ -38,37 +38,67 @@ end
 
 -- A function to get the maximum amount of weight the local player can carry.
 function Clockwork.player:GetMaxWeight()
-	local itemsList = Clockwork.inventory:GetAsItemsList(
+	--[[local itemsList = Clockwork.inventory:GetAsItemsList(
 		Clockwork.inventory:GetClient()
 	)
 
 	local weight = Clockwork.Client:GetNetVar("InvWeight") or config.GetVal("default_inv_weight")
 
-	--[[for k, v in pairs(itemsList) do
+	for k, v in pairs(itemsList) do
 		local addInvWeight = v.addInvSpace
 
 		if (addInvWeight) then
 			weight = weight + addInvWeight
 		end
 	end]]--
-
-	return weight
+	
+	local localPlayer = Clockwork.Client;
+	local backpackItem = localPlayer:GetBackpackEquipped();
+	local clothesItem = localPlayer:GetClothesEquipped();
+	local weight = config.GetVal("default_inv_weight") or 20;
+	
+	weight = hook.Run("PlayerAdjustMaxWeight", localPlayer, weight);
+	
+	-- Apply item weight buffs after belief weight buffs.
+	
+	if backpackItem and backpackItem.invSpace then
+		weight = weight + backpackItem.invSpace;
+	end
+	
+	if clothesItem and clothesItem.pocketSpace then
+		weight = weight + clothesItem.pocketSpace;
+	end;
+	
+	return weight;
 end
 
 -- A function to get the maximum amount of space the local player can carry.
 function Clockwork.player:GetMaxSpace()
-	local itemsList = Clockwork.inventory:GetAsItemsList(
+	--[[local itemsList = Clockwork.inventory:GetAsItemsList(
 		Clockwork.inventory:GetClient()
 	)
 	local space = Clockwork.Client:GetNetVar("InvSpace") or config.GetVal("default_inv_space")
 
-	--[[for k, v in pairs(itemsList) do
+	for k, v in pairs(itemsList) do
 		local addInvSpace = v.addInvVolume
 
 		if (addInvSpace) then
 			space = space + addInvSpace
 		end
 	end]]--
+	
+	local localPlayer = Clockwork.Client;
+	local backpackItem = localPlayer:GetBackpackEquipped();
+	local clothesItem = localPlayer:GetClothesEquipped();
+	local space = config.GetVal("default_inv_space") or 100;
+	
+	if backpackItem and backpackItem.invSpace then
+		space = space + backpackItem.invSpace;
+	end
+	
+	if clothesItem and clothesItem.pocketSpace then
+		space = space + clothesItem.pocketSpace;
+	end;
 
 	return space
 end
@@ -103,13 +133,13 @@ function Clockwork.player:CanHearPlayer(player, target, allowance)
 end
 
 -- A function to get whether the target recognises the local player.
-function Clockwork.player:DoesTargetRecognise()
+--[[function Clockwork.player:DoesTargetRecognise()
 	if (config.GetVal("recognise_system")) then
 		return Clockwork.Client:GetNetVar("TargetKnows")
 	else
 		return true
 	end
-end
+end]]--
 
 -- A function to get a player's real trace.
 function Clockwork.player:GetRealTrace(player, useFilterTrace)
@@ -158,8 +188,6 @@ function Clockwork.player:GetAction(player, percentage)
 		else
 			return action, actionDuration, startActionTime
 		end
-	else
-		return "", 0, 0
 	end
 end
 
@@ -169,7 +197,7 @@ function Clockwork.player:GetMaximumCharacters()
 		return 100;
 	else
 		local whitelisted = Clockwork.character:GetWhitelisted()
-		local maximum = config.Get("additional_characters"):Get(2)
+		local maximum = config.Get("additional_characters"):Get()
 
 		for k, v in pairs(Clockwork.faction:GetStored()) do
 			if (!v.whitelist or table.HasValue(whitelisted, v.name)) then
@@ -188,7 +216,7 @@ end
 
 -- A function to get a player's unrecognised name.
 function Clockwork.player:GetUnrecognisedName(player)
-	local unrecognisedPhysDesc = self:GetPhysDesc(player)
+	local unrecognisedPhysDesc = self:GetPhysDesc(player), 0, 21;
 	local unrecognisedName = config.Get("unrecognised_name"):Get()
 	local usedPhysDesc
 
@@ -202,9 +230,9 @@ end
 
 function Clockwork.player:GetName(target)
 	if (self:DoesRecognise(target)) then
-		return target:Name()
+		return hook.Run("GetTargetPlayerName", target) or target:Name();
 	else
-		return self:GetUnrecognisedName(target)
+		return "["..string.sub(Clockwork.player:GetPhysDesc(target), 0, 21).."...]";
 	end
 end
 

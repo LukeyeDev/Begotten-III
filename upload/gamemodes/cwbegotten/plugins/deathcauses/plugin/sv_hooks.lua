@@ -140,7 +140,7 @@ function cwDeathCauses:PlayerDeath(player, inflictor, attacker, damageInfo)
 				local attackerClass = attacker:GetClass();
 			
 				if attacker:IsPlayer() then
-					local attackerFaction = attacker:GetSharedVar("kinisgerOverride") or attacker:GetFaction();
+					local attackerFaction = attacker:GetNetVar("kinisgerOverride") or attacker:GetFaction();
 					
 					if Clockwork.player:DoesRecognise(player, attacker) then
 						attackerName = attacker:Name();
@@ -148,7 +148,7 @@ function cwDeathCauses:PlayerDeath(player, inflictor, attacker, damageInfo)
 						attackerName = "an unknown Goreic Warrior";
 					elseif attackerFaction == "Children of Satan" then
 						attackerName = "an unknown Child of Satan";
-					elseif attackerFaction == "Gatekeeper" then
+					elseif attackerFaction == "Gatekeeper" or attackerFaction == "Pope Adyssa's Gatekeepers" then
 						attackerName = "an unknown Gatekeeper";
 					elseif attackerFaction == "Holy Hierarchy" then
 						local attackerSubfaction = attacker:GetSubfaction();
@@ -246,9 +246,9 @@ function cwDeathCauses:PlayerDeath(player, inflictor, attacker, damageInfo)
 			
 			if !attackerName and IsValid(attacker) then
 				if attacker:IsNPC() or attacker:IsNextBot() then
-					attackerName = " a "..attacker.PrintName or " a "..attacker:GetClass();
+					attackerName = "a "..attacker.PrintName or "a "..attacker:GetClass();
 				else
-					attackerName = " a "..attacker:GetClass();
+					attackerName = "a "..attacker:GetClass();
 				end
 			end
 		
@@ -359,5 +359,12 @@ function cwDeathCauses:PlayerDeath(player, inflictor, attacker, damageInfo)
 				end
 			end
 		end
+	end
+end
+
+-- Called when a player's character screen info should be adjusted.
+function cwDeathCauses:PlayerAdjustCharacterScreenInfo(player, character, info)
+	if character.data["deathcause"] then
+		info.deathcause = character.data["deathcause"];
 	end
 end

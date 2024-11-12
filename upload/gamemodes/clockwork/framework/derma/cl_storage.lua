@@ -288,7 +288,7 @@ function PANEL:RebuildPanel(storagePanel, storageType, usedWeight, weight, usedS
 		local items = {};
 		
 		for k2, v2 in SortedPairsByMemberValue(itemsList, "name") do
-			if v2.stackable then
+			--if v2.stackable then
 				if (!items[v2("uniqueID")]) then
 					storagePanel.itemData = {
 						itemTable = v2,
@@ -416,7 +416,7 @@ function PANEL:RebuildPanel(storagePanel, storageType, usedWeight, weight, usedS
 						parent.sublist.categoryList:AddItem(inventoryIcon);
 					end
 				end;
-			else
+			--[[else
 				storagePanel.itemData = {
 					itemTable = v2,
 					storageType = storagePanel.storageType
@@ -446,7 +446,7 @@ function PANEL:RebuildPanel(storagePanel, storageType, usedWeight, weight, usedS
 				end
 				
 				storagePanel.itemList:AddItem(inventoryIcon);
-			end;
+			end;]]--
 		end;
 	--end;
 	
@@ -506,7 +506,7 @@ function PANEL:RebuildPanel(storagePanel, storageType, usedWeight, weight, usedS
 				local ply = Clockwork.entity:GetPlayer(ent);
 				local recognise = Clockwork.player:DoesRecognise(ply)
 				if (recognise) then
-					storagename = string.Split(ply:Name(), " ")[1].."'s pockets are"
+					storagename = string.Split(Clockwork.player:GetName(ply), " ")[1].."'s pockets are"
 				else
 					local gender = ply:GetGender();
 					local n = "His"
@@ -812,6 +812,10 @@ function PANEL:Init()
 	
 	function self.takeButton.DoClick(panel)
 		if (!self.nextCanClick or CurTime() >= self.nextCanClick) then
+			if !self.itemTable then
+				return;
+			end
+		
 			if (self.storageType == "Inventory") then
 				Clockwork.kernel:RunCommand("StorageGiveItem", self.itemTable("uniqueID"), self.itemTable("itemID"));
 			else
@@ -824,6 +828,10 @@ function PANEL:Init()
 	
 	function self.takeButton.DoRightClick(panel)
 		if (!self.nextCanClick or CurTime() >= self.nextCanClick) then
+			if !self.itemTable then
+				return;
+			end
+		
 			local amount = self.itemData.amount;
 
 			if self.itemData.amount > 1 then
@@ -833,131 +841,191 @@ function PANEL:Init()
 				
 				if (self.storageType == "Inventory") then
 					menu:AddOption("Give All", function()
-						Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), tostring(amount));
+						if self.itemTable then
+							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), tostring(amount));
+						end
 					end);
 				
 					local amountMenu = menu:AddSubMenu("Give Amount...", function()
-						Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to give?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount);
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to give?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount);
+								end
+							end);
+						end
 					end);
 					
 					local customMenu = amountMenu:AddSubMenu("Custom Amount", function()
-						Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to give?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount);
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to give?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount);
+								end
+							end);
+						end
 					end);
 					
 					if amount >= 2 then
 						amountMenu:AddOption("2", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "2");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "2");
+							end
 						end);
 					end
 					
 					if amount >= 5 then
 						amountMenu:AddOption("5", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "5");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "5");
+							end
 						end);
 					end
 					
 					if amount >= 10 then
 						amountMenu:AddOption("10", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "10");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "10");
+							end
 						end);
 					end
 					
 					if amount >= 25 then
 						amountMenu:AddOption("25", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "25");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "25");
+							end
 						end);
 					end
 					
 					if amount >= 50 then
 						amountMenu:AddOption("50", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "50");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "50");
+							end
 						end);
 					end
 					
 					if amount >= 100 then
 						amountMenu:AddOption("100", function()
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "100");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), "100");
+							end
 						end);
 					end
 					
 					customMenu:AddOption("By Best Condition", function()
-						Derma_StringRequest(self.itemTable("name").." (Best Condition)", "How many items of this type do you want to give?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount, "bestCondition");
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name").." (Best Condition)", "How many items of this type do you want to give?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount, "bestCondition");
+								end
+							end);
+						end
 					end);
 					
 					customMenu:AddOption("By Worst Condition", function()
-						Derma_StringRequest(self.itemTable("name").." (Worst Condition)", "How many items of this type do you want to give?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount, "worstCondition");
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name").." (Worst Condition)", "How many items of this type do you want to give?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageGiveItems", self.itemTable("uniqueID"), amount, "worstCondition");
+								end
+							end);
+						end
 					end);
 				else
 					menu:AddOption("Take All", function()
-						Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), tostring(amount));
+						if self.itemTable then
+							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), tostring(amount));
+						end
 					end);
 				
 					local amountMenu = menu:AddSubMenu("Take Amount...", function()
-						Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to take?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount);
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to take?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount);
+								end
+							end);
+						end
 					end);
 					
 					local customMenu = amountMenu:AddSubMenu("Custom Amount", function()
-						Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to take?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount);
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name"), "How many items of this type do you want to take?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount);
+								end
+							end);
+						end
 					end);
 					
 					if amount >= 2 then
 						amountMenu:AddOption("2", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "2");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "2");
+							end
 						end);
 					end
 					
 					if amount >= 5 then
 						amountMenu:AddOption("5", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "5");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "5");
+							end
 						end);
 					end
 					
 					if amount >= 10 then
 						amountMenu:AddOption("10", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "10");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "10");
+							end
 						end);
 					end
 					
 					if amount >= 25 then
 						amountMenu:AddOption("25", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "25");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "25");
+							end
 						end);
 					end
 					
 					if amount >= 50 then
 						amountMenu:AddOption("50", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "50");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "50");
+							end
 						end);
 					end
 					
 					if amount >= 100 then
 						amountMenu:AddOption("100", function()
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "100");
+							if self.itemTable then
+								Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), "100");
+							end
 						end);
 					end
 					
 					customMenu:AddOption("By Best Condition", function()
-						Derma_StringRequest(self.itemTable("name").." (Best Condition)", "How many items of this type do you want to take?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount, "bestCondition");
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name").." (Best Condition)", "How many items of this type do you want to take?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount, "bestCondition");
+								end
+							end);
+						end
 					end);
 					
 					customMenu:AddOption("By Worst Condition", function()
-						Derma_StringRequest(self.itemTable("name").." (Worst Condition)", "How many items of this type do you want to take?", nil, function(amount)
-							Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount, "worstCondition");
-						end);
+						if self.itemTable then
+							Derma_StringRequest(self.itemTable("name").." (Worst Condition)", "How many items of this type do you want to take?", nil, function(amount)
+								if self.itemTable then
+									Clockwork.kernel:RunCommand("StorageTakeItems", self.itemTable("uniqueID"), amount, "worstCondition");
+								end
+							end);
+						end
 					end);
 				end
 				
@@ -1119,7 +1187,7 @@ function PANEL:Think()
 		spawnIcon:SetColor(color);
 	end
 
-	if (self.itemTable.stackable) then
+	--if (self.itemTable.stackable) then
 		if (amount > 1) then
 			if spawnIcon then
 				if !IsValid(spawnIcon.amount) then
@@ -1150,7 +1218,7 @@ function PANEL:Think()
 		elseif spawnIcon and spawnIcon.amount then
 			spawnIcon.amount:Remove();
 		end;
-	end;
+	--end;
 
 	local model, skin = Clockwork.item:GetIconInfo(self.itemTable);
 	
@@ -1275,7 +1343,7 @@ end;
 	
 vgui.Register("cwStorageSpace", PANEL, "DPanel");
 
-Clockwork.datastream:Hook("StorageStart", function(data)
+netstream.Hook("StorageStart", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		CloseDermaMenus();
 		Clockwork.storage.panel:Close();
@@ -1304,14 +1372,14 @@ Clockwork.datastream:Hook("StorageStart", function(data)
 	Clockwork.kernel:RegisterBackgroundBlur(Clockwork.storage:GetPanel(), SysTime());
 end);
 
-Clockwork.datastream:Hook("StorageRebuild", function(data)
+netstream.Hook("StorageRebuild", function(data)
 	if IsValid(Clockwork.storage.panel) then
 		Clockwork.storage.panel:Rebuild();
 		Clockwork.storage.panel:MakePopup();
 	end
 end);
 
-Clockwork.datastream:Hook("StorageCash", function(data)
+netstream.Hook("StorageCash", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		if istable(data) then
 			Clockwork.storage.cash = data[1];
@@ -1326,7 +1394,7 @@ Clockwork.datastream:Hook("StorageCash", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("StorageWeight", function(data)
+netstream.Hook("StorageWeight", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		if istable(data) then
 			Clockwork.storage.weight = data[1];
@@ -1341,7 +1409,7 @@ Clockwork.datastream:Hook("StorageWeight", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("StorageSpace", function(data)
+netstream.Hook("StorageSpace", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		if istable(data) then
 			Clockwork.storage.space = data[1];
@@ -1356,7 +1424,7 @@ Clockwork.datastream:Hook("StorageSpace", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("StorageClose", function(data)
+netstream.Hook("StorageClose", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		Clockwork.kernel:RemoveBackgroundBlur(Clockwork.storage:GetPanel());
 	
@@ -1366,34 +1434,60 @@ Clockwork.datastream:Hook("StorageClose", function(data)
 		Clockwork.storage:GetPanel():Remove();
 		
 		gui.EnableScreenClicker(false);
+	end
 		
-		Clockwork.storage.inventory = nil;
-		Clockwork.storage.weight = nil;
-		Clockwork.storage.space = nil;
-		Clockwork.storage.entity = nil;
-		Clockwork.storage.name = nil;
-	end;
+	if Clockwork.storage.inventory then
+		for k, v in pairs(Clockwork.storage.inventory) do
+			for k2, v2 in pairs(v) do
+				item.RemoveInstance(k2, true);
+			end
+		end
+	end
+	
+	Clockwork.storage.inventory = nil;
+	Clockwork.storage.weight = nil;
+	Clockwork.storage.space = nil;
+	Clockwork.storage.entity = nil;
+	Clockwork.storage.name = nil;
 end);
 
-Clockwork.datastream:Hook("StorageTake", function(data)
+netstream.Hook("StorageTake", function(data, bRemoveInstance)
 	if (Clockwork.storage:IsStorageOpen()) then
+		local inventory = Clockwork.inventory:GetClient();
+	
 		if data.itemList then
 			for k, v in pairs(data.itemList) do
 				Clockwork.inventory:RemoveUniqueID(
 					Clockwork.storage.inventory, v.uniqueID, v.itemID
 				);
+				
+				local itemInstance = item.FindInstance(v.itemID);
+				
+				if itemInstance then
+					if !Clockwork.inventory:HasItemInstance(inventory, itemInstance) then
+						item.RemoveInstance(v.itemID);
+					end
+				end
 			end;
 		else
 			Clockwork.inventory:RemoveUniqueID(
 				Clockwork.storage.inventory, data.uniqueID, data.itemID
 			);
+			
+			local itemInstance = item.FindInstance(data.itemID);
+			
+			if itemInstance then
+				if !Clockwork.inventory:HasItemInstance(inventory, itemInstance) then
+					item.RemoveInstance(data.itemID);
+				end
+			end
 		end
 		
 		Clockwork.storage:GetPanel():Rebuild();
 	end;
 end);
 
-Clockwork.datastream:Hook("StorageGive", function(data)
+netstream.Hook("StorageGive", function(data)
 	if (Clockwork.storage:IsStorageOpen()) then
 		local itemTable = Clockwork.item:FindByID(data.index);
 		

@@ -21,8 +21,9 @@ function PANEL:Init()
 			Clockwork.salesmenu.buyInShipments = nil
 			Clockwork.salesmenu.priceScale = nil
 			Clockwork.salesmenu.factions = nil
+			Clockwork.salesmenu.subfactions = nil
 			Clockwork.salesmenu.buyRate = nil
-			Clockwork.salesmenu.classes = nil
+			--Clockwork.salesmenu.classes = nil
 			Clockwork.salesmenu.entity = nil
 			Clockwork.salesmenu.stock = nil
 			Clockwork.salesmenu.sells = nil
@@ -31,6 +32,7 @@ function PANEL:Init()
 			Clockwork.salesmenu.buys = nil
 			Clockwork.salesmenu.name = nil
 			Clockwork.salesmenu.flags = nil
+			Clockwork.salesmenu.beliefs = nil
 		gui.EnableScreenClicker(false)
 	end
 
@@ -74,9 +76,9 @@ function PANEL:RebuildPanel(typeName, panelList, inventory)
 				cashForm:SetPadding(4)
 			panelList:AddItem(cashForm)
 
-			cashForm:Help(
+			--[[cashForm:Help(
 				Clockwork.salesmenu:GetName().." has "..Clockwork.kernel:FormatCash(totalCash, nil, true).." to their name."
-			)
+			)]]--
 		end
 	end
 
@@ -197,6 +199,29 @@ function PANEL:Think()
 
 	self:SetSize(scrW * 0.5, scrH * 0.75)
 	self:SetPos((scrW / 2) - (self:GetWide() / 2), (scrH / 2) - (self:GetTall() / 2))
+	
+	if !IsValid(Clockwork.salesmenu.entity) or Clockwork.Client:GetPos():Distance(Clockwork.salesmenu.entity:GetPos()) >= 196 or Clockwork.Client:IsRagdolled() or Clockwork.Client:GetNetVar("tied") != 0 then
+		CloseDermaMenus()
+		self:Close() self:Remove()
+
+		netstream.Start("SalesmanDone", Clockwork.salesmenu.entity)
+			Clockwork.salesmenu.buyInShipments = nil
+			Clockwork.salesmenu.priceScale = nil
+			Clockwork.salesmenu.factions = nil
+			Clockwork.salesmenu.subfactions = nil
+			Clockwork.salesmenu.buyRate = nil
+			--Clockwork.salesmenu.classes = nil
+			Clockwork.salesmenu.entity = nil
+			Clockwork.salesmenu.stock = nil
+			Clockwork.salesmenu.sells = nil
+			Clockwork.salesmenu.cash = nil
+			Clockwork.salesmenu.text = nil
+			Clockwork.salesmenu.buys = nil
+			Clockwork.salesmenu.name = nil
+			Clockwork.salesmenu.flags = nil
+			Clockwork.salesmenu.beliefs = nil
+		gui.EnableScreenClicker(false)
+	end
 end
 
 -- Called when the layout should be performed.
@@ -363,11 +388,11 @@ function PANEL:Think()
 					self.spawnIcon.cost:SetTextColor(Color(0, 200, 0));
 				end
 			elseif self.typeName == "Buys" then
-				if overrideCash > Clockwork.salesmenu:GetCash() then
+				--[[if (Clockwork.salesmenu:GetCash() ~= -1) and overrideCash > Clockwork.salesmenu:GetCash() then
 					self.spawnIcon.cost:SetTextColor(Color(200, 0, 0));
-				else
+				else]]
 					self.spawnIcon.cost:SetTextColor(Color(0, 200, 0));
-				end
+				--end
 			end
 			
 			self.spawnIcon.cost:SizeToContents();

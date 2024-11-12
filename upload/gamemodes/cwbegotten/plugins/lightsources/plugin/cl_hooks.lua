@@ -33,8 +33,6 @@ function cwLantern:Think()
 		self.nextLanternPlayers = curTime + 1;
 		self.lanternPlayers = {};
 		
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
 		local clientPosition = Clockwork.Client:GetPos();
 		local reqDistance = (2000 * 2000);
 		
@@ -42,13 +40,11 @@ function cwLantern:Think()
 			reqDistance = (zones.currentFogEnd * zones.currentFogEnd);
 		end;
 
-		for i = 1, playerCount do
-			local v, k = players[i], i;
-			
+		for _, v in _player.Iterator() do
 			if (v:Alive()) then
 				local activeWeapon = v:GetActiveWeapon();
 				
-				if (IsValid(activeWeapon) and activeWeapon:GetClass() == "cw_lantern") then
+				if (activeWeapon:IsValid() and activeWeapon:GetClass() == "cw_lantern") or v:GetNetVar("lanternOnHip") then
 					local position = v:GetPos();
 					
 					if (position:DistToSqr(clientPosition) <= reqDistance) then
@@ -67,18 +63,18 @@ function cwLantern:Think()
 		
 		local isRaised, activeWeapon = k:IsWeaponRaised();
 		
-		if (!isRaised or (IsValid(activeWeapon) and activeWeapon:GetClass() != "cw_lantern")) then
+		if !k:GetNetVar("lanternOnHip") and (!isRaised or (activeWeapon:IsValid() and activeWeapon:GetClass() != "cw_lantern")) then
 			self.lanternPlayers[k] = nil;
 			continue;
 		end;
 		
-		if (k:GetSharedVar("hidden") == true) then
+		if k:GetNetVar("hidden") then
 			self.lanternPlayers[k] = nil;
 			continue;
 		end;
 		
-		local currentOil = k:GetSharedVar("oil", 0);
-		local handIndex = k:LookupBone("ValveBiped.Bip01_R_Hand");
+		local currentOil = k:GetNetVar("oil", 0);
+		local handIndex = k:GetNetVar("lanternOnHip", false) and k:LookupBone("ValveBiped.Bip01_R_Thigh") or k:LookupBone("ValveBiped.Bip01_R_Hand");
 
 		if (!handIndex) then 
 			continue;
@@ -109,76 +105,17 @@ function cwLantern:Think()
 			dynamicLight.Style = 6;
 		end;
 	end;
-	
-	--[[
-	if (Clockwork.Client:GetMoveType() ~= MOVETYPE_OBSERVER and Clockwork.Client:Alive() and Clockwork.Client:HasInitialized()) then
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
-
-		for i = 1, playerCount do
-			local v, k = players[i], i;
-			local playerPosition = v:GetPos();
-			local clientPosition = Clockwork.Client:GetPos();
-			
-			--if (playerPosition:DistToSqr(clientPosition) <= (2048 * 2048)) then
-				local activeWeapon = v:GetActiveWeapon();
-				
-				if (IsValid(activeWeapon) and activeWeapon:GetClass() == "cw_lantern") then
-					if (k:GetSharedVar("hidden") == true) then
-						return;
-					end;
-					
-					local bWeaponRaised = Clockwork.player:GetWeaponRaised(v);
-					local currentOil = v:GetSharedVar("oil", 0);
-					
-					if (currentOil > 0) then
-						if (bWeaponRaised) then
-							local handIndex = v:LookupBone("ValveBiped.Bip01_R_Hand");
-							
-							if (!handIndex) then 
-								return;
-							end;
-							
-							local originalSize = 256;
-							
-							if (currentOil < 25) then
-								originalSize = math.Remap(currentOil, 0, 25, 64, originalSize);
-							end;
-
-							local entIndex = v:EntIndex();
-							local dynamicLight = DynamicLight(entIndex);
-							local bonePositon = v:GetBonePosition(handIndex);
-							
-							if (dynamicLight) then
-								local curTime = CurTime();
-
-								dynamicLight.Pos = bonePositon - Vector(0, 0, 20); 
-								dynamicLight.r = 255;
-								dynamicLight.g = 200;
-								dynamicLight.b = 115;
-								dynamicLight.Brightness = 0.08;
-								dynamicLight.Size = originalSize;
-								dynamicLight.DieTime = curTime + 0.1;
-								dynamicLight.Style = 6;
-							end;
-						end;
-					end;
-				--end;
-			end;
-		end;
-	end;
-	--]]
 end;
 
 -- Called when the bars are needed.
 function cwLantern:GetBars(bars)
 	local activeWeapon = Clockwork.Client:GetActiveWeapon();
 	
-	if (IsValid(activeWeapon)) then
+	if (activeWeapon:IsValid()) then
 		local activeClass = activeWeapon:GetClass();
 		
-		if (activeClass == "cw_lantern") then
-			local oil = Clockwork.Client:GetSharedVar("oil", 0);
+		if (activeClass == "cw_lantern" or Clockwork.Client:GetNetVar("lanternOnHip", false)) then
+			local oil = Clockwork.Client:GetNetVar("oil", 0);
 			
 			--if (oil < 50) then
 				local oilColor = oil / 100;

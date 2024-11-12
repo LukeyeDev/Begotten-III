@@ -3,6 +3,8 @@
 	Created by cash wednesday, gabs, DETrooper and alyousha35
 --]]
 
+config.AddToSystem("Faith Modifier", "xp_modifier", "The amount to faith (XP) gain by.", 0.5, 10, 2);
+
 if !cwBeliefs.beliefs then
 	cwBeliefs.beliefs = {};
 end
@@ -29,7 +31,7 @@ function cwBeliefs:DrawTreeBackground(x, y, width, height, panel)
 end;
 
 -- A function to open the belief tree.
-function cwBeliefs:OpenTree(player, level, experience, beliefs, points, faith)
+function cwBeliefs:OpenTree(player, level, experience, beliefs, points, faith, highlightBelief)
 	if !player then
 		player = Clockwork.Client;
 	end
@@ -38,7 +40,7 @@ function cwBeliefs:OpenTree(player, level, experience, beliefs, points, faith)
 		local oldMenu = Clockwork.Client.cwBeliefPanel;
 		
 		Clockwork.Client.cwBeliefPanel = vgui.Create("cwBeliefTree")
-		Clockwork.Client.cwBeliefPanel:Rebuild(player, level, experience, beliefs, points, faith)
+		Clockwork.Client.cwBeliefPanel:Rebuild(player, level, experience, beliefs, points, faith, highlightBelief)
 		Clockwork.Client.cwBeliefPanel:MakePopup()
 	
 		timer.Simple(FrameTime() * 2, function()
@@ -49,7 +51,7 @@ function cwBeliefs:OpenTree(player, level, experience, beliefs, points, faith)
 		end);
 	else
 		Clockwork.Client.cwBeliefPanel = vgui.Create("cwBeliefTree")
-		Clockwork.Client.cwBeliefPanel:Rebuild(player, level, experience, beliefs, points, faith)
+		Clockwork.Client.cwBeliefPanel:Rebuild(player, level, experience, beliefs, points, faith, highlightBelief)
 		Clockwork.Client.cwBeliefPanel:MakePopup()
 	end
 	
@@ -74,6 +76,8 @@ function cwBeliefs:HasBelief(uniqueID, bHasAny)
 					return false;
 				end
 			end
+			
+			return true;
 		end
 	else
 		if (self.beliefs[uniqueID]) then
@@ -162,3 +166,5 @@ end);
 Clockwork.chatBox:RegisterClass("relay", "ic", function(info)
 	Clockwork.chatBox:Add(info.filtered, nil, Color(125, 249, 255, 255), info.speaker:Name().." speaks to your mind through electrical signals, "..info.text, info.font);
 end);
+
+config.AddToSystem("Maximum Sacrament Level", "max_sac_level", "The maximum level that a character can level up to via the Beliefs system.", 30, 80);

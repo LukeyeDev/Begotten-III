@@ -236,7 +236,15 @@ Clockwork.animation.stored.femaleHuman = {
         ["run"] = {ACT_RUN, ACT_RUN_AIM_RIFLE_STIMULATED},
         ["attack"] = ACT_MELEE_ATTACK_SWING
     },
-	["wos-begotten_javelin"] = {
+	["wos-begotten_javelin_1h"] = {
+        ["idle"] = {ACT_IDLE, ACT_IDLE_ANGRY_MELEE},
+        ["idle_crouch"] = {ACT_COVER_LOW, ACT_COVER_LOW},
+        ["walk"] = {ACT_WALK, ACT_WALK_AIM_RIFLE},
+        ["walk_crouch"] = {ACT_WALK_CROUCH, ACT_WALK_CROUCH},
+        ["run"] = {ACT_RUN, ACT_RUN_AIM_RIFLE_STIMULATED},
+        ["attack"] = ACT_MELEE_ATTACK_SWING
+	},
+	["wos-begotten_javelin_2h"] = {
         ["idle"] = {ACT_IDLE, ACT_IDLE_ANGRY_MELEE},
         ["idle_crouch"] = {ACT_COVER_LOW, ACT_COVER_LOW},
         ["walk"] = {ACT_WALK, ACT_WALK_AIM_RIFLE},
@@ -386,7 +394,15 @@ Clockwork.animation.stored.maleHuman = {
         ["run"] = {ACT_RUN, ACT_RUN_AIM_RIFLE_STIMULATED},
         ["attack"] = ACT_MELEE_ATTACK_SWING
     },
-	["wos-begotten_javelin"] = {
+	["wos-begotten_javelin_1h"] = {
+        ["idle"] = {ACT_IDLE, ACT_IDLE_ANGRY_MELEE},
+        ["idle_crouch"] = {ACT_COVER_LOW, ACT_COVER_LOW},
+        ["walk"] = {ACT_WALK, ACT_WALK_AIM_RIFLE},
+        ["walk_crouch"] = {ACT_WALK_CROUCH, ACT_WALK_CROUCH},
+        ["run"] = {ACT_RUN, ACT_RUN_AIM_RIFLE_STIMULATED},
+        ["attack"] = ACT_MELEE_ATTACK_SWING
+	},
+	["wos-begotten_javelin_2h"] = {
         ["idle"] = {ACT_IDLE, ACT_IDLE_ANGRY_MELEE},
         ["idle_crouch"] = {ACT_COVER_LOW, ACT_COVER_LOW},
         ["walk"] = {ACT_WALK, ACT_WALK_AIM_RIFLE},
@@ -445,50 +461,6 @@ function Clockwork.animation:AddOverride(model, key, value)
 	self.override[lowerModel][key] = value;
 end;
 
--- A function to get an animation for a model.
-function Clockwork.animation:GetForModel(model, holdType, key, bNoFallbacks)
-	if (!model) then
-		debug.Trace();
-		
-		return false;
-	end;
-
-	local lowerModel = string.lower(model);
-	local animTable = self:GetTable(lowerModel);
-	local overrideTable = self.override[lowerModel];
-
-	if (!bNoFallbacks) then
-		if (!animTable[holdType]) then
-			holdType = "normal";
-		end;
-
-		if (!animTable[holdType][key]) then
-			key = "idle";
-		end;
-	end;
-
-	local finalAnimation = animTable[holdType][key];
-	
-	if (overrideTable and overrideTable[holdType] and overrideTable[holdType][key]) then
-		finalAnimation = overrideTable[holdType][key];
-	end;
-	
-	return finalAnimation;
-end;
-
--- A function to get a model's class.
-function Clockwork.animation:GetModelClass(model, alwaysReal)
-	local modelClass = self.models[string.lower(model)];
-	
-	if (!modelClass) then
-		if (!alwaysReal) then
-			return "maleHuman";
-		end;
-	else
-		return modelClass;
-	end;
-end;
-
 local translateHoldTypes = {
 	["melee2"] = "melee",
 	["fist"] = "melee",
@@ -520,6 +492,59 @@ local weaponHoldTypes = {
 	["weapon_shotgun"] = "shotgun",
 	["weapon_annabelle"] = "shotgun"
 };
+
+-- A function to get an animation for a model.
+function Clockwork.animation:GetForModel(model, holdType, key)
+	if (!model) then
+		debug.Trace();
+		
+		return false;
+	end;
+
+	local lowerModel = string.lower(model);
+	local animTable = self:GetTable(lowerModel);
+	--local overrideTable = self.override[lowerModel];
+
+	if (!animTable[holdType]) then
+		if (translateHoldTypes[holdType]) then
+			holdType = translateHoldTypes[holdType];
+		else
+			holdType = "normal";
+		end;
+	end;
+
+	if (!animTable[holdType][key]) then
+		key = "idle";
+	end;
+	
+	--[[local holdTypeTable = animTable[holdType];
+	local finalAnimation = holdTypeTable[key];
+	
+	if overrideTable then
+		local ovrHoldTypeTable = overrideTable[holdType];
+		
+		if ovrHoldTypeTable then
+			finalAnimation = ovrHoldTypeTable[key] or finalAnimation;
+		end
+	end;
+	
+	return finalAnimation;]]--
+
+	return animTable[holdType][key];
+end;
+
+-- A function to get a model's class.
+function Clockwork.animation:GetModelClass(model, alwaysReal)
+	local modelClass = self.models[string.lower(model)];
+	
+	if (!modelClass) then
+		if (!alwaysReal) then
+			return "maleHuman";
+		end;
+	else
+		return modelClass;
+	end;
+end;
 
 -- A function to get a weapon's hold type.
 function Clockwork.animation:GetWeaponHoldType(player, weapon)
@@ -906,6 +931,14 @@ function Clockwork.animation:AddPlagueDocArms(model)
 	});
 end;
 
+function Clockwork.animation:AddCrudePlateArms(model)
+	self:AddHandsModel(model, {
+		body = 0000000,
+		model = "models/begotten/arms/c_crudeplate.mdl",
+		skin = 0
+	});
+end;
+
 function Clockwork.animation:AddWandererMailArms(model)
 	self:AddHandsModel(model, {
 		body = 0000000,
@@ -1010,6 +1043,14 @@ function Clockwork.animation:AddTwistedFuckArms(model)
 	});
 end;
 
+function Clockwork.animation:AddMarauderArms(model)
+    self:AddHandsModel(model, {
+        body = 0000000,
+        model = "models/begotten/arms/c_marauder.mdl",
+        skin = 0
+    });
+end
+
 -- A function to check for stored hands info by model.
 function Clockwork.animation:CheckHands(model, animTable)
 	local info = animTable.hands or {
@@ -1046,6 +1087,7 @@ end;
 Clockwork.animation:AddWandererArms("models/begotten/wanderers/wanderer");
 
 Clockwork.animation:AddGatekeeperLightArms("models/begotten/gatekeepers/gatekeeperlight");
+Clockwork.animation:AddGatekeeperLightArms("models/begotten/gatekeepers/gatekeeperhalfplate");
 Clockwork.animation:AddGatekeeperLightArms_Black("models/begotten/gatekeepers/gatekeeperlight_black");
 Clockwork.animation:AddGatekeeperLightArms_Brown("models/begotten/gatekeepers/gatekeeperlight_brown");
 
@@ -1095,6 +1137,7 @@ Clockwork.animation:AddGoreChainMail2Arms("models/begotten/goreicwarfighters/gor
 
 Clockwork.animation:AddGoreHouseCarlArms("models/begotten/goreicwarfighters/gorehousecarl");
 
+Clockwork.animation:AddGoreBladeDruidArms("models/begotten/goreicwarfighters/armoredbladedruid");
 Clockwork.animation:AddGoreBladeDruidArms("models/begotten/goreicwarfighters/bladedruid");
 Clockwork.animation:AddGoreBladeDruidArms("models/begotten/goreicwarfighters/elderdruid.mdl");
 
@@ -1142,6 +1185,8 @@ Clockwork.animation:AddBrigandineLightArms("models/begotten/gatekeepers/renegade
 
 Clockwork.animation:AddLeatherArms("models/begotten/wanderers/leather");
 
+Clockwork.animation:AddCrudePlateArms("models/begotten/wanderers/crudeplate");
+
 Clockwork.animation:AddWandererMailArms("models/begotten/wanderers/wanderermail");
 
 Clockwork.animation:AddMonkRobeArms("models/begotten/wanderers/monkrobes");
@@ -1160,3 +1205,6 @@ Clockwork.animation:AddShingarArms("models/begotten/goreicwarfighters/shingar.md
 Clockwork.animation:AddKnightJusticarArms("models/begotten/gatekeepers/knight_justicar");
 
 Clockwork.animation:AddTechnoHeavyArms("models/begotten/wanderers/voltist_technoheavy.mdl");
+
+Clockwork.animation:AddMarauderArms("models/begotten/goreicwarfighters/reaver_chief");
+Clockwork.animation:AddMarauderArms("models/begotten/goreicwarfighters/reaver_marauder");

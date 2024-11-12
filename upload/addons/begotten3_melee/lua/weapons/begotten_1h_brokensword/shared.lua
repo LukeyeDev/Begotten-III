@@ -109,7 +109,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -126,9 +126,19 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_brokensword"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.099, 1.5, 2.596), angle = Angle(-78.312, 0, 90), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_brokensword"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.099, 1.5, 2.596), angle = Angle(-78.312, 0, 90), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
  
 SWEP.WElements = {
-	["w_brokensword"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1.5, 1.899), angle = Angle(-97.014, -94.676, 10), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_brokensword"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1.5, 1.899), angle = Angle(-97.014, -94.676, 10), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.VElementsDual = {
+	["v_left"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "Dummy16", rel = "", pos = Vector(0, -6.886, -0.1), angle = Angle(0, 90, 0), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["v_right"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "Dummy01", rel = "", pos = Vector(0.5, -9.886, 0.5), angle = Angle(0, 90, 10), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
+}
+
+SWEP.WElementsDual = {
+	["w_left"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(2.595, 0.7, -0.977), angle = Angle(110, 120, -176.495), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} },
+	["w_right"] = { type = "Model", model = "models/demonssouls/weapons/broken sword.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.299, 1.557, 0.519), angle = Angle(-62.987, 74.286, 3.506), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

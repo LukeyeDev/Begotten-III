@@ -156,56 +156,8 @@ function ITEM:OnPlayerUnequipped(player, extraData)
 	local isOffhand = false;
 	local activeWeapon = player:GetActiveWeapon();
 	local weapon = player:GetWeapon(self.weaponClass);
-
-	if weapon then
-		if (SERVER) then
-			for k, v in pairs(player.equipmentSlots) do
-				if v then
-					if v.category == "Shields" then
-						if IsValid(weapon) and weapon:GetNWString("activeShield"):len() > 0 and weapon:GetNWString("activeShield") == v.uniqueID then
-							Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
-							
-							break;
-						end
-					elseif string.find(k, "Offhand") then
-						local mainSlot = string.gsub(k, "Offhand", "");
-						
-						if player.equipmentSlots[mainSlot] then
-							if player.equipmentSlots[mainSlot].itemID == self.itemID then
-								if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 and weapon:GetNWString("activeOffhand") == v.uniqueID then
-									Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
-								
-									break;
-								end
-							elseif player.equipmentSlots[k].itemID == self.itemID then
-								weapon = player:GetWeapon(player.equipmentSlots[mainSlot].weaponClass);
-								
-								if weapon then
-									if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 then
-										weapon:HolsterOffhand();
-									end
-								end
-								
-								isOffhand = true;
-								
-								break;
-							end
-						end
-					end
-				end
-			end
-		end
-	end
 	
 	if (extraData != "drop") then
-		if !isOffhand then
-			if IsValid(activeWeapon) and activeWeapon:GetClass() == self.weaponClass then
-				player:SelectWeapon("begotten_fists")
-			end
-			
-			player:StripWeapon(self.weaponClass)
-		end
-
 		if !player:IsNoClipping() and (!player.GetCharmEquipped or !player:GetCharmEquipped("urn_silence")) then
 			local useSound = self("useSound");
 			
@@ -220,28 +172,144 @@ function ITEM:OnPlayerUnequipped(player, extraData)
 			end;
 		end
 		
-		Clockwork.equipment:UnequipItem(player, self);
+		if weapon then
+			if (SERVER) then
+				for k, v in pairs(player.equipmentSlots) do
+					if v then
+						if v.category == "Shields" then
+							-- Old code, restore if you want the old functionality for one shield per weapon.
+							--[[if IsValid(weapon) and weapon:GetNWString("activeShield"):len() > 0 and weapon:GetNWString("activeShield") == v.uniqueID then
+								local weaponItemTable = item.GetByWeapon(weapon);
+								
+								if weaponItemTable and weaponItemTable:IsTheSameAs(self) then
+									Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+								end
+								
+								break;
+							end]]--
+							
+							-- New code.
+							
+							local other_melee_found = false;
+							
+							for k2, v2 in pairs(player.equipmentSlots) do
+								if !string.find(k2, "Offhand") and !player.equipmentSlots[k2.."Offhand"] then
+									if v2.canUseShields and !v2:IsTheSameAs(self) then
+										other_melee_found = true;
+										
+										break;
+									end
+								end
+							end
+							
+							if !other_melee_found then
+								Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+							end
+						elseif string.find(k, "Offhand") then
+							local mainSlot = string.gsub(k, "Offhand", "");
+							
+							if player.equipmentSlots[mainSlot] then
+								if player.equipmentSlots[mainSlot].itemID == self.itemID then
+									if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 and weapon:GetNWString("activeOffhand") == v.uniqueID then
+										player.equipmentSlots[k] = nil; -- Infinite loop unless this line is here.
+										Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+									
+										break;
+									end
+								elseif player.equipmentSlots[k].itemID == self.itemID then
+									weapon = player:GetWeapon(player.equipmentSlots[mainSlot].weaponClass);
+									
+									if weapon then
+										if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 then
+											weapon:HolsterOffhand();
+										end
+									end
+									
+									isOffhand = true;
+									
+									break;
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		if !isOffhand then
+			if activeWeapon:IsValid() and activeWeapon:GetClass() == self.weaponClass then
+				player:SelectWeapon("begotten_fists")
+			end
+			
+			player:StripWeapon(self.weaponClass)
+		end
+		
+		return Clockwork.equipment:UnequipItem(player, self);
 	elseif (hook.Run("PlayerCanDropWeapon", player, self)) then
 		local trace = player:GetEyeTraceNoCursor()
 
 		if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
+			if weapon then
+				if (SERVER) then
+					for k, v in pairs(player.equipmentSlots) do
+						if v then
+							if v.category == "Shields" then
+								if IsValid(weapon) and weapon:GetNWString("activeShield"):len() > 0 and weapon:GetNWString("activeShield") == v.uniqueID then
+									local weaponItemTable = item.GetByWeapon(weapon);
+									
+									if weaponItemTable and weaponItemTable:IsTheSameAs(self) then
+										Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+									end
+									
+									break;
+								end
+							elseif string.find(k, "Offhand") then
+								local mainSlot = string.gsub(k, "Offhand", "");
+								
+								if player.equipmentSlots[mainSlot] then
+									if player.equipmentSlots[mainSlot].itemID == self.itemID then
+										if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 and weapon:GetNWString("activeOffhand") == v.uniqueID then
+											Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+										
+											break;
+										end
+									elseif player.equipmentSlots[k].itemID == self.itemID then
+										weapon = player:GetWeapon(player.equipmentSlots[mainSlot].weaponClass);
+										
+										if weapon then
+											if IsValid(weapon) and weapon:GetNWString("activeOffhand"):len() > 0 then
+												weapon:HolsterOffhand();
+											end
+										end
+										
+										isOffhand = true;
+										
+										break;
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		
 			local entity = Clockwork.entity:CreateItem(player, self, trace.HitPos)
 
 			if (IsValid(entity)) then		
 				Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal)
 				hook.Run("PlayerDropWeapon", player, self, entity)
 
-				player:TakeItem(self, true)
+				player:TakeItem(self)
 				
 				if !isOffhand then
-					if IsValid(activeWeapon) and activeWeapon:GetClass() == self.weaponClass then
+					if activeWeapon:IsValid() and activeWeapon:GetClass() == self.weaponClass then
 						player:SelectWeapon("begotten_fists")
 					end
 					
 					player:StripWeapon(self.weaponClass);
 				end
 
-				Clockwork.equipment:UnequipItem(player, self);
+				return Clockwork.equipment:UnequipItem(player, self);
 			end
 		else
 			Schema:EasyText(player, "peru", "You cannot drop this item that far away.")
@@ -283,12 +351,12 @@ function ITEM:OnWeaponGiven(player, weapon)
 	local clipOne = self:GetData("ClipOne");
 	local clipTwo = self:GetData("ClipTwo");
 	
-	if (clipOne > 0) then
+	if clipOne and (clipOne > 0) then
 		weapon:SetClip1(clipOne);
 		self:SetData("ClipOne", 0);
 	end;
 	
-	if (clipTwo > 0) then
+	if clipTwo and (clipTwo > 0) then
 		weapon:SetClip2(clipTwo);
 		self:SetData("ClipTwo", 0);
 	end;
@@ -298,8 +366,8 @@ end;
 function ITEM:OnUse(player, itemEntity, interactItemTable)
 	local faction = player:GetFaction();
 	local subfaction = player:GetSubfaction();
-	local kinisgerOverride = player:GetSharedVar("kinisgerOverride");
-	local kinisgerOverrideSubfaction = player:GetSharedVar("kinisgerOverrideSubfaction");
+	local kinisgerOverride = player:GetNetVar("kinisgerOverride");
+	local kinisgerOverrideSubfaction = player:GetNetVar("kinisgerOverrideSubfaction");
 	
 	if (table.HasValue(self.excludeFactions, kinisgerOverride or faction)) then
 		Schema:EasyText(player, "peru", "You are not the correct faction for this item!")
@@ -343,7 +411,22 @@ function ITEM:OnUse(player, itemEntity, interactItemTable)
 				activeWeapon:EquipOffhand(self.weaponClass);
 			end
 		else
-			player:Give(weaponClass, self);
+			local weapon = player:Give(weaponClass, self);
+			
+			if IsValid(weapon) then
+				-- Check for equipped shields.
+				if self.canUseShields then
+					for i, v in ipairs(self.slots) do
+						local shieldItem = player.equipmentSlots[v];
+						
+						if shieldItem and shieldItem.category == "Shields" then
+							weapon:EquipShield(shieldItem.uniqueID);
+						
+							break;
+						end
+					end
+				end
+			end
 		end
 		
 		return true;
@@ -395,16 +478,20 @@ function ITEM:OnEquip(player, interactItemTable)
 			local shieldItem = player:GetShieldEquipped();
 			
 			if shieldItem then
-				for i, v in ipairs(self.slots) do
-					if i < #self.slots then
-						local equipmentSlot = player.equipmentSlots[v];
-						
-						if equipmentSlot and equipmentSlot:IsTheSameAs(interactItemTable) then
-							if player.equipmentSlots[self.slots[i +1]]:IsTheSameAs(shieldItem) then
-								Schema:EasyText(player, "peru", "You cannot equip an offhand weapon with a weapon that is using a shield!")
-								return false;
-							end
-						end
+				local numValidItems = 0;
+			
+				for i, v in ipairs(player:GetWeaponsEquipped()) do
+					if v.canUseShields then
+						numValidItems = numValidItems + 1;
+					end
+				end
+				
+				if numValidItems < 2 then
+					local weaponItem = item.GetByWeapon(interactItemTable.weaponClass or interactItemTable.uniqueID);
+					
+					if !weaponItem or !weaponItem:IsTheSameAs(interactItemTable) then
+						Schema:EasyText(player, "peru", "You cannot equip an offhand weapon with a weapon that is using a shield!")
+						return false;
 					end
 				end
 			end

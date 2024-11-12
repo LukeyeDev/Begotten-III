@@ -22,6 +22,10 @@ function cwCinematicText:PrintTextCenter(text, delay, color, font)
 	end
 
 	Clockwork.kernel:WrapTextSpaced(text, centerTextFont, math.max(scrW * 0.4, 450), wrappedTable);
+	
+	if !self.cinematicTexts then
+		self.cinematicTexts = {};
+	end
 
 	self.cinematicTexts[#self.cinematicTexts + 1] = {
 		targetAlpha = 255,
@@ -34,7 +38,7 @@ function cwCinematicText:PrintTextCenter(text, delay, color, font)
 	};
 end;
 
-Clockwork.datastream:Hook("cwPrintCinematicText", function(data)
+netstream.Hook("cwPrintCinematicText", function(data)
 	local text = data[1] or "Unknown...."
 	local delay = data[2] or 5;
 	local color = data[3] or Color(255, 255, 255, 255);

@@ -38,6 +38,9 @@ local ITEM = Clockwork.item:New(nil, true)
 				
 				if model ~= player:GetDefaultModel() then
 					player:SetCharacterData("Model", model, true);
+				end
+				
+				if model ~= player:GetModel() then
 					player:SetModel(model);
 				end
 			end
@@ -66,15 +69,26 @@ local ITEM = Clockwork.item:New(nil, true)
 	end
 
 	function ITEM:ResetBodygroup(player, bg)
-		player:SetBodygroup(bg, 0)
+		player:SetBodygroup(bg or 0, 0)
+		
+		if player:Alive() then
+			local ragdollEntity = player:GetRagdollEntity();
+			
+			if IsValid(ragdollEntity) then
+				ragdollEntity:SetBodygroup(bg or 0, 0)
+			end
+		end
 		
 		if self.headReplacement then
-			player:SetModel(player:GetDefaultModel());
+			local model = player:GetDefaultModel();
+			
+			player:SetModel(model);
 			
 			if player:Alive() then
+				local ragdollEntity = player:GetRagdollEntity();
+				
 				if IsValid(ragdollEntity) then
-					ragdollEntity:SetModel(player:GetDefaultModel());
-					ragdollEntity:SetBodygroup(bg, 0)
+					ragdollEntity:SetModel(model);
 				end
 			end
 		end
@@ -84,14 +98,25 @@ local ITEM = Clockwork.item:New(nil, true)
 	
 	function ITEM:OnWear(player)
 		if self.headReplacement then
-			player:SetModel(self.headReplacement);
 			player:SetBodygroup(0, 0);
+			player:SetBodygroup(1, 0);
+			player:SetModel(self.headReplacement);
+			
+			if player:Alive() then
+				local ragdollEntity = player:GetRagdollEntity();
+				
+				if IsValid(ragdollEntity) then
+					ragdollEntity:SetBodygroup(0, 0)
+					ragdollEntity:SetBodygroup(1, 0)
+					ragdollEntity:SetModel(self.headReplacement);
+				end
+			end
 		else
 			self:SetBodygroup(player, self.bodyGroup, self.bodyGroupVal)
 		end
 
 		if self.concealsFace == true then
-			player:SetSharedVar("faceConcealed", true);
+			player:SetNetVar("faceConcealed", true);
 		end
 	end
 	
@@ -101,8 +126,8 @@ local ITEM = Clockwork.item:New(nil, true)
 		local helmetItem = player:GetHelmetEquipped();
 		local faction = player:GetFaction();
 		local subfaction = player:GetSubfaction();
-		local kinisgerOverride = player:GetSharedVar("kinisgerOverride");
-		local kinisgerOverrideSubfaction = player:GetSharedVar("kinisgerOverrideSubfaction");
+		local kinisgerOverride = player:GetNetVar("kinisgerOverride");
+		local kinisgerOverrideSubfaction = player:GetNetVar("kinisgerOverrideSubfaction");
 		
 		if cwPowerArmor and player:IsWearingPowerArmor() then
 			Schema:EasyText(player, "peru", "You cannot wear this while in power armor!");
@@ -178,6 +203,23 @@ local ITEM = Clockwork.item:New(nil, true)
 	-- Called when a player has unequipped the item.
 	function ITEM:OnPlayerUnequipped(player, extraData)
 		if Clockwork.equipment:UnequipItem(player, self) then
+			if extraData == "drop" then
+				local trace = player:GetEyeTraceNoCursor()
+
+				if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
+					if hook.Run("PlayerCanDropItem", player, self, trace.HitPos) then
+						local entity = Clockwork.entity:CreateItem(player, self, trace.HitPos);
+						
+						if (IsValid(entity)) then
+							Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal);
+							player:TakeItem(self);
+						end
+					end
+				else
+					Clockwork.player:Notify(player, "You cannot drop the item that far away!");
+				end
+			end
+		
 			local useSound = self.useSound;
 			
 			if !player:IsNoClipping() and (!player.GetCharmEquipped or !player:GetCharmEquipped("urn_silence")) then
@@ -193,7 +235,7 @@ local ITEM = Clockwork.item:New(nil, true)
 			end
 			
 			if self.concealsFace == true then
-				player:SetSharedVar("faceConcealed", false);
+				player:SetNetVar("faceConcealed", false);
 			end
 			
 			self:ResetBodygroup(player, self.bodyGroup);
@@ -212,7 +254,7 @@ local ITEM = Clockwork.item:New(nil, true)
 	function ITEM:OnTakeFromPlayer(player)
 		if (player:GetClothesEquipped() == self) then
 			if self.concealsFace == true then
-				player:SetSharedVar("faceConcealed", false);
+				player:SetNetVar("faceConcealed", false);
 			end
 			
 			self:ResetBodygroup(player, self.bodyGroup);
@@ -221,9 +263,9 @@ local ITEM = Clockwork.item:New(nil, true)
 	
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position)
-		if (player:GetHelmetEquipped() == self) then
+		--[[if (player:GetHelmetEquipped() == self) then
 			Schema:EasyText(player, "peru", "You cannot drop an item you're currently wearing.")
 			return false
-		end
+		end]]--
 	end
 ITEM:Register();

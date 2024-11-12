@@ -10,10 +10,18 @@ function cwObserverMode:MakePlayerExitObserverMode(player)
 	player:DrawWorldModel(true)
 	player:DrawShadow(true)
 	player:SetNoDraw(false)
-	player:SetNotSolid(false)
 	player:SetNoTarget(false)
-	player:SetMoveType(player.cwObserverMoveType or MOVETYPE_WALK)
 	player:SetRenderMode(RENDERMODE_TRANSALPHA);
+	player:Extinguish();
+	
+	if player:Alive() then
+		player:SetMoveType(player.cwObserverMoveType or MOVETYPE_WALK)
+		player:SetNotSolid(false)
+	else
+		player:SetMoveType(MOVETYPE_OBSERVER)
+	end
+	
+	player:UnSpectate();
 	
 	timer.Simple(FrameTime() * 0.5, function()
 		if (IsValid(player)) then
@@ -39,6 +47,12 @@ function cwObserverMode:MakePlayerEnterObserverMode(player)
 	player.cwObserverAng = player:EyeAngles()
 	player.cwObserverColor = player:GetColor()
 	player.cwObserverMode = true
+	
+	if !player:Alive() then
+		player:SetObserverMode(OBS_MODE_ROAMING); -- Don't know why this is needed now but it is.
+	end
+	
 	player:SetMoveType(MOVETYPE_NOCLIP)
 	player:SetNoTarget(true)
+	player:Extinguish();
 end

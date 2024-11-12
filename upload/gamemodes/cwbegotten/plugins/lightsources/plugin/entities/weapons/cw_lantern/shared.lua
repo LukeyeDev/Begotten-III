@@ -67,7 +67,9 @@ SWEP.WElements = {
 	["w_lantern"] = { type = "Model", model = "models/weapons/w_lantern.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(1, 2.9, 13), angle = Angle(5.843, -15.195, -171.818), size = Vector(0.8, 0.8, 0.8), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
 }
 
-function SWEP:Deploy() end;
+function SWEP:Deploy()
+	self.Owner:SetNetVar("lanternOnHip", false);
+end;
 
 function SWEP:Initialize()
 	self:SetHoldType(self.HoldType);
@@ -95,6 +97,14 @@ function SWEP:Holster()
 		end
 	end]]--
 	
+	if self.OnHolster then
+		self:OnHolster();
+	end
+	
+	if CLIENT then
+		self:RemoveModels();
+	end
+	
 	return true
 end
 
@@ -102,14 +112,69 @@ function SWEP:OnRemove()
 	self:Holster()
 end
 
-function SWEP:Think()
-	if (IsValid(self.Owner)) then
-		if (self.Owner:IsNPC() or self.Owner:IsNextBot()) then
-			self.Owner:StripWeapon(self:GetClass());
+function SWEP:RemoveModels()
+	if self.vRenderOrder then
+		for k, name in ipairs( self.vRenderOrder ) do
+			local v = self.VElements[name]
+			if (!v) then self.vRenderOrder = nil break end
 			
-			return;
+			local model = v.modelEnt;
+			
+			if (v.type == "Model" and IsValid(model)) then
+				model:Remove();
+			end
+		end
+	end
+	
+	if self.wRenderOrder then
+		for k, name in pairs( self.wRenderOrder ) do
+			local v = self.WElements[name]
+			if (!v) then self.wRenderOrder = nil break end
+			
+			local model = v.modelEnt;
+
+			if (v.type == "Model" and IsValid(model)) then
+				model:Remove();
+			end
+		end
+	end
+end
+
+function SWEP:Think()
+	if SERVER then
+		local curTime = CurTime();
+		local player = self.Owner;
+		
+		-- Last ditch effort to fix the clientside itemtable desync.
+		if !self.nextItemSend or self.nextItemSend <= curTime then
+			if IsValid(player) and player:IsPlayer() then
+				local itemTable = item.GetByWeapon(self);
+					
+				if itemTable then
+					netstream.Start(player, "WeaponItemData", {
+						definition = item.GetDefinition(itemTable, true),
+						weapon = self:EntIndex()
+					})
+
+					if self:GetNWInt("ItemID") ~= itemTable.itemID then
+						self:SetNWInt("ItemID", itemTable.itemID)
+					end
+					
+					self.cwItemTable = itemTable
+				end
+			end
+			
+			self.nextItemSend = curTime + math.random(1, 5);
+		end
+		
+		if (IsValid(player)) then
+			if (player:IsNPC() or player:IsNextBot()) then
+				player:StripWeapon(self:GetClass());
+				
+				return;
+			end;
 		end;
-	end;
+	end
 end;
 
 if CLIENT then
@@ -171,7 +236,7 @@ if CLIENT then
 				end
 				
 				if IsValid(self.Owner) then
-					if !Clockwork.player:GetWeaponRaised(self.Owner)then
+					if !self.Owner:IsWeaponRaised(self) then
 						model:SetSkin(0)
 					else
 						model:SetSkin(1)

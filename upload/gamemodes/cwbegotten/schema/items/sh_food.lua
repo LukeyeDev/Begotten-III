@@ -11,7 +11,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.stackable = true;
 	ITEM.infectionchance = 10; -- Chance to give you a disease.
 
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 715};
 	ITEM.needs = {hunger = 30, thirst = 5};
 
 	-- Called when a player uses the item.
@@ -41,14 +41,11 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectionchance = 50; -- Chance to give you a disease.
 	ITEM.poison = 6; -- Holdover from Begotten II, maybe we can use it.
 
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 350};
 	ITEM.needs = {hunger = 25, thirst = 10};
 
 	-- Called when a player uses the item.
-	function ITEM:OnUse(player, itemEntity)
-		--player:SetHealth(math.Clamp(player:Health() - 25, 0, 100));
-		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
-		
+	function ITEM:OnUse(player, itemEntity)		
 		if !player:HasBelief("savage_animal") then
 			Schema:EasyText(player, "olive", "You feel fucking disgusted that you just ate something so foul. As a result you begin feel emotionally and mentally unstable.");
 			player:HandleSanity(-25);
@@ -75,7 +72,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectchance = 15;
 	ITEM.poison = 3;
 
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 500};
 	ITEM.needs = {hunger = 15};
 
 	-- Called when a player uses the item.
@@ -104,14 +101,13 @@ local ITEM = Clockwork.item:New();
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/canned_meal.png"
 	ITEM.stackable = true;
 
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 600};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 875};
 	ITEM.needs = {hunger = 40, thirst = 10};
 
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
-		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
-		player:HandleSanity(10);
-		
+		player:HandleSanity(5);
+		player:SetHealth(math.Clamp(player:Health() + 5, 0, player:GetMaxHealth()));
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
 
@@ -174,7 +170,70 @@ local ITEM = Clockwork.item:New();
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		player:HandleSanity(5);
-		
+		player:SetHealth(math.Clamp(player:Health() + 10, 0, player:GetMaxHealth()));
+		player:HandleXP(cwBeliefs.xpValues["food"]);
+	end;
+
+	-- Called when a player drops the item.
+	function ITEM:OnDrop(player, position) end;
+ITEM:Register();
+
+local ITEM = Clockwork.item:New();
+	ITEM.name = "Raw Leopard Meat";
+	ITEM.model = "models/gibs/humans/mgib_07.mdl";
+	ITEM.weight = 0.35;
+	ITEM.plural = "Raw Leopard Meat";
+	ITEM.useText = "Force Down Your Throat";
+	ITEM.useSound = "npc/barnacle/barnacle_crunch3.wav";
+	ITEM.category = "Food";
+	ITEM.description = "Raw meat harvested from a leopard.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/human_meat.png"
+	ITEM.stackable = true;
+	ITEM.uniqueID = "leopard_meat"
+	ITEM.infectchance = 30;
+	ITEM.poison = 5;
+	
+	ITEM.needs = {hunger = 25, thirst = 5};
+
+	-- Called when a player uses the item.
+	function ITEM:OnUse(player, itemEntity)
+
+		if !player:HasBelief("savage_animal") then
+			Schema:EasyText(player, "olive", "You begrudgingly consume raw meat.");
+			player:HandleSanity(-5);
+		end
+			
+		player:HandleXP(cwBeliefs.xpValues["food"]);
+	end;
+
+	-- Called when a player drops the item.
+	function ITEM:OnDrop(player, position) end;
+
+	-- Called when the item entity has spawned.
+	--[[function ITEM:OnEntitySpawned(entity)
+		entity:SetMaterial("models/flesh");
+	end;]]--
+ITEM:Register();
+
+local ITEM = Clockwork.item:New();
+	ITEM.name = "Cooked Leopard Meat";
+	ITEM.model = "models/items/provisions/ham_dry/ham_dry.mdl";
+	ITEM.weight = 0.35;
+	ITEM.plural = "Cooked Leopard Meat";
+	ITEM.useText = "Eat";
+	ITEM.useSound = "npc/barnacle/barnacle_crunch3.wav";
+	ITEM.category = "Food";
+	ITEM.description = "Cooked leopard meat, very nutritious.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/cooked_meat.png"
+	ITEM.stackable = true;
+	ITEM.uniqueID = "cooked_leopard_meat"
+	
+	ITEM.needs = {hunger = 50, thirst = 5};
+
+	-- Called when a player uses the item.
+	function ITEM:OnUse(player, itemEntity)
+		player:HandleSanity(5);
+		player:SetHealth(math.Clamp(player:Health() + 5, 0, player:GetMaxHealth()));
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
 
@@ -237,7 +296,7 @@ local ITEM = Clockwork.item:New();
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		player:HandleSanity(5);
-		
+		player:SetHealth(math.Clamp(player:Health() + 5, 0, player:GetMaxHealth()));
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
 
@@ -263,7 +322,7 @@ local ITEM = Clockwork.item:New();
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		player:HandleSanity(5);
-		
+		player:SetHealth(math.Clamp(player:Health() + 5, 0, player:GetMaxHealth()));
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
 
@@ -324,9 +383,7 @@ local ITEM = Clockwork.item:New();
 
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
-		player:SetHealth(math.Clamp(player:Health() + 10, 0, player:GetMaxHealth()));
-		player:HandleSanity(15);
-		
+		player:HandleSanity(5);
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
 
@@ -385,7 +442,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectchance = 50;
 	ITEM.poison = 35;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 200};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 300};
 	ITEM.needs = {hunger = 25, thirst = 0};
 
 	-- Called when a player uses the item.
@@ -420,13 +477,13 @@ local ITEM = Clockwork.item:New();
 	ITEM.stackable = true;
 	ITEM.uniqueID = "unfuckedmeat"
 	
-	ITEM.needs = {hunger = 35, thirst = 5};
+	ITEM.needs = {hunger = 40, thirst = 15};
 
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "olivedrab", "The meat is flavorful. You feel proud of such an honest meal.");
 		player:HandleSanity(10);
-			
+		player:SetHealth(math.Clamp(player:Health() + 8, 0, player:GetMaxHealth()));
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end
 
@@ -457,6 +514,7 @@ local ITEM = Clockwork.item:New();
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "olivedrab", "An honest meal!");
 		player:HandleSanity(30);
+		player:SetHealth(math.Clamp(player:Health() + 25, 0, player:GetMaxHealth()));
 			
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end
@@ -490,7 +548,8 @@ local ITEM = Clockwork.item:New();
 	function ITEM:OnUse(player, itemEntity)
 		if player:HasBelief("savage") then
 			Schema:EasyText(player, "olivedrab", "You enjoy the savory taste of your fellow man.");
-			player:HandleSanity(10);
+			player:HandleSanity(2);
+			player:SetHealth(math.Clamp(player:Health() + 3, 0, player:GetMaxHealth()));
 		else
 			Schema:EasyText(player, "olivedrab", "This meat is prepared almost well enough to forget where it came from.");
 			player:HandleSanity(-2);
@@ -517,14 +576,11 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectionchance = 50;
 	ITEM.poison = 6;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 150};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 350};
 	ITEM.needs = {hunger = 15, thirst = 30};
 
 	-- Called when a player uses the item.
-	function ITEM:OnUse(player, itemEntity)
-		--player:SetHealth(math.Clamp(player:Health() - 25, 0, 100));
-		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
-		
+	function ITEM:OnUse(player, itemEntity)		
 		if !player:HasBelief("savage_animal") then
 			Schema:EasyText(player, "olive", "You feel fucking disgusted that you just ate something so foul. As a result you begin feel emotionally and mentally unstable.");
 			player:HandleSanity(-25);
@@ -550,16 +606,16 @@ local ITEM = Clockwork.item:New();
 	ITEM.stackable = true;
 	ITEM.uniqueID = "kittycandy";
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 300};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 1500};
 	ITEM.needs = {hunger = 25};
 	
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		if player:HasBelief("favored") then
-			Schema:EasyText(player, "lawngreen", "Upon licking the candy, it suddenly morphs into a purifying stone which pulses, granting you great healing and rejuvenating your sanity!");
-			player:HandleSanity(100);
-			player:SetHealth(math.Clamp(player:Health() + 85, 0, player:GetMaxHealth()));
-			player:GiveItem(Clockwork.item:CreateInstance("purifying_stone"));
+			Schema:EasyText(player, "lawngreen", "Upon licking the candy, it suddenly morphs into a purifying stone which pulses, granting you great healing and rejuvenating your sanity while lowering your corruption!");
+			player:HandleSanity(50);
+			player:HandleNeed("corruption", -25);
+			player:SetHealth(math.Clamp(player:Health() + 25, 0, player:GetMaxHealth()));
 			player:HandleXP(cwBeliefs.xpValues["food"]);
 		elseif (math.random( 1, 4 ) == 1) then
 			player:ScriptedDeath("Had their insides dissolved with acid.");
@@ -568,7 +624,7 @@ local ITEM = Clockwork.item:New();
 		else
 			Schema:EasyText(player, "lawngreen", "Mmmm! That was one tasty treat! I could go for another Kitty Candy!");
 			player:HandleSanity(50);
-			player:SetHealth(math.Clamp(player:Health() + 50, 0, player:GetMaxHealth()));
+			player:SetHealth(math.Clamp(player:Health() + 15, 0, player:GetMaxHealth()));
 			player:HandleXP(cwBeliefs.xpValues["food"]);
 		end;
 	end;
@@ -589,7 +645,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/canned_meal.png"
 	ITEM.stackable = true;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 350};
 	ITEM.needs = {hunger = 50};
 
 	-- Called when a player uses the item.
@@ -597,8 +653,8 @@ local ITEM = Clockwork.item:New();
 
 		if player:HasBelief("favored") then
 			Schema:EasyText(player, "lawngreen", "You notice a glimmer of light inside the can, and are rejoiced to discover coins aplenty! Your sanity is restored! You are favored by the Gods!");
-			player:HandleSanity(100);
-			Clockwork.player:GiveCash(player, math.random(10, 100), "Blessed coins!");
+			player:HandleSanity(20);
+			Clockwork.player:GiveCash(player, math.random(10, 30), "Blessed coins!");
 			player:HandleXP(cwBeliefs.xpValues["food"]);
 		elseif !player:HasBelief("savage_animal") and (math.random(1, 2) == 1) then
 			--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
@@ -633,7 +689,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/can.png"
 	ITEM.stackable = true;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 350};
 	ITEM.needs = {hunger = 50};
 
 	-- Called when a player uses the item.
@@ -642,8 +698,8 @@ local ITEM = Clockwork.item:New();
 
 		if player:HasBelief("favored") then
 			Schema:EasyText(player, "lawngreen", "You notice a glimmer of light inside the can, and are rejoiced to discover coins aplenty! Your sanity is restored! You are favored by the Gods!");
-			player:HandleSanity(50);
-			Clockwork.player:GiveCash(player, math.random(10, 100), "Blessed coins!");
+			player:HandleSanity(25);
+			Clockwork.player:GiveCash(player, math.random(10, 30), "Blessed coins!");
 			player:HandleXP(cwBeliefs.xpValues["food"]);
 		else
 			player:ScriptedDeath("Became canned meat.");
@@ -673,7 +729,7 @@ local ITEM = Clockwork.item:New();
 					
 					Clockwork.entity:CreateItem(nil, "canned_fresh_meat", Vector(playerPos.x, playerPos.y, playerPos.z + 64));
 					
-					Schema:EasyText(GetAdmins(), "tomato", player:Name().." was taken by a can!", nil);
+					Schema:EasyText(Schema:GetAdmins(), "tomato", player:Name().." was taken by a can!", nil);
 				end
 			end);
 		end;
@@ -722,7 +778,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectchance = 50;
 	ITEM.poison = 10;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 200};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 350};
 	ITEM.needs = {hunger = 25, thirst = 5};
 
 	-- Called when a player uses the item.
@@ -776,6 +832,7 @@ local ITEM = Clockwork.item:New();
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "olive", "The meat did not taste good.");
 		player:HandleXP(cwBeliefs.xpValues["food"]);
+		player:SetHealth(math.Clamp(player:Health() + 3, 0, player:GetMaxHealth()));
 	end
 
 	-- Called when a player drops the item.
@@ -801,7 +858,8 @@ local ITEM = Clockwork.item:New();
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "lawngreen", "You consume the meal. It was an excellent cuisine!");
 		player:HandleXP(cwBeliefs.xpValues["food"]);
-		player:HandleSanity(45);
+		player:SetHealth(math.Clamp(player:Health() + 10, 0, player:GetMaxHealth()));
+		player:HandleSanity(30);
 	end
 
 	-- Called when a player drops the item.
@@ -828,6 +886,8 @@ local ITEM = Clockwork.item:New();
 		Schema:EasyText(player, "lawngreen", "You consume the meal. It was excellent!");
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 		player:HandleSanity(100);
+		player:SetHealth(math.Clamp(player:Health() + 50, 0, player:GetMaxHealth()));
+		player:HandleStamina(50);
 	end
 
 	-- Called when a player drops the item.
@@ -847,13 +907,14 @@ local ITEM = Clockwork.item:New();
 	ITEM.stackable = true;
 	ITEM.uniqueID = "wanderers_delight"
 	
-	ITEM.needs = {hunger = 65, thirst = 45};
+	ITEM.needs = {hunger = 70, thirst = 60};
 
 	-- Called when a player uses the item.
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "lawngreen", "You consume the meal. It tasted decent!");
 		player:HandleXP(cwBeliefs.xpValues["food"]);
-		player:HandleSanity(25);
+		player:HandleSanity(80);
+		player:SetHealth(math.Clamp(player:Health() + 25, 0, player:GetMaxHealth()));
 	end
 
 	-- Called when a player drops the item.
@@ -874,14 +935,11 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectionchance = 50;
 	ITEM.poison = 30;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 250};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 300};
 	ITEM.needs = {hunger = 15, thirst = 5};
 
 	-- Called when a player uses the item.
-	function ITEM:OnUse(player, itemEntity)
-		--player:SetHealth(math.Clamp(player:Health() - 25, 0, 100));
-		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
-		
+	function ITEM:OnUse(player, itemEntity)		
 		if !player:HasBelief("savage_animal") then
 			Schema:EasyText(player, "olive", "The contents of the can have left you emotionally scarred and mentally deranged.");
 			player:HandleSanity(-95);
@@ -915,7 +973,7 @@ local ITEM = Clockwork.item:New();
 		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
 		
 		Schema:EasyText(player, "olivedrab", "You eat the Pickle Surprise. It tasted good, but you're struck with fear as you realize there that there was no pickle.");
-		Schema:EasyText(GetAdmins(), "tomato", player:Name().." has eaten a Pickle Surprise!", nil);
+		Schema:EasyText(Schema:GetAdmins(), "tomato", player:Name().." has eaten a Pickle Surprise!", nil);
 
 		player:HandleXP(cwBeliefs.xpValues["food"]);
 	end;
@@ -943,7 +1001,6 @@ local ITEM = Clockwork.item:New();
 	function ITEM:OnUse(player, itemEntity)
 		Schema:EasyText(player, "lawngreen", "You fucking devour the horrible slop. It turns out it wasn't as bad as advertised.");
 		player:HandleXP(cwBeliefs.xpValues["food"]);
-		player:HandleSanity(5);
 	end
 
 	-- Called when a player drops the item.
@@ -964,14 +1021,11 @@ local ITEM = Clockwork.item:New();
 	ITEM.infectionchance = 15;
 	ITEM.poison = 30;
 	
-	ITEM.itemSpawnerInfo = {category = "Food", rarity = 400};
+	ITEM.itemSpawnerInfo = {category = "Food", rarity = 500};
 	ITEM.needs = {hunger = 25, thirst = 25};
 
 	-- Called when a player uses the item.
-	function ITEM:OnUse(player, itemEntity)
-		--player:SetHealth(math.Clamp(player:Health() - 25, 0, 100));
-		--player:GiveItem(Clockwork.item:CreateInstance("empty_can"));
-		
+	function ITEM:OnUse(player, itemEntity)		
 		if !player:HasBelief("savage_animal") then
 			Schema:EasyText(player, "olive", "The contents of the can were so awful that you feel physically abused - throatfucked with an aftertaste that will never go away.. You no longer crave, only starve.");
 			player:HandleSanity(-15);

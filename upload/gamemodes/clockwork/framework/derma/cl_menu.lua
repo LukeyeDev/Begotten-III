@@ -136,7 +136,7 @@ function PANEL:Rebuild(change)
 		self.characterMenu:SetCallback(function(button)
 			self:SetOpen(false);
 			Clockwork.character:SetPanelOpen(true);
-			Clockwork.datastream:Start("RefreshCharacterMenu");
+			netstream.Start("RefreshCharacterMenu");
 		end);
 		--self.characterMenu:SetToolTip("Click here to view the character menu.");
 		self.characterMenu:SizeToContents();
@@ -348,8 +348,8 @@ function PANEL:Rebuild(change)
 				button:SizeToContents();
 				button:SetMouseInputEnabled(true);
 				button:SetPos(x, y);
-
-				local bannedMenus = {"INVENTORY", "SETTINGS"};
+				
+				local bannedMenus = {"INVENTORY", "SETTINGS", "MANIFESTO"};
 				
 				if (!table.HasValue(bannedMenus, string.upper(v.text))) then
 					y = y + button:GetTall() + 4;
@@ -367,6 +367,7 @@ function PANEL:Rebuild(change)
 				if (string.find(string.upper(v.text), "INVENTORY")) then
 					local width, height = Clockwork.kernel:GetCachedTextSize(smallTextFont, "Sack");
 					button:SetPos((((scrW - width / 2) - 256) + width / 2), ((scrH - height / 2) + imageHeight * 0.125));
+					button:SetSize(width, height);
 					button:SetText("Sack");
 					buttons[#buttons + 1] = button;
 					function button:Paint()
@@ -388,8 +389,15 @@ function PANEL:Rebuild(change)
 					end
 				elseif (string.find(string.upper(v.text), "SETTINGS")) then
 					local width, height = Clockwork.kernel:GetCachedTextSize(smallTextFont, "Settings");
-					button:SetPos(ScrW() - (width * 2), height);
+					button:SetPos(ScrW() - width - 40, height);
+					button:SetSize(width, height);
 					button:SetText("Settings");
+					buttons[#buttons + 1] = button;
+				elseif (string.find(string.upper(v.text), "MANIFESTO")) then
+					local width, height = Clockwork.kernel:GetCachedTextSize(smallTextFont, "Manifesto");
+					button:SetPos(ScrW() - width - 40, (height * 2) + 8);
+					button:SetSize(width, height);
+					button:SetText("Manifesto");
 					buttons[#buttons + 1] = button;
 				end;
 			end;
@@ -466,15 +474,71 @@ function PANEL:Rebuild(change)
 		
 		for k, v in pairs(self.statusInfo.limbFrame.texInfo.limbBounds) do
 			local name = self.statusInfo.limbFrame.texInfo.names[k];
+			local limbButton = Clockwork.kernel:CreateDermaToolTip(vgui.Create("DImageButton", self.statusInfo.limbFrame));
 
-			self.statusInfo.limbFrame[name] = Clockwork.kernel:CreateDermaToolTip(vgui.Create("DImageButton", self.statusInfo.limbFrame));
-			self.statusInfo.limbFrame[name]:SetPos(38 + v.x, 8 + v.y);
-			self.statusInfo.limbFrame[name]:SetSize(v.bX, v.bY);
-			self.statusInfo.limbFrame[name].hitGroup = k;
+			limbButton:SetPos(38 + v.x, 8 + v.y);
+			limbButton:SetSize(v.bX, v.bY);
+			limbButton.hitGroup = k;
 			
-			self.statusInfo.limbFrame[name]:SetToolTipCallback(function(frame)
+			if cwMedicalSystem then
+				limbButton.DoClick = function(panel)
+					local menuOptions = {};
+
+					local inventory = Clockwork.inventory:GetClient();
+					local inventoryList = Clockwork.inventory:GetAsItemsList(inventory);
+					
+					for k, v in pairs (inventoryList) do
+						if menuOptions[v.name] then continue end;
+
+						if v.baseItem == "medical_base" then
+							if v.useOnSelf and v.applicable and v.limbs then
+								local hitGroupString = string.lower(Clockwork.limb.names[panel.hitGroup]);
+								local itemTable = item.FindInstance(v.itemID);
+								
+								if istable(v.limbs) and table.HasValue(v.limbs, panel.hitGroup) then
+									menuOptions[v.name] = function()
+										if itemTable then
+											Clockwork.inventory:InventoryAction(string.gsub("apply_"..hitGroupString, " ", "_"), itemTable.uniqueID, itemTable.itemID);
+										end
+									end
+								elseif v.limbs == "all" then
+									menuOptions[v.name] = function()
+										if itemTable then
+											Clockwork.inventory:InventoryAction("apply_all", itemTable.uniqueID, itemTable.itemID);
+										end
+									end
+								end
+							end
+						end
+					end
+					
+					if !table.IsEmpty(menuOptions) then
+						local menuPanel = DermaMenu();
+						
+						menuPanel:SetParent(Clockwork.menu:GetPanel().statusInfo);
+						
+						Clockwork.kernel:AddMenuFromData(menuPanel, menuOptions);
+
+						if (IsValid(menuPanel)) then
+							-- This is ghetto but I can't figure out how to get ScreenToLocal working for some reason.
+							local x = gui.MouseX() - Clockwork.menu:GetPanel().statusInfo:GetX();
+							local y = gui.MouseY() - Clockwork.menu:GetPanel().statusInfo:GetY();
+							
+							menuPanel:SetPos(
+								math.min(menuPanel:GetParent():GetWide() - menuPanel:GetWide(), x - (menuPanel:GetWide() / 2)), math.max(menuPanel:GetTall(), y - (menuPanel:GetTall() / 2))
+							)
+							
+							return;
+						end
+					end
+				end
+			end
+			
+			limbButton:SetToolTipCallback(function(frame)
 				Clockwork.limb:BuildTooltip(k, x, y, 220, frame:GetTall(), frame);
 			end);
+			
+			self.statusInfo.limbFrame[name] = limbButton;
 		end
 		
 		function self.statusInfo.limbFrame.Paint()
@@ -598,6 +662,8 @@ function PANEL:Rebuild(change)
 		self.statusInfo.iconFrame.iconCorruption:SetToolTipCallback(function(frame)
 			cwCharacterNeeds:BuildNeedTooltip("corruption", x, y, frame:GetWide(), frame:GetTall(), frame);
 		end);
+		
+		hook.Run("AddStatusIcons", self.statusInfo.iconFrame);
 		
 		self.statusInfo.statusFrame = vgui.Create("DPanel", self.statusInfo);
 		self.statusInfo.statusFrame:SetSize(200, 274);
@@ -918,8 +984,11 @@ function PANEL:Think()
 			end;
 		end;
 		
+		-- Hacky fix for losing focus when a menu panel is opened. Also need to make sure tooltips take priority.
 		if self.statusInfo then
-			self.statusInfo:MakePopup();
+			if !Clockwork.ActiveDermaToolTips or table.IsEmpty(Clockwork.ActiveDermaToolTips) then
+				self.statusInfo:MakePopup();
+			end
 		end
 	end;
 end;
@@ -968,7 +1037,7 @@ hook.Add("VGUIMousePressed", "Clockwork.menu:VGUIMousePressed", function(panel, 
 	end;
 end);
 
-Clockwork.datastream:Hook("MenuOpen", function(data)
+netstream.Hook("MenuOpen", function(data)
 	local panel = Clockwork.menu:GetPanel();
 	
 	if (panel) then

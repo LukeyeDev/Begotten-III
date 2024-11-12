@@ -8,8 +8,8 @@ function cwDayNight:ClockworkInitialized()
 end
 
 function cwDayNight:PlayerCharacterInitialized(player)
-	Clockwork.datastream:Start(player, "SetCurrentCycle", self.currentCycle);
-	Clockwork.datastream:Start(player, "SetNightWeight", self.nightWeight);
+	netstream.Start(player, "SetCurrentCycle", self.currentCycle);
+	netstream.Start(player, "SetNightWeight", self.nightWeight);
 end;
 
 local map = game.GetMap() == "rp_begotten3" or game.GetMap() == "rp_begotten_redux" or game.GetMap() == "rp_scraptown";
@@ -63,17 +63,17 @@ function cwDayNight:Think()
 end;
 
 -- Called at an interval while the player is connected to the server.
-function cwDayNight:PlayerThink(player, curTime, infoTable, alive, initialized)
+function cwDayNight:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
 	if (!map) then
 		return;
 	end;
 	
 	if initialized and alive then
 		if self.currentCycle == "night" then
-			if !player.nextMoonCheck or player.nextMoonCheck < curTime then
-				player.nextMoonCheck = curTime + 1;
+			if !plyTab.nextMoonCheck or plyTab.nextMoonCheck < curTime then
+				plyTab.nextMoonCheck = curTime + 1;
 
-				if not player.opponent and not player.cwObserverMode then
+				if not plyTab.opponent and not plyTab.cwObserverMode then
 					local lastZone = player:GetCharacterData("LastZone");
 					
 					if lastZone == "wasteland" then
@@ -84,24 +84,34 @@ function cwDayNight:PlayerThink(player, curTime, infoTable, alive, initialized)
 								if helmetItem and helmetItem.overlay and helmetItem and player:EyeAngles().p > -70 then
 									return;
 								end
-									
+
 								if player:GetEyeTrace().HitSky then
-									if player.moonCooldown then
-										if curTime < player.moonCooldown then
+									if plyTab.moonCooldown then
+										if curTime < plyTab.moonCooldown then
 											return;
 										end
+									end
+									
+									if player:GetRagdollState() == RAGDOLL_KNOCKEDOUT then
+										return;
 									end
 									
 									player:HandleSanity(-50);
 									
 									if --[[!player:HasBelief("lunar_repudiation") and]] player:GetSanity() <= 0 then
-										Schema:EasyText(player, "maroon", "The moon is everything. There is no point anymore.");
-										player:CommitSuicide();
+										local ragdollEntity = player:GetRagdollEntity();
+										
+										if IsValid(ragdollEntity) and ragdollEntity.cwIsBeingHeld then
+											Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 60);
+										else
+											Schema:EasyText(player, "maroon", "The moon is everything. There is no point anymore.");
+											player:CommitSuicide();
+										end
 									end
 									
-									Clockwork.datastream:Start(player, "MoonTrigger");
+									netstream.Start(player, "MoonTrigger");
 									
-									player.moonCooldown = curTime + 5;
+									plyTab.moonCooldown = curTime + 5;
 								end
 							end
 						end
@@ -109,11 +119,11 @@ function cwDayNight:PlayerThink(player, curTime, infoTable, alive, initialized)
 				end
 			end
 		elseif self.currentCycle == "day" then
-			if !player.dayVampireCheck or player.dayVampireCheck < curTime then
-				player.dayVampireCheck = curTime + 5;
+			if !plyTab.dayVampireCheck or plyTab.dayVampireCheck < curTime then
+				plyTab.dayVampireCheck = curTime + 5;
 				
 				if player:GetSubfaction() == "Rekh-khet-sa" then
-					if !player.opponent and !player.cwObserverMode and !player.ritualOfShadow and !player.cwWakingUp then
+					if !plyTab.opponent and !plyTab.cwObserverMode and !plyTab.ritualOfShadow and !plyTab.cwWakingUp then
 						local lastZone = player:GetCharacterData("LastZone");
 						
 						if lastZone == "wasteland" then
@@ -130,13 +140,19 @@ function cwDayNight:PlayerThink(player, curTime, infoTable, alive, initialized)
 								
 								Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken 3 damage from the sun, leaving them at "..player:Health().." health.");
 					
-								Clockwork.datastream:Start(player, "Stunned", 3);
+								netstream.Start(player, "Stunned", 3);
 							end
 						end
 					end
 				end
 			end
 		end
+	end
+end
+
+function cwDayNight:PlayerExitedDuel(player)
+	if player:GetSubfaction() == "Rekh-khet-sa" then
+		player.dayVampireCheck = CurTime() + 10;
 	end
 end
 
@@ -166,11 +182,7 @@ netstream.Hook("ShadowDamage", function(player, data)
 		selfless = "herself";
 	end
 	
-	local playerCount = _player.GetCount();
-	local players = _player.GetAll();
-
-	for i = 1, playerCount do
-		local v, k = players[i], i;
+	for _, v in _player.Iterator() do
 		if v ~= player and (playerPos:DistToSqr(v:GetPos()) <= (radius * radius)) then
 			listeners[#listeners + 1] = v;
 		end;

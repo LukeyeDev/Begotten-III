@@ -97,7 +97,7 @@ local COMMAND = Clockwork.command:New("SetHealthMaxAll");
 			affect_duelists = true;
 		end
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if v:HasInitialized() and v:Alive() then
 				if !v.opponent or (v.opponent and affect_duelists) then
 					v:SetHealth(v:GetMaxHealth() or 100);
@@ -234,7 +234,7 @@ local COMMAND = Clockwork.command:New("PlyGodAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			v:GodEnable();
 		end;
 		
@@ -249,7 +249,7 @@ local COMMAND = Clockwork.command:New("PlyUnGodAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			v:GodDisable();
 		end;
 		
@@ -259,11 +259,11 @@ COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("CharTransferFaction");
 	COMMAND.tip = "Transfer a character to a faction. This will clear their subfaction so be sure to set a new one!";
-	COMMAND.text = "<string Name> <string Faction> [string Data]";
+	COMMAND.text = "<string Name> <string Faction> [string Subfaction] [string Data]";
 	COMMAND.access = "o";
 	COMMAND.arguments = 2;
-	COMMAND.optionalArguments = 1;
-	COMMAND.alias = {"TransferFaction", "PlyTransferFaction"};
+	COMMAND.optionalArguments = 2;
+	COMMAND.alias = {"TransferFaction", "PlyTransferFaction", "SetFaction", "CharSetFaction", "PlySetFaction"};
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
@@ -296,15 +296,99 @@ local COMMAND = Clockwork.command:New("CharTransferFaction");
 					return;
 				end;
 				
-				local bSuccess, fault = Clockwork.faction:GetStored()[faction]:OnTransferred(target, Clockwork.faction:GetStored()[targetFaction], arguments[3]);
+				local bSuccess, fault = Clockwork.faction:GetStored()[faction]:OnTransferred(target, Clockwork.faction:GetStored()[targetFaction], arguments[4]);
 				
 				if (bSuccess != false) then
 					target:SetCharacterData("Faction", faction, true);
-					target:SetCharacterData("Subfaction", "", true);
 					target:SetCharacterData("rank", nil);
+					target:SetCharacterData("rankOverride", nil);
+					
+					local factionSubfactions = Clockwork.faction:GetStored()[faction].subfactions;
+					local subfaction;
+					
+					if (factionSubfactions) then
+						for i, v in ipairs(factionSubfactions) do
+							if arguments[3] then
+								if v.name == arguments[3] then
+									subfaction = v;
+									
+									break;
+								end
+							else
+								subfaction = v;
+								
+								break;
+							end
+						end
+						
+						if subfaction and istable(subfaction) then
+							target:SetCharacterData("Subfaction", subfaction.name, true);
+							
+							if cwBeliefs then
+								-- Remove any subfaction locked beliefs.
+								local beliefsTab = cwBeliefs:GetBeliefs();
+								local targetBeliefs = target:GetCharacterData("beliefs");
+								local targetEpiphanies = target:GetCharacterData("points", 0);
+								
+								for k, v in pairs(beliefsTab) do
+									if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction.name) then
+										if targetBeliefs[k] then
+											targetBeliefs[k] = false;
+											
+											targetEpiphanies = targetEpiphanies + 1;
+											
+											local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+											
+											if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+												targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+											end
+										end
+									end
+								end
+								
+								target:SetCharacterData("beliefs", targetBeliefs);
+								target:SetLocalVar("points", targetEpiphanies);
+								target:SetCharacterData("points", targetEpiphanies);
+								
+								--local max_poise = target:GetMaxPoise();
+								--local poise = target:GetNWInt("meleeStamina");
+								local max_stamina = target:GetMaxStamina();
+								local max_stability = target:GetMaxStability();
+								local stamina = target:GetNWInt("Stamina", 100);
+								
+								target:SetMaxHealth(target:GetMaxHealth());
+								target:SetLocalVar("maxStability", max_stability);
+								--target:SetLocalVar("maxMeleeStamina", max_poise);
+								--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+								target:SetLocalVar("Max_Stamina", max_stamina);
+								target:SetCharacterData("Max_Stamina", max_stamina);
+								target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+								target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+								
+								hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+								
+								target:NetworkBeliefs();
+							end
+						else
+							target:SetCharacterData("Subfaction", "", true);
+						end
+					else
+						target:SetCharacterData("Subfaction", "", true);
+					end
+					
+					local targetAngles = target:EyeAngles();
+					local targetPos = target:GetPos();
 					
 					Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
-					Clockwork.player:NotifyAll(player:Name().." has transferred "..name.." to the "..faction.." faction.");
+					
+					target:SetPos(targetPos);
+					target:SetEyeAngles(targetAngles);
+					
+					if subfaction then
+						Clockwork.player:NotifyAll(player:Name().." has transferred "..name.." to the "..faction.." faction and "..subfaction.name.." subfaction.");
+					else
+						Clockwork.player:NotifyAll(player:Name().." has transferred "..name.." to the "..faction.." faction.");
+					end
 				else
 					Clockwork.player:Notify(player, fault or target:Name().." could not be transferred to the "..faction.." faction!");
 				end;
@@ -323,7 +407,7 @@ local COMMAND = Clockwork.command:New("CharTransferSubfaction");
 	COMMAND.access = "o";
 	COMMAND.arguments = 2;
 	COMMAND.optionalArguments = 1;
-	COMMAND.alias = {"TransferSubfaction", "PlyTransferSubfaction"};
+	COMMAND.alias = {"TransferSubfaction", "PlyTransferSubfaction", "SetSubfaction", "CharSetSubfaction", "PlySetSubfaction"};
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
@@ -347,7 +431,60 @@ local COMMAND = Clockwork.command:New("CharTransferSubfaction");
 				if istable(subfaction) then
 					target:SetCharacterData("Subfaction", subfaction.name, true);
 					
+					if cwBeliefs then
+						-- Remove any subfaction locked beliefs.
+						local beliefsTab = cwBeliefs:GetBeliefs();
+						local targetBeliefs = target:GetCharacterData("beliefs");
+						local targetEpiphanies = target:GetCharacterData("points", 0);
+						
+						for k, v in pairs(beliefsTab) do
+							if v.lockedSubfactions and table.HasValue(v.lockedSubfactions, subfaction.name) then
+								if targetBeliefs[k] then
+									targetBeliefs[k] = false;
+									
+									targetEpiphanies = targetEpiphanies + 1;
+									
+									local beliefTree = cwBeliefs:FindBeliefTreeByBelief(k);
+									
+									if beliefTree.hasFinisher and targetBeliefs[beliefTree.uniqueID.."_finisher"] then
+										targetBeliefs[beliefTree.uniqueID.."_finisher"] = false;
+									end
+								end
+							end
+						end
+						
+						target:SetCharacterData("beliefs", targetBeliefs);
+						target:SetLocalVar("points", targetEpiphanies);
+						target:SetCharacterData("points", targetEpiphanies);
+						
+						--local max_poise = target:GetMaxPoise();
+						--local poise = target:GetNWInt("meleeStamina");
+						local max_stamina = target:GetMaxStamina();
+						local max_stability = target:GetMaxStability();
+						local stamina = target:GetNWInt("Stamina", 100);
+						
+						target:SetMaxHealth(target:GetMaxHealth());
+						target:SetLocalVar("maxStability", max_stability);
+						--target:SetLocalVar("maxMeleeStamina", max_poise);
+						--target:SetNWInt("meleeStamina", math.min(poise, max_poise));
+						target:SetLocalVar("Max_Stamina", max_stamina);
+						target:SetCharacterData("Max_Stamina", max_stamina);
+						target:SetNWInt("Stamina", math.min(stamina, max_stamina));
+						target:SetCharacterData("Stamina", math.min(stamina, max_stamina));
+						
+						hook.Run("RunModifyPlayerSpeed", target, target.cwInfoTable, true)
+						
+						target:NetworkBeliefs();
+					end
+					
+					local targetAngles = target:EyeAngles();
+					local targetPos = target:GetPos();
+					
 					Clockwork.player:LoadCharacter(target, Clockwork.player:GetCharacterID(target));
+					
+					target:SetPos(targetPos);
+					target:SetEyeAngles(targetAngles);
+					
 					Clockwork.player:NotifyAll(player:Name().." has transferred "..name.." to the "..subfaction.name.." subfaction.");
 				else
 					Clockwork.player:Notify(player, subfaction.." is not a valid subfaction for this faction!");
@@ -763,5 +900,64 @@ local COMMAND = Clockwork.command:New("CharGiveFlags");
 		else
 			Clockwork.player:Notify(player, arguments[1].." is not a valid character!");
 		end;
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("CharKick");
+    COMMAND.tip = "Kicks somebody off of their character.";
+    COMMAND.flags = CMD_DEFAULT;
+    COMMAND.arguments = 1;
+    COMMAND.access = "s";
+    COMMAND.text = "<string Name>";
+
+    -- Called when the command has been run.
+    function COMMAND:OnRun(player, arguments)
+        local target = Clockwork.player:FindByID(arguments[1]);
+        if(!IsValid(target)) then Schema:EasyText(player, "peru", "This is not a valid player!"); return; end
+		if !target.cwCharacter then Schema:EasyText(player, "peru", target:Name().." does not have a character loaded!"); return; end
+		
+		Clockwork.player:UnloadCharacter(target);
+        Schema:EasyText(Schema:GetAdmins(), "yellow", (target:Name().." has been kicked off of their character by "..player:Name().."."));
+		Clockwork.player:SetCreateFault(target, "You have been kicked off of your character.");
+    end
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("EnableFaction");
+	COMMAND.tip = "Enable respawning and creating new characters for a faction.";
+	COMMAND.arguments = 1;
+	COMMAND.access = "s";
+    COMMAND.text = "<string Faction>";
+	COMMAND.alias = {"UnlockFaction"};
+	
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local factionTable = Clockwork.faction:FindByID(arguments[1]);
+		
+		if !factionTable then Schema:EasyText(player, "peru", "This is not a valid faction!"); return; end
+		if !factionTable.disabled then Schema:EasyText(player, "peru", "This faction is already enabled!"); return; end
+		
+		factionTable.disabled = false;
+		
+		Clockwork.player:NotifyAdmins("operator", player:Name().." has enabled the "..factionTable.name.." faction.");
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("DisableFaction");
+	COMMAND.tip = "Disable respawning and creating new characters for a faction.";
+	COMMAND.arguments = 1;
+	COMMAND.access = "s";
+    COMMAND.text = "<string Faction>";
+	COMMAND.alias = {"LockFaction"};
+	
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local factionTable = Clockwork.faction:FindByID(arguments[1]);
+		
+		if !factionTable then Schema:EasyText(player, "peru", "This is not a valid faction!"); return; end
+		if factionTable.disabled then Schema:EasyText(player, "peru", "This faction is already disabled!"); return; end
+		
+		factionTable.disabled = true;
+		
+		Clockwork.player:NotifyAdmins("operator", player:Name().." has disabled the "..factionTable.name.." faction.");
 	end;
 COMMAND:Register();

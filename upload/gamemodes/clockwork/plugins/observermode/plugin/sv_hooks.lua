@@ -9,8 +9,8 @@ function cwObserverMode:PlayerNoClip(player)
 end
 
 -- Called at an interval while a player is connected.
-function cwObserverMode:PlayerThink(player, curTime, infoTable)
-	if player.cwObserverMode then
+function cwObserverMode:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
+	if plyTab.cwObserverMode then
 		if (!player:InVehicle() and player:GetMoveType() == MOVETYPE_NOCLIP) then
 			local color = player:GetColor()
 				player:SetRenderMode(RENDERMODE_TRANSALPHA);
@@ -20,7 +20,7 @@ function cwObserverMode:PlayerThink(player, curTime, infoTable)
 				player:SetNotSolid(true)
 			player:SetColor(Color(color.r, color.g, color.b, 0))
 		else
-			if (!player.cwObserverReset) then
+			if (!plyTab.cwObserverReset) then
 				cwObserverMode:MakePlayerExitObserverMode(player)
 			end
 		end
@@ -57,9 +57,13 @@ end;
 
 function cwObserverMode:PlayerDeath(player)
 	if self.spectatorMode and player:HasInitialized() then
-		Schema:EasyText(player, "darkgrey", "["..self.name.."] Spectator mode is currently enabled! Type /spectate to enable or disable it.");
+		Schema:EasyText(player, "darkgrey", "["..self.name.."] Spectator mode is currently enabled! Type /spectate to toggle spectating.");
 	end
 end;
+
+function cwObserverMode:PlayerCanBeIgnited(player)
+	if player.cwObserverMode then return false end;
+end
 
 function cwObserverMode:PlayerCanSwitchCharacter(player, character)
 	if player:GetMoveType() == MOVETYPE_NOCLIP and !player:IsAdmin() then
@@ -88,7 +92,7 @@ end;
 function cwObserverMode:PlayerCanUseCommand(player, commandTable, arguments)
 	local lowername = string.lower(commandTable.name);
 	
-	if (lowername != "adminhelp" or lowername != "pm") then
+	if (lowername != "spectate" and lowername != "adminhelp" and lowername != "pm") then
 		if player:GetMoveType() == MOVETYPE_NOCLIP and !player:IsAdmin() then
 			Schema:EasyText(player, "darkgrey", "["..self.name.."] You cannot use commands while in spectator mode!");
 			
@@ -113,7 +117,7 @@ function cwObserverMode:PlayerUseItem(player, itemTable, itemEntity)
 	end;
 end;
 
-function cwObserverMode:PlayerDropItem(player, itemTable, position, entity) 
+function cwObserverMode:PlayerCanDropItem(player, itemTable, position) 
 	if player:GetMoveType() == MOVETYPE_NOCLIP and !player:IsAdmin() then
 		Schema:EasyText(player, "darkgrey", "["..self.name.."] You cannot drop items while in spectator mode!");
 		

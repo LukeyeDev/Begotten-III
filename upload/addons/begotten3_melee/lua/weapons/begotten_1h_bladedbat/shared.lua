@@ -87,7 +87,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -104,9 +104,19 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_bladedbat"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.99, 0.899, 5.714), angle = Angle(-8.183, 104.026, 180), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
+	["v_bladedbat"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.99, 0.899, 5.714), angle = Angle(-8.183, 104.026, 180), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
 }
 
 SWEP.WElements = {
-	["w_bladedbat"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1.75, 5.4), angle = Angle(-174.157, 73.636, 1.169), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
+	["w_bladedbat"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1.75, 5.4), angle = Angle(-174.157, 73.636, 1.169), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
+}
+
+SWEP.VElementsDual = {
+	["v_left"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "Dummy16", rel = "", pos = Vector(-1.201, -6.753, -0.6), angle = Angle(-111.04, -36.235, -104.027), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} },
+	["v_right"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "Dummy01", rel = "", pos = Vector(-1, -7, 0.7), angle = Angle(-90, 80.649, 12.857), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
+}
+
+SWEP.WElementsDual = {
+	["w_left"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(2.2, 0.2, -4), angle = Angle(8.182, 80.649, 10.519), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} },
+	["w_right"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/baseballbat.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.589, 3.2, 4), angle = Angle(-22.209, -104.027, -180), size = Vector(1, 1, 1), material = "", skin = 3, bodygroup = {[0] = 9, [1] = 1} }
 }

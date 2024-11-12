@@ -16,7 +16,9 @@ COMMAND.text = "<none>";
 
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
-	if (player:WaterLevel() >= 1) then
+	local waterLevel = player:WaterLevel();
+
+	if (waterLevel >= 1) then
 		local lastZone = player:GetCharacterData("LastZone");
 		local thirst = player:GetNeed("thirst", 0);
 		
@@ -74,6 +76,111 @@ function COMMAND:OnRun(player, arguments)
 			player:HandleXP(cwBeliefs.xpValues["drink"]);
 		end
 	else
+		if cwWeather then
+			local lastZone = player:GetCharacterData("LastZone");
+			local zoneTable = zones:FindByID(lastZone);
+			
+			if zoneTable.hasWeather then
+				local weather = cwWeather.weather;
+				
+				if weather == "acidrain" or weather == "bloodstorm" or weather == "thunderstorm" then
+					local thirst = player:GetNeed("thirst", 0);
+					
+					if !cwWeather:IsOutside(player:EyePos()) then
+						Schema:EasyText(player, "chocolate", "You must be standing in the rain to drink from it!");
+						
+						return;
+					end
+					
+					if cwBeliefs and (player:HasBelief("the_paradox_riddle_equation") or player:HasBelief("the_storm")) then
+						Schema:EasyText(player, "maroon", "You lap water down your receptacle, but it begins to short-circuit your insides!");
+						player:TakeDamage(25);
+						
+						return;
+					end
+
+					if weather == "acidrain" then
+						if player:GetSubfaction() == "Varazdat" then
+							Schema:EasyText(player, "chocolate", "There is no blood in this rain, to drink from this would be a moot point.");
+							
+							return;
+						end;
+						
+						if thirst <= 10 then
+							Schema:EasyText(player, "chocolate", "You aren't thirsty enough to drink from the rain.");
+							
+							return;
+						end
+					
+						Schema:EasyText(player, "olive", "You clasp a small amount of polluted rain in the cup of your hand, drinking it and burning your throat in the process!");
+						player:HandleSanity(-5);
+						player:HandleNeed("thirst", -15);
+						player:EmitSound("npc/barnacle/barnacle_gulp1.wav");
+						
+						local d = DamageInfo()
+						d:SetDamage(math.random(1, 3));
+						d:SetDamageType(DMG_BURN);
+						d:SetDamagePosition(player:GetPos() + Vector(0, 0, 48));
+						
+						player:TakeDamageInfo(d);
+						
+						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(d:GetDamage()).." damage from drinking acid rain, leaving them at "..player:Health().." health.");
+						
+						if cwBeliefs then
+							player:HandleXP(cwBeliefs.xpValues["drink"]);
+						end
+						
+						return;
+					elseif weather == "bloodstorm" then
+						if thirst <= 10 then
+							Schema:EasyText(player, "chocolate", "You aren't thirsty enough to drink from the rain.");
+							
+							return;
+						end
+					
+						if cwBeliefs and player:HasBelief("savage_animal") then
+							player:HandleNeed("thirst", -25);
+							player:EmitSound("npc/barnacle/barnacle_gulp1.wav");
+							Schema:EasyText(player, "olive", "You clasp a small amount of yummy blood in the cup of your hand, drinking it with glee!");
+						else
+							player:HandleSanity(-20);
+							player:HandleNeed("thirst", -15);
+							player:EmitSound("npc/barnacle/barnacle_gulp1.wav");
+							Schema:EasyText(player, "olive", "You clasp a small amount of foul smelling liquid in the cup of your hand, drinking it reluctantly. It tastes very iron-rich.");
+						end
+						
+						if cwBeliefs then
+							player:HandleXP(cwBeliefs.xpValues["drink"]);
+						end
+						
+						return;
+					elseif weather == "thunderstorm" then
+						if player:GetSubfaction() == "Varazdat" then
+							Schema:EasyText(player, "chocolate", "There is no blood in this rain, to drink from this would be a moot point.");
+							
+							return;
+						end;
+						
+						if thirst <= 10 then
+							Schema:EasyText(player, "chocolate", "You aren't thirsty enough to drink from the rain.");
+							
+							return;
+						end
+						
+						player:HandleNeed("thirst", -15);
+						player:EmitSound("npc/barnacle/barnacle_gulp1.wav");
+						Schema:EasyText(player, "olive", "You clasp a small amount of rain in the cup of your hand, drinking it. It tastes surprisingly fresh.");
+						
+						if cwBeliefs then
+							player:HandleXP(cwBeliefs.xpValues["drink"]);
+						end
+						
+						return;
+					end
+				end
+			end
+		end
+		
 		Schema:EasyText(player, "firebrick", "You must be near a source of water to drink!");
 	end;
 end;
@@ -93,7 +200,7 @@ function COMMAND:OnRun(player, arguments)
 	end
 
 	if (player:GetNeed("sleep") >= 40) then
-		if cwShacks then
+		if cwShacks and cwShacks.shacks then
 			for k, v in pairs(cwShacks.shacks) do
 				if player:GetPos():WithinAABox(v.pos1, v.pos2) then
 					if v.bedTier >= 2 then
@@ -118,10 +225,10 @@ function COMMAND:OnRun(player, arguments)
 			end
 		end
 		
-		local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+		local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 		local playerPos = player:GetPos();
 		
-		if faction == "Gatekeeper" or faction == "Holy Hierarchy" then
+		--if faction == "Gatekeeper" or faction == "Holy Hierarchy" then
 			--print(cwCharacterNeeds.bedZones["gatekeeper"].pos1);
 			--print(cwCharacterNeeds.bedZones["gatekeeper"].pos2);
 			--print(playerPos);
@@ -137,8 +244,9 @@ function COMMAND:OnRun(player, arguments)
 				Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 150);
 				Schema:EasyText(player, "olivedrab", "You climb into a cot and get some rest.");
 				return;
-			elseif faction == "Holy Hierarchy" then
-				if player:GetSubfaction() == "Minister" and cwCharacterNeeds.bedZones["ministers"] then
+			end
+			--elseif faction == "Holy Hierarchy" then
+				if cwCharacterNeeds.bedZones["ministers"] then
 					if playerPos:WithinAABox(cwCharacterNeeds.bedZones["ministers"].pos1, cwCharacterNeeds.bedZones["ministers"].pos2) then
 						player.sleepData = {health = 50, hunger = 5, thirst = 10, rest = -100, sanity = 50};
 						--player:HandleSanity(50);
@@ -146,7 +254,7 @@ function COMMAND:OnRun(player, arguments)
 						--player:HandleNeed("thirst", 10);
 						--player:HandleNeed("sleep", -100);
 						
-				Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 100);
+						Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 100);
 						Schema:EasyText(player, "olivedrab", "You climb into a bed and get some rest.");
 						return;
 					end
@@ -159,12 +267,13 @@ function COMMAND:OnRun(player, arguments)
 					--player:HandleNeed("thirst", 10);
 					--player:HandleNeed("sleep", -100);
 					
-				Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 100);
+					Clockwork.player:SetRagdollState(player, RAGDOLL_KNOCKEDOUT, 100);
 					Schema:EasyText(player, "olivedrab", "You climb into a bed and get some rest.");
 					return;
 				end
-			end
-		elseif faction == "Goreic Warrior" and cwCharacterNeeds.bedZones["gores"] then
+			--end
+		--elseif faction == "Goreic Warrior" and cwCharacterNeeds.bedZones["gores"] then
+		if cwCharacterNeeds.bedZones["gores"] then
 			if playerPos:WithinAABox(cwCharacterNeeds.bedZones["gores"].pos1, cwCharacterNeeds.bedZones["gores"].pos2) then
 				player.sleepData = {health = 25, hunger = 10, thirst = 20, rest = -60, sanity = 25};
 				--player:HandleSanity(25);
@@ -186,8 +295,10 @@ function COMMAND:OnRun(player, arguments)
 				Schema:EasyText(player, "olivedrab", "You climb into a cot and get some rest.");
 				return;
 			end
-			-- GetFaction() check incase they're disguised.
-		elseif player:GetFaction() == "Children of Satan" and cwCharacterNeeds.bedZones["satanists"] then
+		end
+		-- GetFaction() check incase they're disguised.
+		--elseif player:GetFaction() == "Children of Satan" and cwCharacterNeeds.bedZones["satanists"] then
+		if cwCharacterNeeds.bedZones["satanists"] then
 			if playerPos:WithinAABox(cwCharacterNeeds.bedZones["satanists"].pos1, cwCharacterNeeds.bedZones["satanists"].pos2) then
 				player.sleepData = {health = 50, hunger = 5, thirst = 10, rest = -100, sanity = 50};
 				--player:HandleSanity(50);
@@ -199,7 +310,8 @@ function COMMAND:OnRun(player, arguments)
 				Schema:EasyText(player, "olivedrab", "You climb into a bed and get some rest.");
 				return;
 			end
-		elseif faction == "Smog City Pirate" then
+		end
+		--elseif faction == "Smog City Pirate" then
 			if cwCharacterNeeds.bedZones["scrapper1"] then
 				if playerPos:WithinAABox(cwCharacterNeeds.bedZones["scrapper1"].pos1, cwCharacterNeeds.bedZones["scrapper1"].pos2) then
 					player.sleepData = {health = 50, hunger = 5, thirst = 10, rest = -100, sanity = 50};
@@ -227,7 +339,8 @@ function COMMAND:OnRun(player, arguments)
 					return;
 				end
 			end
-		elseif (faction == "The Third Inquisition" or game.GetMap() == "rp_scraptown") and cwCharacterNeeds.bedZones["third_inquisition"] then
+		--elseif (faction == "The Third Inquisition" or game.GetMap() == "rp_scraptown") and cwCharacterNeeds.bedZones["third_inquisition"] then
+		if cwCharacterNeeds.bedZones["third_inquisition"] then
 			if playerPos:WithinAABox(cwCharacterNeeds.bedZones["third_inquisition"].pos1, cwCharacterNeeds.bedZones["third_inquisition"].pos2) then
 				player.sleepData = {health = 50, hunger = 5, thirst = 10, rest = -100, sanity = 50};
 				--player:HandleSanity(50);
@@ -288,7 +401,7 @@ function COMMAND:OnRun(player, arguments)
 		target:SetNWInt("Stamina", amount);
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s stamina to "..amount..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s stamina to "..amount..".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own stamina to "..amount..".");
 		end;
@@ -309,7 +422,7 @@ COMMAND.alias = {"SetCorruption", "PlySetCorruption"};
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
 	local target = Clockwork.player:FindByID( arguments[1] )
-	local amount = arguments[2];
+	local amount = tonumber(arguments[2]);
 	
 	if (!amount) then
 		amount = 100;
@@ -319,7 +432,7 @@ function COMMAND:OnRun(player, arguments)
 		target:SetNeed("corruption", amount);
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s corruption to "..amount..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s corruption to "..amount..".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own corruption to "..amount..".");
 		end;
@@ -340,7 +453,7 @@ COMMAND.alias = {"SetHunger", "PlySetHunger"};
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
 	local target = Clockwork.player:FindByID( arguments[1] )
-	local amount = arguments[2];
+	local amount = tonumber(arguments[2]);
 	
 	if (!amount) then
 		amount = 100;
@@ -350,7 +463,7 @@ function COMMAND:OnRun(player, arguments)
 		target:SetNeed("hunger", amount);
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s hunger to "..amount..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s hunger to "..amount..".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own Hunger to "..amount..".");
 		end;
@@ -371,7 +484,7 @@ COMMAND.alias = {"SetThirst", "PlySetThirst"};
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
 	local target = Clockwork.player:FindByID( arguments[1] )
-	local amount = arguments[2];
+	local amount = tonumber(arguments[2]);
 	
 	if (!amount) then
 		amount = 100;
@@ -381,7 +494,7 @@ function COMMAND:OnRun(player, arguments)
 		target:SetNeed("thirst", amount);
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s thirst to "..amount..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s thirst to "..amount..".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own thirst to "..amount..".");
 		end;
@@ -402,7 +515,7 @@ COMMAND.alias = {"SetSleep", "PlySetSleep", "SetFatigue", "CharSetFatigue", "Ply
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
 	local target = Clockwork.player:FindByID( arguments[1] )
-	local amount = arguments[2];
+	local amount = tonumber(arguments[2]);
 	
 	if (!amount) then
 		amount = 100;
@@ -412,7 +525,7 @@ function COMMAND:OnRun(player, arguments)
 		target:SetNeed("sleep", amount);
 		
 		if (player != target) then
-			Schema:EasyText(GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s sleep to "..amount..".");
+			Schema:EasyText(Schema:GetAdmins(), "cornflowerblue", "["..self.name.."] "..player:Name().." has set "..target:Name().."'s sleep to "..amount..".");
 		else
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have set your own sleep to "..amount..".");
 		end;

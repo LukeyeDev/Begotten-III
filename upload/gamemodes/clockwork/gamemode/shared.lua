@@ -4,17 +4,19 @@
 
 	Other credits: kurozael, Alex Grist, Mr. Meow, zigbomb
 --]]
-SilentMode = true
+
+local silentMode = true;
+
 if (SERVER) then
 	function printp(t)
 		print(tostring(t));
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:IsAdmin()) then
-				if (SilentMode) then
+				if (silentMode) then
 					Msg(tostring(t))
 				else
 					Msg(tostring(t))
-					--v:ChatPrint(tostring(t));
+					v:ChatPrint(tostring(t));
 				end;
 			end;
 		end;
@@ -26,11 +28,11 @@ else
 		end;
 		
 		if (Clockwork.Client:IsAdmin()) then
-			if (SilentMode) then
+			if (silentMode) then
 				print(tostring(t))
 			else
 				print(tostring(t))
-				--Clockwork.Client:ChatPrint(tostring(t));
+				Clockwork.Client:ChatPrint(tostring(t));
 			end;
 		end;
 	end;
@@ -50,7 +52,7 @@ Clockwork.ClockworkFolder = Clockwork.ClockworkFolder or GM.Folder
 Clockwork.SchemaFolder = Clockwork.SchemaFolder or GM.Folder
 Clockwork.KernelVersion = "1"
 
-Clockwork.DebugMode = true
+Clockwork.DebugMode = false
 Clockwork.DeveloperVersion = true
 
 --[[

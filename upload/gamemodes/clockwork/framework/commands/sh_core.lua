@@ -113,7 +113,7 @@ local COMMAND = Clockwork.command:New("StorageTakeItems");
 			local players = {}
 			local inventory = Clockwork.storage:Query(player, "inventory");
 				
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
 					players[#players + 1] = v
 				end
@@ -164,7 +164,7 @@ local COMMAND = Clockwork.command:New("StorageTakeItems");
 				Clockwork.inventory:Rebuild(target);
 			end
 				
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
 					players[#players + 1] = v
 				end
@@ -353,7 +353,7 @@ local COMMAND = Clockwork.command:New("StorageGiveItems");
 			local players = {}
 			local inventory = Clockwork.storage:Query(player, "inventory");
 				
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if (v:HasInitialized() and Clockwork.storage:Query(v, "inventory") == inventory) then
 					players[#players + 1] = v
 				end
@@ -551,7 +551,7 @@ local COMMAND = Clockwork.command:New("OrderShipment");
 			return false;
 		end;
 		
-		if (!hook.Run("PlayerCanOrderShipment", player, itemTable)) then
+		if (hook.Run("PlayerCanOrderShipment", player, itemTable) == false) then
 			return false;
 		end;
 		
@@ -689,21 +689,21 @@ local COMMAND = Clockwork.command:New("DropWeapon");
 							Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal);
 							Clockwork.kernel:ForceUnequipItem(player, itemTable.uniqueID, itemTable.itemID);
 							
-							player:TakeItem(itemTable, true);
+							player:TakeItem(itemTable);
 							player:StripWeapon(class);
 							player:SelectWeapon("begotten_fists");
 							
 							hook.Run("PlayerDropWeapon", player, itemTable, entity, weapon);
 						end;
 					else
-						Clockwork.player:Notify(player, "You cannot drop your weapon that far away!");
+						Schema:EasyText(player, "peru", "You cannot drop your weapon that far away!");
 					end;
 				end;
 			else
-				Clockwork.player:Notify(player, "This is not a valid weapon!");
+				Schema:EasyText(player, "peru", "This is not a valid weapon!");
 			end;
 		else
-			Clockwork.player:Notify(player, "You cannot perform this action while in a duel!");
+			Schema:EasyText(player, "peru", "You cannot perform this action while in a duel!");
 		end;
 	end;
 COMMAND:Register();
@@ -717,29 +717,31 @@ local COMMAND = Clockwork.command:New("DropShield");
 		if not player.opponent then
 			for k, v in pairs(player.equipmentSlots) do
 				if v and v.category == "Shields" then
-					local trace = player:GetEyeTraceNoCursor();
-					
-					if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
-						local entity = Clockwork.entity:CreateItem(player, v, trace.HitPos);
+					if (hook.Run("PlayerCanDropWeapon", player, v)) then
+						local trace = player:GetEyeTraceNoCursor();
 						
-						if (IsValid(entity)) then
-							if (v:HasPlayerEquipped(player)) then
-								Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal);
-								Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
-								player:TakeItem(v, true);
+						if (player:GetShootPos():Distance(trace.HitPos) <= 192) then
+							local entity = Clockwork.entity:CreateItem(player, v, trace.HitPos);
+							
+							if (IsValid(entity)) then
+								if (v:HasPlayerEquipped(player)) then
+									Clockwork.entity:MakeFlushToGround(entity, trace.HitPos, trace.HitNormal);
+									Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+									player:TakeItem(v);
 
-								return;
-							end
+									return;
+								end
+							end;
+						else
+							Schema:EasyText(player, "peru", "You cannot drop your shield that far away!");
 						end;
-					else
-						Clockwork.player:Notify(player, "You cannot drop your shield that far away!");
-					end;
+					end
 				end
 			end;
 			
-			Clockwork.player:Notify(player, "This is not a valid shield!");
+			Schema:EasyText(player, "peru", "This is not a valid shield!");
 		else
-			Clockwork.player:Notify(player, "You cannot perform this action while in a duel!");
+			Schema:EasyText(player, "peru", "You cannot perform this action while in a duel!");
 		end
 	end;
 COMMAND:Register();
@@ -859,6 +861,7 @@ local COMMAND = Clockwork.command:New("CharFallOver");
 	COMMAND.text = "[number Seconds]";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.optionalArguments = 1;
+	COMMAND.alias = {"Fallover", "PlyFallover"};
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
@@ -878,10 +881,6 @@ local COMMAND = Clockwork.command:New("CharFallOver");
 				
 				if (!player:IsRagdolled()) then
 					Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER, seconds);
-					if (IsValid(player.Cum)) then
-						player.Cum:Remove()
-						player.Cum = nil
-					end;
 				end;
 			else
 				Clockwork.player:Notify(player, "You cannot do this action at the moment!");

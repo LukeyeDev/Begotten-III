@@ -32,6 +32,7 @@ SWEP.PrimaryIdleDelay = 0.85
 SWEP.AltPlaybackRate = 0.65
 SWEP.AltIdleDelay = 0.75
 SWEP.PrimarySwingAnim = "a_heavy_2h_attack_slash_01"
+SWEP.isLongsword = true;
 
 --Sounds
 SWEP.AttackSoundTable = "MediumWoodenAttackSoundTable" 
@@ -74,12 +75,18 @@ function SWEP:ParryAnimation()
 end
 
 function SWEP:HandlePrimaryAttack()
-
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	local attacktable = GetTable(self.AttackTable)
+	local anim = self.PrimarySwingAnim;
+	local rate = 0.7;
+	
+	if self:GetNW2Bool("swordplayActive") == true then
+		anim = anim.."_fast";
+		rate = 1;
+	end
 
 	--Attack animation
-	self:TriggerAnim(self.Owner, self.PrimarySwingAnim);
+	self:TriggerAnim(self.Owner, anim);
 
 	-- Viewmodel attack animation!
 	self.Weapon:EmitSound(self.WindUpSound)
@@ -92,20 +99,19 @@ function SWEP:HandlePrimaryAttack()
 		if ani == 1 and self:IsValid() then
 			self.Owner:ViewPunch(Angle(0,6,0))
 			self.Weapon:SendWeaponAnim(ACT_VM_HITRIGHT)
-			self.Owner:GetViewModel():SetPlaybackRate(0.7)
+			self.Owner:GetViewModel():SetPlaybackRate(rate)
 			self:IdleAnimationDelay( 0.9, 0.9 )
 
 		elseif ani == 2 and self:IsValid() then
 			self.Owner:ViewPunch(Angle(0,-6,0))
 			self.Weapon:SendWeaponAnim(ACT_VM_PULLBACK)
-			self.Owner:GetViewModel():SetPlaybackRate(0.7)
+			self.Owner:GetViewModel():SetPlaybackRate(rate)
 			self:IdleAnimationDelay( 0.9, 0.9 )
 		end
 	end
 end
 
 function SWEP:HandleThrustAttack()
-
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	local attacktable = GetTable(self.AttackTable)
 
@@ -113,24 +119,31 @@ function SWEP:HandleThrustAttack()
 	timer.Simple( attacktable["striketime"] - 0.05, function() if self:IsValid() and self.isAttacking then
 	self.Weapon:EmitSound(attacksoundtable["altsound"][math.random(1, #attacksoundtable["altsound"])])
 	end end)
+	
+	local anim = "a_heavy_2h_attack_stab_01";
+	local rate = 0.45;
+	
+	if self:GetNW2Bool("swordplayActive") == true then
+		anim = anim.."_fast";
+		rate = 0.7;
+	end
 
 	--Attack animation
-	self:TriggerAnim(self.Owner, "a_heavy_2h_attack_stab_01");
+	self:TriggerAnim(self.Owner, anim);
 
 	-- Viewmodel attack animation!
 	self.Weapon:SendWeaponAnim( ACT_VM_HITCENTER )
-	self.Owner:GetViewModel():SetPlaybackRate(0.45)
+	self.Owner:GetViewModel():SetPlaybackRate(rate)
 	self:IdleAnimationDelay( 0.8, 0.8 )
 	
 	self.Owner:ViewPunch(Angle(6,0,0))
-
 end
 
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(5,25,5))
 	self:IdleAnimationDelay( 3, 3 )
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 function SWEP:IdleAnimationDelay( seconds, index )
@@ -154,9 +167,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_traininglongsword"] = { type = "Model", model = "models/begotten/weapons/training_2h.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.359, -0.101, 4.099), angle = Angle(-3.5, 61.948, 1.169), size = Vector(1.1, 1.1, 1.1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_traininglongsword"] = { type = "Model", model = "models/begotten/weapons/training_2h.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.359, -0.101, 4.099), angle = Angle(-3.5, 61.948, 1.169), size = Vector(1.1, 1.1, 1.1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_traininglongsword"] = { type = "Model", model = "models/begotten/weapons/training_2h.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.4, 1.5, 0.5), angle = Angle(0, -104.027, 180), size = Vector(1.1, 1.1, 1.1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["w_traininglongsword"] = { type = "Model", model = "models/begotten/weapons/training_2h.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.4, 1.5, 0.5), angle = Angle(0, -104.027, 180), size = Vector(1.1, 1.1, 1.1), material = "", skin = 0, bodygroup = {[0] = 3} }
 }

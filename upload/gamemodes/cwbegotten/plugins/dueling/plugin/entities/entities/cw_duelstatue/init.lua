@@ -48,9 +48,11 @@ function ENT:Use(activator, caller)
 					
 					if weaponItemTable then
 						if weaponItemTable.category == "Firearms" then
-							if Clockwork then
-								Schema:EasyText(caller, "peru","You cannot enter a duel with a firearm equipped!");
-							end
+							Schema:EasyText(caller, "peru","You cannot enter a duel with a firearm equipped!");
+							
+							return;
+						elseif weaponItemTable.category == "Crossbows" then
+							Schema:EasyText(caller, "peru","You cannot enter a duel with a crossbow equipped!");
 							
 							return;
 						end
@@ -58,19 +60,26 @@ function ENT:Use(activator, caller)
 				end
 				
 				Clockwork.dermaRequest:RequestConfirmation(caller, "Duel", "Are you sure that you want to queue for a duel? Note that you will not lose progress or items upon death.", function()
-					cwDueling:PlayerEntersMatchmaking(caller);
-					caller.cachedPos = caller:GetPos();
-					caller.cachedAngles = caller:GetAngles();
-					caller.cachedHP = caller:Health();
-					caller.duelStatue = self;
+					if caller:Alive() and IsValid(self) then
+						if caller:GetPos():DistToSqr(self:GetPos()) > (256 * 256) then
+							return;
+						end
+						
+						if !caller.duelData then
+							caller.duelData = {};
+						end
+						
+						caller.duelData.duelStatue = self;
+						
+						cwDueling:PlayerEntersMatchmaking(caller);
+					end
 				end);
 			else
 				Schema:EasyText(caller, "icon16/shield_go.png", "orange", "Exited Duel Matchmaking")
+				
 				cwDueling:PlayerExitsMatchmaking(caller);
-				caller.cachedPos = nil;
-				caller.cachedAngles = nil;
-				caller.cachedHP = nil;
-				caller.duelStatue = nil;
+				
+				caller.duelData = nil;
 			end;
 		end;
 	end;

@@ -119,7 +119,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(5,25,5))
 	self:IdleAnimationDelay( 3, 3 )
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 function SWEP:IdleAnimationDelay( seconds, index )
@@ -145,9 +145,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_glaive"] = { type = "Model", model = "models/demonssouls/weapons/war scythe.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.5, -0.201, -11), angle = Angle(85.324, -1.17, -180), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_glaive"] = { type = "Model", model = "models/demonssouls/weapons/war scythe.mdl", bone = "RW_Weapon", rel = "", pos = Vector(-0.5, -0.201, -11), angle = Angle(85.324, -1.17, -180), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_glaive"] = { type = "Model", model = "models/demonssouls/weapons/war scythe.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1, -16.105), angle = Angle(-87.663, 140, -90), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_glaive"] = { type = "Model", model = "models/demonssouls/weapons/war scythe.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3, 1, -16.105), angle = Angle(-87.663, 140, -90), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

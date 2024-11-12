@@ -240,6 +240,14 @@ function SKIN:PaintNumSlider( panel, w, h )
 	PaintNotches( 8, h / 2 - 1, w - 16, 1, panel.m_iNotches )
 end
 
+function DCheckBox:OnChange(val)
+	DEFINE_BASECLASS("DCheckBox");
+
+	surface.PlaySound("begotten/ui/buttonclick.wav");
+
+	BaseClass.OnChange(self, val);
+end
+
 function SKIN:PaintCheckBox( panel, w, h )
 	--draw.RoundedBox(4, 0, 0, w, h, Color(21,21,21,200))
 
@@ -254,15 +262,6 @@ function SKIN:PaintCheckBox( panel, w, h )
 		draw.RoundedBox(2, 2.5, 2.5, w - 6, h - 6, Color(175 + panel.flashlerp,panel.flashlerp,panel.flashlerp,100))
 	else 
 		panel.flashlerp = 255
-	end
-
-	panel.OnChange = function(val)
-		if val and !panel.buttonfuckyou then
-			surface.PlaySound("begotten/ui/buttonclick.wav"); --spams it cuz this game blows so here comes a waste variable
-			panel.buttonfuckyou = true
-		else
-			panel.buttonfuckyou = false
-		end
 	end
 
 	--[[surface.SetDrawColor( Color( 255, 0, 0, 150 ) )
@@ -398,26 +397,22 @@ end;
 RunConsoleCommand("tooltip_delay", "0")
 
 function SKIN:PaintTooltip(panel, w, h)
-	if (Clockwork.Client:IsAdmin()) then
-		local w, h = panel:GetSize();
-				
-		DisableClipping(true);
-			for i = 1, 4 do
-				local borderSize = i * 2;
-				local bgColor = Color(0, 0, 0, (255 / i) * 0.3);
-				self:DrawGenericBackground(borderSize, borderSize, w, h, bgColor);
-				self:DrawGenericBackground(-borderSize, borderSize, w, h, bgColor);
-				self:DrawGenericBackground(borderSize, -borderSize, w, h, bgColor);
-				self:DrawGenericBackground(-borderSize, -borderSize, w, h, bgColor);
-			end;
+	local w, h = panel:GetSize();
+			
+	DisableClipping(true);
+		for i = 1, 4 do
+			local borderSize = i * 2;
+			local bgColor = Color(0, 0, 0, (255 / i) * 0.3);
+			self:DrawGenericBackground(borderSize, borderSize, w, h, bgColor);
+			self:DrawGenericBackground(-borderSize, borderSize, w, h, bgColor);
+			self:DrawGenericBackground(borderSize, -borderSize, w, h, bgColor);
+			self:DrawGenericBackground(-borderSize, -borderSize, w, h, bgColor);
+		end;
 
-			draw.RoundedBox(4, 0, 0, w, h, Color(200,0,0, 50));
-			panel:SetTextColor(Color(255, 255, 255, 255));
-			panel:SetExpensiveShadow(1, Color(0, 0, 0, 200));
-		DisableClipping(false);
-	else
-		panel:SetVisible(false);
-	end
+		draw.RoundedBox(4, 0, 0, w, h, Color(200,0,0, 50));
+		panel:SetTextColor(Color(255, 255, 255, 255));
+		panel:SetExpensiveShadow(1, Color(0, 0, 0, 200));
+	DisableClipping(false);
 end;
 
 derma.DefineSkin("Begotten", "Made for the Begotten framework.", SKIN);

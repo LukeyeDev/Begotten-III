@@ -19,7 +19,7 @@ SWEP.ViewModelFlip = false
 
 --Anims
 SWEP.BlockAnim = "a_spear_2h_block"
-SWEP.CriticalAnim = "a_spear_2h_halberd_attack2"
+SWEP.CriticalAnim = "a_spear_2h_halberd_attack2_fast"
 SWEP.ParryAnim = "a_spear_2h_parry"
 
 SWEP.IronSightsPos = Vector(3.64, -8.04, -6.56)
@@ -47,7 +47,7 @@ function SWEP:CriticalAnimation()
 
 	-- Viewmodel attack animation!
 	self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-	self.Owner:GetViewModel():SetPlaybackRate(0.25)
+	self.Owner:GetViewModel():SetPlaybackRate(0.33)
 	
 	if (SERVER) then
 	timer.Simple( 0.05, function() if self:IsValid() then
@@ -70,13 +70,13 @@ function SWEP:HandlePrimaryAttack()
 
 	--Attack animation
 	if IsValid(self) then
-		self:TriggerAnim(self.Owner, "a_spear_2h_halberd_attack1");
+		self:TriggerAnim(self.Owner, "a_spear_2h_halberd_attack1_fast");
 	end
 	
 	-- Viewmodel attack animation!
 	local vm = self.Owner:GetViewModel()
 	self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-	self.Owner:GetViewModel():SetPlaybackRate(0.25)
+	self.Owner:GetViewModel():SetPlaybackRate(0.33)
 	
 	self:EmitSound(attacksoundtable["primarysound"][math.random(1, #attacksoundtable["primarysound"])])
 	self.Owner:ViewPunch(attacktable["punchstrength"])
@@ -89,7 +89,7 @@ function SWEP:HandleThrustAttack()
 	local attacktable = GetTable(self.AttackTable)
 
 	--Attack animation
-	self:TriggerAnim(self.Owner, "a_spear_2h_attack_slow");
+	self:TriggerAnim(self.Owner, "a_spear_2h_attack_medium");
 
 	-- Viewmodel attack animation!
 	self.Weapon:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
@@ -103,7 +103,7 @@ end
 function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(0,5,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 /*---------------------------------------------------------
@@ -120,9 +120,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_gatekeeperpoleaxe"] = { type = "Model", model = "models/witcher2soldiers/tw2_halberd.mdl", bone = "v_weapon.Knife_Handle", rel = "", pos = Vector(4.5, -3.5, -25), angle = Angle(-5.2, 160.13, 80.649), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_gatekeeperpoleaxe"] = { type = "Model", model = "models/witcher2soldiers/tw2_halberd.mdl", bone = "v_weapon.Knife_Handle", rel = "", pos = Vector(4.5, -3.5, -25), angle = Angle(-5.2, 160.13, 80.649), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_gatekeeperpoleaxe"] = { type = "Model", model = "models/witcher2soldiers/tw2_halberd.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(0, 4.9, 20), angle = Angle(-3.6, 162.468, -101.689), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_gatekeeperpoleaxe"] = { type = "Model", model = "models/witcher2soldiers/tw2_halberd.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(0, 4.9, 20), angle = Angle(-3.6, 162.468, -101.689), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

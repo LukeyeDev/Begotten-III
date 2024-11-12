@@ -124,7 +124,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 	self.Owner:EmitSound(self.SpecialDrawSound)    
 	self.OwnerOverride = self.Owner; -- this is fucked rofl
 				
@@ -211,16 +211,7 @@ function SWEP:OnHolster()
 	end
 end
 
-function SWEP:OnRemove()
-	if (SERVER) then
-		if IsValid(self.OwnerOverride) and IsValid(self.OwnerOverride.particleprop) then
-			self.OwnerOverride.particleprop:Remove();
-		end
-	end
-end
-
 function SWEP:Hitscan()
-
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	local attacktable = GetTable(self.AttackTable)
 
@@ -300,9 +291,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_hellfiresword"] = { type = "Model", model = "models/items/weapons/sword_of_fire/sword_of_fire.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.635, 1.557, -0.519), angle = Angle(-87.663, -8.183, 180), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["v_hellfiresword"] = { type = "Model", model = "models/items/weapons/sword_of_fire/sword_of_fire.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(3.635, 1.557, -0.519), angle = Angle(-87.663, -8.183, 180), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }
 
 SWEP.WElements = {
-	["w_hellfiresword"] = { type = "Model", model = "models/items/weapons/sword_of_fire/sword_of_fire.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.596, 1.557, -0.519), angle = Angle(-78.312, -8.183, 5.843), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {} }
+	["w_hellfiresword"] = { type = "Model", model = "models/items/weapons/sword_of_fire/sword_of_fire.mdl", bone = "ValveBiped.Bip01_R_Hand", rel = "", pos = Vector(2.596, 1.557, -0.519), angle = Angle(-78.312, -8.183, 5.843), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {} }
 }

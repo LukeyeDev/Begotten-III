@@ -1,4 +1,5 @@
 
+
 --[[-------------------------------------------------------------------
 	Roll Mod:
 		Dodge, duck, dip, dive and... roll!
@@ -115,7 +116,7 @@ function meta:CanRoll()
 	end
 	
 	if Clockwork then
-		if (self:GetSharedVar("tied", 0) ~= 0) then
+		if (self:GetNetVar("tied", 0) ~= 0) then
 			return false;
 		end
 	
@@ -123,16 +124,18 @@ function meta:CanRoll()
 			return false;
 		end
 		
-		if Clockwork.player:GetAction(self) ~= "" then
+		if Clockwork.player:GetAction(self) then
 			return false;
 		end
 		
 		if cwMedicalSystem then
 			local injuries = cwMedicalSystem:GetInjuries(self);
 			
-			for k, v in pairs (injuries) do
-				if v["broken_bone"] then
-					return false;
+			if injuries then
+				for k, v in pairs(injuries) do
+					if v["broken_bone"] then
+						return false;
+					end
 				end
 			end
 		end
@@ -169,11 +172,11 @@ function meta:StartRolling(a)
 	hook.Call( "wOS.RollMod.OnRoll", nil, self )
 	
 	local roll_sound = hook.Run("GetRollSound", self);
-	local time = hook.Run("GetRollTime", self) or 0.75;
+	local time = hook.Run("GetRollTime", self) or 0.9;
 	local weaponRaised = self:IsWeaponRaised();
 	
 	if (Clockwork and Clockwork.player and Clockwork.player.HasFlags and Clockwork.player:HasFlags(self, "4")) then
-		time = 1
+		time = 0.9
 	end;
 	
 	if Clockwork then
@@ -182,9 +185,13 @@ function meta:StartRolling(a)
 			local stamina_loss = 20;
 			
 			if time == 1 then
-				stamina_loss = 30;
-			elseif time == 1.25 then
-				stamina_loss = 40;
+				stamina_loss = 25;
+			elseif time == 1.1 then
+				stamina_loss = 35;
+			end
+
+			if self.GetCharmEquipped and self:GetCharmEquipped("boot_contortionist") then
+				stamina_loss = stamina_loss * 0.5;
 			end
 			
 			if stamina < stamina_loss then
@@ -201,6 +208,8 @@ function meta:StartRolling(a)
 	self:Extinguish(); -- If on fire, put it out!
 	
 	self:SetNW2Float("wOS.RollSpeed", time);
+	
+	time = 0.9;
 	
 	if self:KeyDown( IN_BACK ) then
 		--if Clockwork and self:GetFaction() == "Children of Satan" then
@@ -248,13 +257,8 @@ function meta:StartRolling(a)
 	
 	local activeWeapon = self:GetActiveWeapon();
 	
-	if IsValid(activeWeapon) and activeWeapon.IsABegottenMelee then
+	if activeWeapon:IsValid() and activeWeapon.IsABegottenMelee then
 		activeWeapon.isAttacking = false;
-		
-		if IsValid(activeWeapon.SwingEntity) then
-			activeWeapon.SwingEntity:Remove();
-			activeWeapon.SwingEntity = nil;
-		end
 		
 		if activeWeapon.AttackSoundTable and activeWeapon.Weapon then
 			local attacksoundtable = GetSoundTable(activeWeapon.AttackSoundTable)
@@ -308,44 +312,62 @@ function meta:StartRolling(a)
 	end
 	
 	self.wOS.LastRoll = 0
+	
+	self.lastRoll = CurTime() + 1; -- Delay before next roll
+	self.nextDeflect = CurTime() + 1.5;
+	
+	--timer.Create("iFramesStartTimer_"..self:EntIndex(), time * 0.15, 1, function()
+		--if not IsValid( self ) then return end
+		
+		self.iFrames = true;
+	--end);
+	
+	self.blockStaminaRegen = math.max(self.blockStaminaRegen or 0, CurTime() + 1.5);
 
-	self.iFrames = true;
-	
-	self.lastRoll = CurTime() + 2; -- Delay before next roll
-	
-	timer.Create("iFramesTimer_"..self:EntIndex(), 2 - time, 1, function()
+	--[[timer.Create("iFramesEndTimer_"..self:EntIndex(), 1.5 - time, 1, function()
 		if not IsValid( self ) then return end
 		
 		self.iFrames = false;
-	end);
+	end);]]--
 
 	timer.Create("RollRaiseTimer_"..self:EntIndex(), time * 0.8, 1, function()
 		if not IsValid( self ) then return end
+		
+		timer.Simple(0.25, function()
+			if IsValid(self) then
+				if !self:wOSIsRolling() then
+					self.iFrames = false;
+				end
+			end
+		end);
+		
 		if not self:Alive() then return end
 		
+		local curTime = CurTime();
+
 		if weaponRaised then
 			self:SetWeaponRaised(true);
 			
 			if IsValid(self:GetActiveWeapon()) then
-				self:GetActiveWeapon():SetNextSecondaryFire(CurTime() + 1);
+				--self:GetActiveWeapon():SetNextSecondaryFire(curTime + 1);
 				
-				timer.Simple(1.05, function()
+				--timer.Simple(1.05, function()
 					if IsValid(self) and IsValid(self:GetActiveWeapon()) then
 						if self:KeyDown(IN_ATTACK2) and !self:KeyDown(IN_USE) then
 							local activeWeapon = self:GetActiveWeapon();
 
 							if activeWeapon.Base == "sword_swepbase" then
-								if (activeWeapon.IronSights == true) then
+								if (activeWeapon.realIronSights == true) then
 									local loweredParryDebug = activeWeapon:GetNextSecondaryFire();
 									local curTime = CurTime();
 									
 									if (loweredParryDebug < curTime) then
 										local blockTable = GetTable(activeWeapon.BlockTable);
 										
-										if (blockTable and self:GetNWInt("meleeStamina", 100) >= blockTable["guardblockamount"] and !self:GetNWBool("Parried")) then
-											self:SetNWBool("Guardening", true);
+										--if (blockTable and self:GetNWInt("meleeStamina", 100) >= blockTable["guardblockamount"] and !self:GetNetVar("Parried")) then
+										if (blockTable and self:GetNWInt("Stamina", 100) >= blockTable["guardblockamount"] and !self:GetNetVar("Parried")) then
+											self:SetLocalVar("Guardening", true);
 											self.beginBlockTransition = true;
-											self.StaminaRegenDelay = 0;
 											activeWeapon.Primary.Cone = activeWeapon.IronCone;
 											activeWeapon.Primary.Recoil = activeWeapon.Primary.IronRecoil;
 										else
@@ -358,7 +380,7 @@ function meta:StartRolling(a)
 							end
 						end
 					end
-				end);
+				--end);
 			end
 		end
 	end);

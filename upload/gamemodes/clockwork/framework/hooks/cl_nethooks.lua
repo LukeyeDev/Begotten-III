@@ -122,9 +122,11 @@ netstream.Hook("PlaySound", function(data)
 	surface.PlaySound(data)
 end)
 
-netstream.Hook("RequestCountryCode", function(data)
-	netstream.Start("SendCountryCode", system.GetCountry());
-end);
+net.Receive("RequestCountryCode", function()
+	net.Start("SendCountryCode")
+		net.WriteString(system.GetCountry())
+	net.SendToServer()
+end)
 
 netstream.Hook("RadioState", function(data)
 	Clockwork.Client.radioState = data or false;
@@ -221,6 +223,63 @@ netstream.Hook("RecogniseMenu", function(data)
 	Clockwork.kernel:SetRecogniseMenu(menuPanel)
 end)
 
+netstream.Hook("ReloadMenu", function(data)
+	local activeWeapon = Clockwork.Client:GetActiveWeapon();
+	
+	if !activeWeapon:IsValid() then return end;
+	if activeWeapon.Base ~= "begotten_firearm_base" then return end;
+	
+	local weaponItem = item.GetByWeapon(activeWeapon);
+	
+	if !weaponItem then return end;
+	
+	local menuOptions = {};
+	
+	local ammo = weaponItem:GetData("Ammo");
+	
+	if ammo and #ammo > 0 then
+		menuOptions["Unload"] = function()
+			if weaponItem then
+				Clockwork.inventory:InventoryAction("ammo", weaponItem.uniqueID, weaponItem.itemID);
+			end
+		end
+	elseif weaponItem.ammoTypes then
+		local inventory = Clockwork.inventory:GetClient();
+	
+		for i, v in ipairs(weaponItem.ammoTypes) do
+			local ammoItemTable = item.FindByID(string.lower(v));
+			
+			if ammoItemTable then
+				local itemInstances = inventory[ammoItemTable.uniqueID];
+				
+				if itemInstances and !table.IsEmpty(itemInstances) then
+					local ammoItem = table.Random(itemInstances);
+					
+					menuOptions[v] = function()
+						if weaponItem then
+							netstream.Start("UseAmmo", {ammoItem.uniqueID, ammoItem.itemID, weaponItem("uniqueID"), weaponItem("itemID")});
+						end
+					end
+				end
+			end
+		end
+	end
+	
+	if !table.IsEmpty(menuOptions) then
+		local menuPanel = Clockwork.kernel:AddMenuFromData(nil, menuOptions);
+
+		if (IsValid(menuPanel)) then
+			menuPanel:SetPos(
+				(ScrW() / 2) - (menuPanel:GetWide() / 2), (ScrH() / 2) - (menuPanel:GetTall() / 2)
+			)
+			
+			return;
+		end
+	end
+	
+	Schema:EasyText("chocolate", "No valid ammo could be found for this weapon!");
+end)
+
 netstream.Hook("ClockworkIntro", function(data)
 	if (!Clockwork.ClockworkIntroFadeOut) then
 		local introImage = Clockwork.option:GetKey("intro_image")
@@ -248,7 +307,7 @@ end)
 
 netstream.Hook("SharedVar", function(data)
 	local key = data.key
-	local sharedVars = Clockwork.kernel:GetSharedVars():Player()
+	local sharedVars = Clockwork.kernel:GetNetVars():Player()
 
 	if (sharedVars and sharedVars[key]) then
 		local sharedVarData = sharedVars[key]

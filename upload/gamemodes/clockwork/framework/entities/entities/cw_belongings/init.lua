@@ -39,10 +39,14 @@ function ENT:UpdateTransmitState()
 end
 
 -- A function to set the data of the entity.
-function ENT:SetData(inventory, cash)
+function ENT:SetData(inventory, cash, name)
 	self:SetModel("models/begotten/misc/sack.mdl")
-	self.cwInventory = inventory
+	self.cwInventory = inventory or {};
 	self.cwCash = cash
+	
+	if name then
+		self:SetNWString("name", name);
+	end
 end
 
 -- A function to explode the entity.
@@ -73,6 +77,15 @@ function ENT:OnRemove()
 
 	if (!Clockwork.kernel:IsShuttingDown()) then
 		--Clockwork.entity:DropItemsAndCash(self.cwInventory, self.cwCash, self:GetPos(), self)
+		
+		if self.cwInventory then
+			for k, v in pairs(self.cwInventory) do
+				for k2, v2 in pairs(v) do
+					item.RemoveInstance(k, true);
+				end
+			end
+		end
+		
 		self.cwInventory = nil
 		self.cwCash = nil
 	end

@@ -14,8 +14,7 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(0, 3, 0);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
-	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "wood"}}; -- use "breakdown" for other type
+	ITEM.components = {breakdownType = "meltdown", items = {"wood", "wood"}}; -- use "breakdown" for other type
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 200};
 ITEM:Register();
 
@@ -35,9 +34,28 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-2.83, 3, -23.24);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
-	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "wood", "wood"}}; -- use "breakdown" for other type
+	ITEM.components = {breakdownType = "breakdown", items = {"iron_chunks", "wood", "wood"}}; -- use "breakdown" for other type
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 600};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("weapon_base");
+	ITEM.name = "Iron Short Spear";
+	ITEM.model = "models/witcher2soldiers/tw2_shortspear.mdl";
+	ITEM.weight = 1.3;
+	ITEM.uniqueID = "begotten_spear_ironshortspear";
+	ITEM.category = "Melee";
+	ITEM.description = "An iron spear with a shorter shaft for faster and more personal killing.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/iron_shortspear.png"
+	ITEM.meleeWeapon = true;
+	ITEM.isAttachment = true;
+	ITEM.hasMinimumRange = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 0, 279.45);
+	ITEM.attachmentOffsetVector = Vector(-7.78, 3, -45.97);
+	ITEM.canUseShields = true;
+	
+	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "wood", "wood"}}; -- use "breakdown" for other type
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 800};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
@@ -56,7 +74,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-4.24, 3, -24.75);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "breakdown", items = {"iron_chunks", "wood"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 125};
 ITEM:Register();
@@ -77,7 +94,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(0, 3, -17.85);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "wood", "wood"}}; -- use "breakdown" for other type
 	ITEM.requireFaith = {"Faith of the Dark"};
 ITEM:Register();
@@ -99,7 +115,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-4.24, 3, -24.75);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "breakdown", items = {"scrap", "wood", "wood"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 250, bNoSupercrate = true};
 ITEM:Register();
@@ -120,7 +135,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-4.24, 3, -24.75);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "breakdown", items = {"wood"}};
 ITEM:Register();
 
@@ -140,13 +154,12 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-2.83, 3, -23.24);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "wood", "wood", "scrap", "scrap", "scrap", "scrap", "tech", "tech"}};
 	ITEM.requiredbeliefs = {"wriggle_fucking_eel"};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("weapon_base");
-	ITEM.name = "Winged Spear";
+	ITEM.name = "Steel Spear"; 
 	ITEM.model = "models/demonssouls/weapons/winged spear.mdl";
 	ITEM.weight = 2.3;
 	ITEM.uniqueID = "begotten_spear_wingedspear";
@@ -161,7 +174,6 @@ local ITEM = Clockwork.item:New("weapon_base");
 	ITEM.attachmentOffsetVector = Vector(-2.12, 3, -18.39);
 	ITEM.canUseShields = true;
 	
-	ITEM.attributes = {"grounded"};
 	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "wood", "wood"}}; -- use "breakdown" for other type
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 1000, supercrateOnly = true};
 ITEM:Register();

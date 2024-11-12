@@ -127,13 +127,12 @@ function SWEP:Deploy()
 	end
 
 	self.Owner.gestureweightbegin = 1;
-	self.Owner.StaminaRegenDelay = 1
-	self.Owner:SetNWBool("CanBlock", true)
-	self.Owner:SetNWBool("CanDeflect", true)
-	self.Owner:SetNWBool("ThrustStance", false)
-	self.Owner:SetNWBool("ParrySucess", false) 
-	self.Owner:SetNWBool("Riposting", false)
-	self.Owner:SetNWBool( "MelAttacking", false ) -- This should fix the bug where you can't block until attacking.
+	self.Owner:SetLocalVar("CanBlock", true)
+	self.Owner:SetLocalVar("CanDeflect", true)
+	self.Owner:SetLocalVar("ThrustStance", false)
+	self.Owner:SetLocalVar("ParrySuccess", false) 
+	self.Owner:SetLocalVar("Riposting", false)
+	self.Owner:SetLocalVar("MelAttacking", false ) -- This should fix the bug where you can't block until attacking.
 
 	self:SetNextPrimaryFire(0)
 	self:SetNextSecondaryFire(0)
@@ -162,7 +161,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 
 	self.Owner:ViewPunch(Angle(0,1,0))
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 	self.Owner:EmitSound(self.SpecialDrawSound)
 	self.OwnerOverride = self.Owner; -- this is fucked rofl
 				
@@ -245,14 +244,6 @@ function SWEP:OnHolster()
 	if (SERVER) then
 		if IsValid(self.Owner) and IsValid(self.Owner.particleprop) then
 			self.Owner.particleprop:Remove();
-		end
-	end
-end
-
-function SWEP:OnRemove()
-	if (SERVER) then
-		if IsValid(self.OwnerOverride) and IsValid(self.OwnerOverride.particleprop) then
-			self.OwnerOverride.particleprop:Remove();
 		end
 	end
 end
@@ -374,9 +365,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_frozenfatherlandaxe"] = { type = "Model", model = "models/begotten/weapons/gore_ice_axe.mdl", bone = "RightHand_1stP", rel = "", pos = Vector(-3.901, -5.715, 1), angle = Angle(-73.637, 0, 0), size = Vector(0.91, 0.91, 0.91), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["v_frozenfatherlandaxe"] = { type = "Model", model = "models/begotten/weapons/gore_ice_axe.mdl", bone = "RightHand_1stP", rel = "", pos = Vector(-3.901, -5.715, 1), angle = Angle(-73.637, 0, 0), size = Vector(0.91, 0.91, 0.91), material = "", skin = 0, bodygroup = {[0] = 3} }
 }
 
 SWEP.WElements = {
-	["w_frozenfatherlandaxe"] = { type = "Model", model = "models/begotten/weapons/gore_ice_axe.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(5.8, -0.35, 23.377), angle = Angle(3.506, -87.663, 85.324), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["w_frozenfatherlandaxe"] = { type = "Model", model = "models/begotten/weapons/gore_ice_axe.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(5.8, -0.35, 23.377), angle = Angle(3.506, -87.663, 85.324), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {[0] = 3} }
 }

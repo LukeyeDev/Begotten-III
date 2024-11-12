@@ -121,7 +121,7 @@ function SWEP:OnDeploy()
 	local attacksoundtable = GetSoundTable(self.AttackSoundTable)
 	self.Owner:ViewPunch(Angle(5,25,5))
 	self:IdleAnimationDelay( 3, 3 )
-	self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])])
+	if !self.Owner.cwObserverMode then self.Weapon:EmitSound(attacksoundtable["drawsound"][math.random(1, #attacksoundtable["drawsound"])]) end;
 end
 
 function SWEP:Deploy()
@@ -130,13 +130,12 @@ function SWEP:Deploy()
 	end
 
 	self.Owner.gestureweightbegin = 1;
-	self.Owner.StaminaRegenDelay = 1
-	self.Owner:SetNWBool("CanBlock", true)
-	self.Owner:SetNWBool("CanDeflect", true)
-	self.Owner:SetNWBool("ThrustStance", false)
-	self.Owner:SetNWBool("ParrySucess", false) 
-	self.Owner:SetNWBool("Riposting", false)
-	self.Owner:SetNWBool( "MelAttacking", false ) -- This should fix the bug where you can't block until attacking.
+	self.Owner:SetLocalVar("CanBlock", true)
+	self.Owner:SetLocalVar("CanDeflect", true)
+	self.Owner:SetLocalVar("ThrustStance", false)
+	self.Owner:SetLocalVar("ParrySuccess", false) 
+	self.Owner:SetLocalVar("Riposting", false)
+	self.Owner:SetLocalVar("MelAttacking", false ) -- This should fix the bug where you can't block until attacking.
 	
 	self:SetNextPrimaryFire(0)
 	self:SetNextSecondaryFire(0)
@@ -171,9 +170,9 @@ SWEP.ViewModelBoneMods = {
 }
 
 SWEP.VElements = {
-	["v_volthammer"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/rockethammer.mdl", bone = "RightHand_1stP", rel = "", pos = Vector(-3.901, 5, 0), angle = Angle(73.636, -92.338, 0), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["v_volthammer"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/rockethammer.mdl", bone = "RightHand_1stP", rel = "", pos = Vector(-3.901, 5, 0), angle = Angle(73.636, -92.338, 0), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {[0] = 3} }
 }
 
 SWEP.WElements = {
-	["w_volthammer"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/rockethammer.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(3.589, 1, 1.557), angle = Angle(-3, 100, 3.506), size = Vector(1, 1, 1), color = Color(255, 255, 255, 255), surpresslightning = false, material = "", skin = 0, bodygroup = {[0] = 3} }
+	["w_volthammer"] = { type = "Model", model = "models/mosi/fallout4/props/weapons/melee/rockethammer.mdl", bone = "ValveBiped.Bip01_L_Hand", rel = "", pos = Vector(3.589, 1, 1.557), angle = Angle(-3, 100, 3.506), size = Vector(1, 1, 1), material = "", skin = 0, bodygroup = {[0] = 3} }
 }

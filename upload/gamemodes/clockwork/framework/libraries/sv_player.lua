@@ -5,6 +5,12 @@
 	Other credits: kurozael, Alex Grist, Mr. Meow, zigbomb
 --]]
 
+util.AddNetworkString("SetWhitelisted")
+util.AddNetworkString("SetWhitelistedSubfaction")
+util.AddNetworkString("CharacterAdd")
+util.AddNetworkString("CharacterRemove")
+util.AddNetworkString("CharacterMenu")
+
 if (!Clockwork.player) then include("sh_player.lua") end
 if (!Clockwork.database) then include("sv_database.lua") end
 if (!Clockwork.chatBox) then include("sv_chatbox.lua") end
@@ -140,7 +146,7 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 	info.lastPlayed = data.lastPlayed
 	info.timeCreated = data.timeCreated
 	info.data = {}
-
+	
 	if (data.plugin) then
 		for k, v in pairs(data.plugin) do
 			info.data[k] = v
@@ -184,10 +190,30 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 			local traitTable = Clockwork.trait:FindByID(v);
 			
 			if (traitTable) then
+				if traitTable.disables then
+					for i, v in ipairs(traitTable.disables) do
+						if table.HasValue(data.traits, v) then
+							return self:SetCreateFault(player, "You have selected traits that are incompatible with eachother!");
+						end
+					end
+				end
+				
 				table.insert(info.data["Traits"], traitTable.uniqueID);
 				pointsSpent = pointsSpent + traitTable.points;
 			end;
 		end;
+		
+		if table.HasValue(data.traits, "leper") then
+			local dummyEnt = ents.Create("prop_dynamic");
+			
+			if IsValid(dummyEnt) then
+				dummyEnt:SetModel(info.model);
+				
+				info.skin = dummyEnt:SkinCount() - 1;
+				
+				dummyEnt:Remove();
+			end
+		end
 		
 		if (pointsSpent > maximumPoints) then
 			return self:SetCreateFault(player, "Your trait point balance must be equal to or above 0!");
@@ -196,7 +222,7 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 		return self:SetCreateFault(player, "You did not choose any of the available traits!");
 	end;
 
-	if (attributes and type(data.attributes) == "table") then
+	--[[if (attributes and type(data.attributes) == "table") then
 		local maximumPoints = config.Get("default_attribute_points"):Get()
 		local pointsSpent = 0
 
@@ -233,7 +259,7 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 		return self:SetCreateFault(
 			player, "You have invested points into an invalid attribute."
 		)
-	end
+	end]]--
 
 	if (!factionTable.GetName) then
 		if (!factionTable.useFullName) then
@@ -255,7 +281,9 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 				if Schema.Ranks then
 					for k, v in pairs(Schema.Ranks) do
 						for i, v2 in ipairs(v) do
-							table.insert(blacklistedNames, string.lower(v2));
+							if v2 ~= "" then
+								table.insert(blacklistedNames, string.lower(v2));
+							end
 						end
 					end
 				end
@@ -265,7 +293,7 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 				
 					if (string.find(forename, blacklistedName) or string.find(surname, blacklistedName)) then
 						if Schema.EasyText then
-							Schema:EasyText(GetAdmins(), "tomato", player:Name().." has attempted to make a character with the blacklisted phrase "..blacklistedName.."!");
+							Schema:EasyText(Schema:GetAdmins(), "tomato", player:Name().." has attempted to make a character with the blacklisted phrase "..blacklistedName.."!");
 						end
 					
 						return self:SetCreateFault(
@@ -377,7 +405,7 @@ function Clockwork.player:CreateCharacterFromData(player, data)
 
 		if (characterID) then
 			if (factionTable.GetName) then
-				info.name = factionTable:GetName(player, info, data)
+				info.name = factionTable:GetName(player, true)
 			elseif (!factionTable.useFullName) then
 				info.name = data.forename.." "..data.surname
 			else
@@ -475,13 +503,10 @@ end
 
 -- A function to open the character menu.
 function Clockwork.player:SetCharacterMenuOpen(player, bReset)
-	if (player:HasInitialized()) then
-		netstream.Start(player, "CharacterOpen", (bReset == true))
+	netstream.Start(player, "CharacterOpen", (bReset == true))
 
-		if (bReset) then
-			player.cwCharMenuReset = true
-			player:KillSilent()
-		end
+	if (bReset) then
+		player:KillSilent()
 	end
 end
 
@@ -555,7 +580,7 @@ end
 function Clockwork.player:SetAction(player, action, duration, priority, Callback)
 	local currentAction = self:GetAction(player)
 
-	if (type(action) != "string" or action == "") then
+	if (!action or type(action) != "string" or action == "") then
 		timer.Remove("Action"..player:UniqueID())
 
 		player:SetNetVar("StartActTime", 0)
@@ -575,8 +600,7 @@ function Clockwork.player:SetAction(player, action, duration, priority, Callback
 	end
 
 	if (player.cwAction) then
-		if ((priority and priority > player.cwAction[2])
-		or currentAction == "" or action == player.cwAction[1]) then
+		if ((priority and priority > player.cwAction[2]) or !currentAction or action == player.cwAction[1]) then
 			player.cwAction = nil
 		end
 	end
@@ -610,9 +634,19 @@ function Clockwork.player:SetAction(player, action, duration, priority, Callback
 	hook.Run("RunModifyPlayerSpeed", player, player.cwInfoTable, true);
 end
 
+function Clockwork.player:SetUseKeyAction(player, action, duration, priority, Callback)
+	if player:KeyDown(IN_USE) then
+		Clockwork.player:SetAction(player, action, duration, priority, Callback);
+		
+		player.cwUseAction = action;
+	end
+end
+
 -- A function to set the player's character menu state.
 function Clockwork.player:SetCharacterMenuState(player, state)
-	netstream.Start(player, "CharacterMenu", state)
+	net.Start("CharacterMenu")
+		net.WriteUInt(state, 2)
+	net.Send(player)
 end
 
 -- A function to get a player's action.
@@ -628,8 +662,23 @@ function Clockwork.player:GetAction(player, percentage)
 		else
 			return action, actionDuration, startActionTime
 		end
-	else
-		return "", 0, 0
+	end
+end
+
+function Clockwork.player:ExtendAction(player, extendTime)
+	local startActionTime = player:GetNetVar("StartActTime") or 0
+	local actionDuration = player:GetNetVar("ActDuration") or 0
+	local curTime = CurTime()
+	local action = player:GetNetVar("ActName") or "Unknown"
+	
+	if (startActionTime and CurTime() < startActionTime + actionDuration) then
+		player:SetNetVar("ActDuration", actionDuration + extendTime);
+		
+		if timer.Exists("Action"..player:UniqueID()) then
+			timer.Adjust("Action"..player:UniqueID(), math.max(0, (startActionTime - CurTime()) + actionDuration + extendTime));
+		end
+		
+		hook.Run("ActionExtended", player, action);
 	end
 end
 
@@ -881,7 +930,7 @@ function Clockwork.player:SetDefaultSkin(player)
 	--player:SetSkin(self:GetDefaultSkin(player))
 	
 	if player then
-		local currentCharacter = player:GetCharacter();
+		local currentCharacter = player.cwCharacter;
 		
 		if currentCharacter and currentCharacter.skin then
 			player:SetSkin(currentCharacter.skin);
@@ -921,7 +970,7 @@ function Clockwork.player:SetDrunk(player, expire)
 		player.cwDrunkTab[#player.cwDrunkTab + 1] = curTime + expire
 	end
 
-	player:SetNetVar("IsDrunk", self:GetDrunk(player) or 0)
+	player:SetLocalVar("IsDrunk", self:GetDrunk(player) or 0)
 end
 
 -- A function to strip a player's default ammo.
@@ -953,45 +1002,55 @@ end
 -- A function to set whether a player is whitelisted for a faction.
 function Clockwork.player:SetWhitelisted(player, faction, isWhitelisted)
 	local whitelisted = player:GetData("Whitelisted", {})
+	local newTab = {}; -- Janky fix since sometimes players get randomly de-whitelisted by it being a key-value pair table.
 
-	if (isWhitelisted) then
-		if (!self:IsWhitelisted(player, faction)) then
-			whitelisted[table.Count(whitelisted) + 1] = faction
-		end
-	else
-		for k, v in pairs(whitelisted) do
-			if (v == faction) then
-				whitelisted[k] = nil
-			end
+	for k, v in pairs(whitelisted) do
+		if !table.HasValue(newTab, v) then
+			table.insert(newTab, v);
 		end
 	end
+	
+	if isWhitelisted then
+		if !table.HasValue(newTab, faction) then
+			table.insert(newTab, faction);
+		end
+	else
+		table.RemoveByValue(newTab, faction);
+	end
 
-	netstream.Start(
-		player, "SetWhitelisted", {faction, isWhitelisted}
-	)
-	player:SetData("Whitelisted", whitelisted)
+	net.Start("SetWhitelisted")
+		net.WriteString(faction)
+		net.WriteBool(isWhitelisted)
+	net.Send(player)
+
+	player:SetData("Whitelisted", newTab)
 end
 
 -- A function to set whether a player is whitelisted for a subfaction.
 function Clockwork.player:SetWhitelistedSubfaction(player, subfaction, isWhitelisted)
 	local whitelisted = player:GetData("WhitelistedSubfactions", {})
+	local newTab = {}; -- Janky fix since sometimes players get randomly de-whitelisted by it being a key-value pair table.
 
-	if (isWhitelisted) then
-		if (!self:IsWhitelisted(player, subfaction)) then
-			whitelisted[table.Count(whitelisted) + 1] = subfaction
-		end
-	else
-		for k, v in pairs(whitelisted) do
-			if (v == subfaction) then
-				whitelisted[k] = nil
-			end
+	for k, v in pairs(whitelisted) do
+		if !table.HasValue(newTab, v) then
+			table.insert(newTab, v);
 		end
 	end
+	
+	if isWhitelisted then
+		if !table.HasValue(newTab, subfaction) then
+			table.insert(newTab, subfaction);
+		end
+	else
+		table.RemoveByValue(newTab, subfaction);
+	end
 
-	netstream.Start(
-		player, "SetWhitelistedSubfaction", {subfaction, isWhitelisted}
-	)
-	player:SetData("WhitelistedSubfactions", whitelisted)
+	net.Start("SetWhitelistedSubfaction")
+		net.WriteString(subfaction)
+		net.WriteBool(isWhitelisted)
+	net.Send(player)
+	
+	player:SetData("WhitelistedSubfactions", newTab)
 end
 
 -- A function to create a Condition timer.
@@ -1191,7 +1250,7 @@ end
 
 -- A function to query a player's character.
 function Clockwork.player:Query(player, key, default)
-	local character = player:GetCharacter()
+	local character = player.cwCharacter;
 
 	if (character) then
 		key = Clockwork.kernel:SetCamelCase(key, true)
@@ -1206,11 +1265,11 @@ end
 
 -- A function to set a player to a safe position.
 function Clockwork.player:SetSafePosition(player, position, filter)
-	player:SetPos(position + Vector(0, 0, 16))
+	player:SetPos(position + Vector(0, 0, 4))
 
 	if (player:IsStuck()) then
 		player:DropToFloor()
-		player:SetPos(player:GetPos() + Vector(0, 0, 16))
+		player:SetPos(player:GetPos() + Vector(0, 0, 4))
 
 		if (!istable(filter) and !isfunction(filter)) then
 			filter = {filter}
@@ -1354,7 +1413,7 @@ end
 
 -- A function to check if a player has any flags.
 function Clockwork.player:HasAnyFlags(player, flags, bByDefault)
-	if (player:GetCharacter()) then
+	if (player.cwCharacter) then
 		local playerFlags = player:GetFlags()
 
 		if (Clockwork.class:HasAnyFlags(player:Team(), flags) and !bByDefault) then
@@ -1402,7 +1461,7 @@ end
 
 -- A function to check if a player has flags.
 function Clockwork.player:HasFlags(player, flags, bByDefault, bIsStrict)
-	if (player:IsPlayer() and player:GetCharacter()) then
+	if (player:IsPlayer() and player.cwCharacter) then
 		local playerFlags = player:GetFlags()
 
 		if (Clockwork.class:HasFlags(player:Team(), flags) and !bByDefault) then
@@ -1510,7 +1569,7 @@ end
 
 -- A function to take a door from a player.
 function Clockwork.player:TakeDoor(player, door, bForce, bThisDoorOnly, bChildrenOnly)
-	local doorCost = config.Get("door_cost"):Get()
+	--local doorCost = config.Get("door_cost"):Get()
 
 	if (!bThisDoorOnly) then
 		local doorParent = Clockwork.entity:GetDoorParent(door)
@@ -1661,7 +1720,9 @@ function Clockwork.player:ForceDeleteCharacter(player, characterID)
 
 		player.cwCharacterList[characterID] = nil
 
-		netstream.Start(player, "CharacterRemove", characterID)
+		net.Start("CharacterRemove")
+			net.WriteUInt(characterID, 16)
+		net.Send(player)
 	end
 end
 
@@ -1670,7 +1731,7 @@ function Clockwork.player:DeleteCharacter(player, characterID)
 	local character = player.cwCharacterList[characterID]
 	
 	if (character) then
-		if (player:GetCharacter() != character) then
+		if (player.cwCharacter != character) then
 			local fault = hook.Run("PlayerCanDeleteCharacter", player, character)
 			
 			if (fault == nil or fault == true) then
@@ -1692,28 +1753,29 @@ end
 
 -- A function to use a player's character.
 function Clockwork.player:UseCharacter(player, characterID)
-	local isCharacterMenuReset = player:IsCharacterMenuReset()
-	local currentCharacter = player:GetCharacter()
+	local currentCharacter = player.cwCharacter;
 	local character = player.cwCharacterList[characterID]
 
 	if (!character) then
 		return false, "This character does not exist!"
 	end
 
-	if (currentCharacter != character or isCharacterMenuReset) then
+	if (currentCharacter != character) then
 		local factionTable = Clockwork.faction:FindByID(character.faction)
 		local fault = hook.Run("PlayerCanUseCharacter", player, character)
 
 		if (fault == nil or fault == true) then
 			local players = #Clockwork.faction:GetPlayers(character.faction)
 			local limit = Clockwork.faction:GetLimit(factionTable.name)
+			local ratio = factionTable.ratio;
 
-			if (isCharacterMenuReset and character.faction == currentCharacter.faction) then
+			if (currentCharacter and character.faction == currentCharacter.faction) then
 				players = players - 1
 			end
 
 			if (hook.Run("PlayerCanBypassFactionLimit", player, character)) then
 				limit = nil
+				ratio = nil
 			end
 			
 			if factionTable.characterLimit and !player:IsAdmin() then
@@ -1730,8 +1792,10 @@ function Clockwork.player:UseCharacter(player, characterID)
 				end
 			end
 
-			if (limit and players == limit) then
+			if (limit and limit ~= 0 and players == limit) then
 				return false, "The "..character.faction.." faction is full ("..limit.."/"..limit..")!"
+			elseif Clockwork.config:Get("faction_ratio_enabled"):Get() and (ratio and players > math.max(1, math.floor(ratio * _player.GetCount()))) then
+				return false, "The "..character.faction.." faction is full!"
 			else
 				if (currentCharacter) then
 					local fault = hook.Run("PlayerCanSwitchCharacter", player, character)
@@ -1739,16 +1803,13 @@ function Clockwork.player:UseCharacter(player, characterID)
 					if (fault != nil and fault != true) then
 						return false, fault or "You cannot switch to this character!"
 					end
+					
+					Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:SteamName().." has unloaded the character '"..currentCharacter.name.."'.")
 				end
 
 				Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:SteamName().." has loaded the character '"..character.name.."'.")
 
-				if (isCharacterMenuReset) then
-					player.cwCharMenuReset = false
-					player:Spawn()
-				else
-					self:LoadCharacter(player, characterID)
-				end
+				self:LoadCharacter(player, characterID)
 
 				return true
 			end
@@ -1825,12 +1886,7 @@ function Clockwork.player:RestoreRecognisedNames(player)
 	netstream.Start(player, "ClearRecognisedNames", true)
 
 	if (config.Get("save_recognised_names"):Get()) then
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
-		
-		for i = 1, playerCount do
-			local v, k = players[i], i;
-			
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized()) then
 				self:RestoreRecognisedName(player, v)
 				self:RestoreRecognisedName(v, player)
@@ -1903,7 +1959,7 @@ end
 -- A function to clear a player's recognised names list.
 function Clockwork.player:ClearRecognisedNames(player, status, isAccurate)
 	if (!status) then
-		local character = player:GetCharacter()
+		local character = player.cwCharacter;
 
 		if (character) then
 			character.recognisedNames = {}
@@ -1911,12 +1967,7 @@ function Clockwork.player:ClearRecognisedNames(player, status, isAccurate)
 			netstream.Start(player, "ClearRecognisedNames", true)
 		end
 	else
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
-		
-		for i = 1, playerCount do
-			local v, k = players[i], i;
-			
+		for _, v in _player.Iterator() do
 			if (v:HasInitialized()) then
 				if (self:DoesRecognise(player, v, status, isAccurate)) then
 					self:SetRecognises(player, v, false)
@@ -1930,12 +1981,7 @@ end
 
 -- A function to clear a player's name from being recognised.
 function Clockwork.player:ClearName(player, status, isAccurate)
-	local playerCount = _player.GetCount();
-	local players = _player.GetAll();
-	
-	for i = 1, playerCount do
-		local v, k = players[i], i;
-		
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
 			if (!status or self:DoesRecognise(v, player, status, isAccurate)) then
 				self:SetRecognises(v, player, false)
@@ -2096,7 +2142,7 @@ function Clockwork.player:GiveCash(player, amount, reason, bNoMsg)
 		local cash = math.Round(math.max(player:GetCash() + roundedAmount, 0))
 
 		player:SetCharacterData("Cash", cash, true)
-		player:SetNetVar("Cash", cash)
+		player:SetLocalVar("Cash", cash)
 
 		if (roundedAmount < 0) then
 			roundedAmount = math.abs(roundedAmount)
@@ -2142,7 +2188,7 @@ end
 
 -- A function to show cinematic text to each player.
 function Clockwork.player:CinematicTextAll(text, color, hangTime)
-	for k, v in ipairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
 			self:CinematicText(v, text, color, hangTime)
 		end
@@ -2186,11 +2232,8 @@ end
 -- A function to notify each player in a radius.
 function Clockwork.player:NotifyInRadius(text, class, position, radius)
 	local listeners = {}
-	local playerCount = _player.GetCount();
-	local players = _player.GetAll();
-		
-	for i = 1, playerCount do
-		local v, k = players[i], i;
+
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
 			if (position:DistToSqr(v:GetPos()) <= (radius * radius)) then
 				listeners[#listeners + 1] = v
@@ -2475,9 +2518,12 @@ end
 
 -- A function to get a player's ragdoll entity.
 function Clockwork.player:GetRagdollEntity(player)
-	if (player.cwRagdollTab) then
-		if (IsValid(player.cwRagdollTab.entity)) then
-			return player.cwRagdollTab.entity
+	local plyTable = player:GetTable();
+	local ragdollTab = plyTable.cwRagdollTab;
+	
+	if (ragdollTab) then
+		if (IsValid(ragdollTab.entity)) then
+			return ragdollTab.entity
 		end
 	end
 end
@@ -2530,18 +2576,20 @@ function Clockwork.player:SetRagdollState(player, state, delay, decay, force, mu
 		Clockwork.player:SetAction(player, false);
 		
 		if (player:IsRagdolled()) then
-			if (hook.Run("PlayerCanRagdoll", player, state, delay, decay, player.cwRagdollTab)) then
+			if (hook.Run("PlayerCanRagdoll", player, state, delay, decay, player.cwRagdollTab)) ~= false then
 				self:SetUnragdollTime(player, delay)
 					player:SetDTInt(INT_RAGDOLLSTATE, state)
 					player.cwRagdollTab.delay = delay
 					player.cwRagdollTab.decay = decay
 				hook.Run("PlayerRagdolled", player, state, player.cwRagdollTab)
 			end
-		elseif (hook.Run("PlayerCanRagdoll", player, state, delay, decay)) then
-			local velocity = player:GetVelocity() + (player:GetAimVector() * 128)
+		elseif (hook.Run("PlayerCanRagdoll", player, state, delay, decay)) ~= false then
+			local velocity = player:GetVelocity() + (player:GetAimVector() * 128);
 			local ragdoll = ents.Create("prop_ragdoll")
 			local model = player:GetModel();
 			local bodygroups = player:GetBodyGroups()
+			
+			velocity = Vector(velocity.x, velocity.y, 0);
 
 			ragdoll:SetMaterial(player:GetMaterial())
 			ragdoll:SetAngles(player:GetAngles())
@@ -2552,6 +2600,8 @@ function Clockwork.player:SetRagdollState(player, state, delay, decay, force, mu
 			ragdoll:SetBodygroup(0, player:GetBodygroup(0));
 			ragdoll:SetBodygroup(1, player:GetBodygroup(1));
 			ragdoll:Spawn()
+			
+			ragdoll.cwNextFallDamage = CurTime() + 1;
 
 			if string.find(model, "models/begotten/heads") then
 				local clothesItem = player:GetClothesEquipped();
@@ -2563,15 +2613,15 @@ function Clockwork.player:SetRagdollState(player, state, delay, decay, force, mu
 						model = "models/begotten/"..clothesItem.group.."_"..string.lower(player:GetGender())..".mdl";
 					end
 				else
-					local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+					local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 					local factionTable = Clockwork.faction:FindByID(faction);
 					
 					if factionTable then
-						local subfaction = player:GetSharedVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
+						local subfaction = player:GetNetVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
 						
 						if subfaction and factionTable.subfactions then
-							for k, v in pairs(factionTable.subfactions) do
-								if k == subfaction and v.models then
+							for i, v in ipairs(factionTable.subfactions) do
+								if v.name == subfaction and v.models then
 									model = v.models[string.lower(player:GetGender())].clothes;
 								
 									break;
@@ -2757,7 +2807,7 @@ function Clockwork.player:SetRagdollState(player, state, delay, decay, force, mu
 						if (hook.Run("PlayerCanRagdollDecay", player, ragdollTable.entity, decay)) then
 							Clockwork.entity:Decay(ragdollTable.entity, decay)
 						end
-					else
+					elseif IsValid(ragdollTable.entity) then
 						ragdollTable.entity:Remove()
 					end
 				end
@@ -2788,7 +2838,7 @@ function Clockwork.player:DropWeapons(player)
 		local entity = Clockwork.entity:CreateItem(player, shieldItem, pos + Vector(0, 0, math.random(1, 48)), Angle(0, 0, 0));
 
 		if (IsValid(entity)) then
-			player:TakeItem(shieldItem, true);
+			player:TakeItem(shieldItem);
 		end
 	end
 
@@ -2797,7 +2847,7 @@ function Clockwork.player:DropWeapons(player)
 			local entity = Clockwork.entity:CreateItem(player, v, pos + Vector(0, 0, math.random(1, 48)), Angle(0, 0, 0));
 
 			if (IsValid(entity)) then
-				player:TakeItem(v, true);
+				player:TakeItem(v);
 			end
 		end
 	end
@@ -2921,34 +2971,18 @@ end
 
 -- A function to add a character to the character screen.
 function Clockwork.player:CharacterScreenAdd(player, character)
+	-- todo: make a hook that makes this cleaner instead of doing everything here
 	local info = {
 		name = character.name,
-		model = character.model,
+		model = character.data["powerArmor"] or character.model,
 		skin = character.skin,
 		gender = character.gender,
-		permakilled = character.data["permakilled"],
-		kills = character.data["kills"] or 0,
-		level = character.data["level"],
-		timesurvived = character.data["charPlayTime"] or 0,
 		faction = character.faction,
 		subfaction = character.subfaction,
-		kinisgerOverride = character.data["kinisgerOverride"],
-		kinisgerOverrideSubfaction = character.data["kinisgerOverrideSubfaction"],
-		location = character.data["LastZone"] or "unknown",
-		faith = character.faith,
-		subfaith = character.subfaith,
-		clothes = character.data["clothes"],
-		helmet = character.data["helmet"],
-		shield = character.data["shield"],
+		permakilled = character.data["permakilled"],
 		weapons = character.data["weapons"],
-		deathcause = character.data["deathcause"] or "Died under mysterious circumstances.",
-		necropolisData = character.data["necropolisData"];
 		characterID = character.characterID
 	}
-	
-	if character.subfaction == "Clan Grock" then
-		info.subfaith = "The Old Ways";
-	end
 
 	if (character.data["PhysDesc"]) then
 		if (string.utf8len(character.data["PhysDesc"]) > 64) then
@@ -2959,7 +2993,9 @@ function Clockwork.player:CharacterScreenAdd(player, character)
 	end
 
 	hook.Run("PlayerAdjustCharacterScreenInfo", player, character, info)
-	netstream.Start(player, "CharacterAdd", info)
+	net.Start("CharacterAdd")
+		net.WriteTable(info)
+	net.Send(player)
 end
 
 -- A function to convert a character's MySQL variables to Lua variables.
@@ -2979,7 +3015,7 @@ end
 
 -- A function to get a player's character ID.
 function Clockwork.player:GetCharacterID(player)
-	local character = player:GetCharacter()
+	local character = player.cwCharacter
 
 	if (character) then
 		for k, v in pairs(player:GetCharacters()) do
@@ -3025,11 +3061,6 @@ function Clockwork.player:LoadCharacter(player, characterID, tMergeCreate, Callb
 			table.Merge(character, tMergeCreate)
 
 			if (character and type(character) == "table") then
-				character.inventory = {}
-				hook.Run(
-					"GetPlayerDefaultInventory", player, character, character.inventory
-				)
-
 				if (!bForce) then
 					local fault = hook.Run("PlayerCanCreateCharacter", player, character, characterID)
 
@@ -3037,6 +3068,10 @@ function Clockwork.player:LoadCharacter(player, characterID, tMergeCreate, Callb
 						return self:SetCreateFault(player, fault or "You cannot create this character!")
 					end
 				end
+				
+				character.inventory = {}
+				hook.Run("GetPlayerDefaultInventory", player, character, character.inventory)
+				hook.Run("PrePlayerCharacterCreated", player, character);
 
 				self:SaveCharacter(player, true, character, function(key)
 					player.cwCharacterList[characterID] = character
@@ -3056,7 +3091,7 @@ function Clockwork.player:LoadCharacter(player, characterID, tMergeCreate, Callb
 		character = player.cwCharacterList[characterID]
 
 		if (character) then
-			if (player:GetCharacter()) then
+			if (player.cwCharacter) then
 				hook.Run("PrePlayerCharacterUnloaded", player)
 			
 				self:SaveCharacter(player)
@@ -3080,6 +3115,25 @@ function Clockwork.player:LoadCharacter(player, characterID, tMergeCreate, Callb
 	end
 end
 
+function Clockwork.player:UnloadCharacter(player, Callback)
+	if (player.cwCharacter) then
+		hook.Run("PrePlayerCharacterUnloaded", player)
+	
+		self:SaveCharacter(player)
+
+		hook.Run("PlayerCharacterUnloaded", player)
+		
+		player.cwCharacter = nil;
+		player.cwInitialized = false;
+		self:SetInitialized(player, false);
+		self:SetCharacterMenuOpen(player, true);
+		
+		if (Callback) then
+			Callback()
+		end
+	end
+end
+
 -- A function to set a player's basic shared variables.
 function Clockwork.player:SetBasicSharedVars(player)
 	local gender = player:GetGender()
@@ -3087,12 +3141,12 @@ function Clockwork.player:SetBasicSharedVars(player)
 
 	player:SetDTString(STRING_FLAGS, player:GetFlags())
 	player:SetNetVar("Model", self:GetDefaultModel(player))
-	player:SetDTString(STRING_NAME, player:Name())
+	player:SetDTString(STRING_NAME, player:Name(true))
 	player:SetNetVar("Key", player:GetCharacterKey())
 	player:SetNetVar("CharacterID", player:GetCharacterID())
-	player:SetSharedVar("faith", player:GetFaith())
-	player:SetSharedVar("subfaith", player:GetSubfaith());
-	player:SetSharedVar("subfaction", player:GetSubfaction())
+	player:SetNetVar("faith", player:GetFaith())
+	player:SetNetVar("subfaith", player:GetSubfaith());
+	player:SetNetVar("subfaction", player:GetSubfaction())
 
 	if (Clockwork.faction:GetAll()[playerFaction]) then
 		player:SetNetVar("Faction", Clockwork.faction:GetAll()[playerFaction].index)
@@ -3345,7 +3399,7 @@ function Clockwork.player:SaveCharacter(player, bCreate, character, Callback)
 		local keys = ""
 
 		if (!character or type(character) != "table") then
-			character = player:GetCharacter()
+			character = player.cwCharacter
 		end
 
 		local queryObj = Clockwork.database:Insert(charactersTable)
@@ -3384,14 +3438,14 @@ function Clockwork.player:SaveCharacter(player, bCreate, character, Callback)
 			end
 		queryObj:Execute()
 	elseif (player:HasInitialized()) then
-		local currentCharacter = player:GetCharacter()
+		local currentCharacter = player.cwCharacter
 		local charactersTable = config.Get("mysql_characters_table"):Get()
 		local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 		local unixTime = os.time()
 		local steamID = player:SteamID()
 
 		if (!character) then
-			character = player:GetCharacter()
+			character = currentCharacter
 		end
 		
 		if (!character.subfaith) then
@@ -3446,7 +3500,8 @@ end
 
 -- A function to get a player's wages.
 function Clockwork.player:GetWages(player)
-	return player:GetNetVar("Wages")
+	--return player:GetNetVar("Wages")
+	return player.cwInfoTable.wages;
 end
 
 -- A function to set a character's flags.

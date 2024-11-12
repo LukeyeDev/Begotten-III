@@ -48,7 +48,7 @@ SWEP.data.ironsights			= 1
 SWEP.ScopeScale 			= 0.7
 
 SWEP.Primary.NumShots	= 1		--how many bullets to shoot per trigger pull
-SWEP.Primary.Damage		= 200	--base damage per bullet
+SWEP.Primary.Damage		= 85	--base damage per bullet
 SWEP.Primary.Spread		= .02	--define from-the-hip accuracy 1 is terrible, .0001 is exact)
 SWEP.Primary.IronAccuracy = .004 -- ironsight accuracy, should be the same for shotguns
 SWEP.BoltAction	=	true;
@@ -60,7 +60,7 @@ SWEP.AmmoTypes = {
 	["Old World Longshot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("gmodtower/pvpbattle/sniper/sniperfire.wav");
 		SWEP.Primary.NumShots = 1;
-		SWEP.Primary.Damage = 200;
+		SWEP.Primary.Damage = 85;
 		SWEP.Primary.Spread = .05;
 		SWEP.Primary.IronAccuracy = .05;
 		SWEP.Primary.ClipSize = 1;
@@ -108,7 +108,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound)
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(98, 102), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()
@@ -174,7 +187,7 @@ function SWEP:BoltBack()
 	if canCycleBolt then
 		timer.Simple(.25, function()
 			if SERVER and self.Weapon != nil then 
-				self.Weapon:SetNWBool("Reloading", true);
+				--self.Weapon:SetNWBool("Reloading", true);
 				
 				if self.Weapon:GetClass() == self.Gun then
 					if(self:GetIronsights() == true) then
@@ -199,7 +212,7 @@ function SWEP:BoltBack()
 					
 					timer.Simple(boltactiontime + .1, 
 						function() if SERVER and self.Weapon != nil then
-							self.Weapon:SetNWBool("Reloading", false);
+							--self.Weapon:SetNWBool("Reloading", false);
 							
 							if self.Owner:KeyDown(IN_ATTACK2) and self.Weapon:GetClass() == self.Gun then 
 								self.Owner:SetFOV( 75/self.Secondary.ScopeZoom, 0.15 )                      		

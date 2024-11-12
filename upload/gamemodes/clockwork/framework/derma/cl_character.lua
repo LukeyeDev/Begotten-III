@@ -44,7 +44,7 @@ function PANEL:Init()
 		self.createButton:FadeIn(0.5);
 		self.createButton:SetCallback(function(panel)
 			if (table.Count(Clockwork.character:GetAll()) >= Clockwork.player:GetMaximumCharacters()) then
-				return Clockwork.character:SetFault("You cannot create any more characters!");
+				return Clockwork.character:SetFault("You cannot create any more characters! Try clearing any characters in your Necropolis first!");
 			end;
 			
 			Clockwork.character:ResetCreationInfo();
@@ -101,7 +101,7 @@ function PANEL:Init()
 		self.disconnectButton:SetText("RUN IN FEAR");
 		self.disconnectButton:FadeIn(0.5);
 		self.disconnectButton:SetCallback(function(panel)
-			if (Clockwork.Client:HasInitialized() and !Clockwork.character:IsMenuReset()) then
+			if (Clockwork.Client:HasInitialized()) then
 				Clockwork.character:SetPanelMainMenu();
 				Clockwork.character:SetPanelOpen(false);
 			else
@@ -537,7 +537,7 @@ function PANEL:Think()
 		if (IsValid(self.disconnectButton)) then
 			local smallTextFont = Clockwork.option:GetFont("menu_text_small");
 			
-			if (Clockwork.Client:HasInitialized() and !Clockwork.character:IsMenuReset()) then
+			if (Clockwork.Client:HasInitialized()) then
 				self.disconnectButton:SetText("SUFFER");
 				local newsizew, newsizeH = Clockwork.kernel:GetCachedTextSize(smallTextFont, "SUFFER");
 				self.disconnectButton:SetPos((ScrW() / 2) - (newsizew / 2), ScrH() * 0.925);
@@ -729,12 +729,22 @@ function PANEL:Init()
 			
 				local subfaction = self.customData.kinisgerOverrideSubfaction or self.customData.subfaction;
 				
-				if subfaction and factionTableOverride.subfactions then
-					for i, v in ipairs(factionTableOverride.subfactions) do
-						if v.models and v.name == subfaction then
-							model = v.models[string.lower(self.customData.gender)].clothes;
-							
-							break;
+				if factionTableOverride.subfactions then
+					if subfaction then
+						for i, v in ipairs(factionTableOverride.subfactions) do
+							if v.models and v.name == subfaction then
+								model = v.models[string.lower(self.customData.gender)].clothes;
+
+								break;
+							end
+						end
+					else
+						for i, v in ipairs(factionTableOverride.subfactions) do
+							if v.models and v.default then
+								model = v.models[string.lower(self.customData.gender)].clothes;
+
+								break;
+							end
 						end
 					end
 				end
@@ -746,9 +756,13 @@ function PANEL:Init()
 		if helmet.uniqueID and helmet.itemID then
 			local item = Clockwork.item:FindByID(helmet.uniqueID, helmet.itemID);
 			
-			if item and item.bodyGroup and item.bodyGroupVal then
-				bodygroup = item.bodyGroup;
-				bodygroupVal = item.bodyGroupVal;
+			if item then
+				if item.headReplacement then
+					headModel = item.headReplacement;
+				elseif item.bodyGroup and item.bodyGroupVal then
+					bodygroup = item.bodyGroup;
+					bodygroupVal = item.bodyGroupVal;
+				end
 			end
 		end
 	end
@@ -762,20 +776,15 @@ function PANEL:Init()
 				
 				if item and item.isAttachment then
 					local attachment = {};
-					local attachmentBone = item.attachmentBone;
-					local offsetAngle = item.attachmentOffsetAngles;
-					local offsetVector = item.attachmentOffsetVector;
+					local attachmentBone = item.attachmentBone; 
+					local offsetVector = item.attachmentOffsetVector or Vector(0, 0, 0);
+					local offsetAngle = item.attachmentOffsetAngles or Angle(0, 0, 0);
 					
+					-- Is offhand?
 					if item.slots and i > #item.slots then
-						-- Offhand
-						if string.find(attachmentBone, "_L_") then
-							attachmentBone = string.gsub(attachmentBone, "_L_", "_R_");
-						else
-							attachmentBone = string.gsub(attachmentBone, "_R_", "_L_");
-						end
-						
-						offsetVector = Vector(-offsetVector.x, offsetVector.y, offsetVector.z);
-						offsetAngle = Angle(-offsetAngle.pitch, offsetAngle.yaw, offsetAngle.roll);
+						attachmentBone = item.attachmentBoneOffhand or attachmentBone;
+						offsetVector = item.attachmentOffsetVectorOffhand or offsetVector;
+						offsetAngle = item.attachmentOffsetAnglesOffhand or offsetAngle;
 					end
 				
 					attachment.attachmentInfo = {};
@@ -851,9 +860,9 @@ function PANEL:Init()
 	if ranks then
 		if (ranks[factionTable.name]) then
 			local charRank = self.customData.charTable.rank;
+			local factionTable = Clockwork.faction:FindByID(self.customData.faction);
 			
 			if !charRank then
-				local factionTable = Clockwork.faction:FindByID(self.customData.faction);
 				local subfaction = self.customData.subfaction;
 				local subfactionRankFound = false;
 				
@@ -879,10 +888,17 @@ function PANEL:Init()
 				end
 			end
 			
-			local rankText = ranks[factionTable.name][charRank];
-			
-			if rankText then
-				charName = rankText.." "..charName;
+			if factionTable and factionTable.GetNameCharCreation then
+				charName = factionTable:GetNameCharCreation(charName, charRank, self.customData.charTable.rankOverride);
+			else
+				local rankOverride = self.customData.charTable.rankOverride;
+				local rankText = ranks[factionTable.name][charRank];
+				
+				if rankOverride then
+					charName = rankOverride.." "..charName;
+				elseif rankText and rankText ~= "" then
+					charName = rankText.." "..charName;
+				end;
 			end
 		end
 	end
@@ -929,11 +945,18 @@ function PANEL:Init()
 	end
 	
 	self.sacramentsLabel = vgui.Create("DLabel", self);
-	self.sacramentsLabel:SetText("Sacrament Level: "..self.customData.level);
+	self.sacramentsLabel:SetText("Level: "..self.customData.level);
 	self.sacramentsLabel:SetTextColor(Color(160, 145, 145));
 	self.sacramentsLabel:SetFont("Decay_FormText");
 	self.sacramentsLabel:SetPos(196, 26);
 	self.sacramentsLabel:SetSize(180, 18);
+	
+	self.killsLabel = vgui.Create("DLabel", self);
+	self.killsLabel:SetText("Kills: "..self.customData.kills or 0);
+	self.killsLabel:SetTextColor(Color(160, 145, 145));
+	self.killsLabel:SetFont("Decay_FormText");
+	self.killsLabel:SetPos(286, 26);
+	self.killsLabel:SetSize(180, 18);
 	
 	self.timeSurvivedLabel = vgui.Create("DLabel", self);
 	self.timeSurvivedLabel:SetTextColor(Color(160, 145, 145));
@@ -973,11 +996,11 @@ function PANEL:Init()
 	
 	-- Called when the button is clicked.
 	function self.useButton.DoClick()
-		Clockwork.datastream:Start("InteractCharacter", {
+		netstream.Start("InteractCharacter", {
 			characterID = self.customData.characterID, action = "use"}
 		);
 		
-		surface.PlaySound("begotten/ui/buttonclick.wav");
+		surface.PlaySound("begotten/ui/bellclick.wav");
 	end;
 	
 	function self.useButton.Paint()
@@ -990,7 +1013,7 @@ function PANEL:Init()
 	function self.deleteButton.DoClick()
 		Clockwork.kernel:AddMenuFromData(nil, {
 			["Yes"] = function()
-				Clockwork.datastream:Start("InteractCharacter", {
+				netstream.Start("InteractCharacter", {
 					characterID = self.customData.characterID, action = "delete"}
 				);
 			end,
@@ -1516,7 +1539,7 @@ function PANEL:Init()
 	end
 	
 	self.killsLabel = vgui.Create("DLabel", self);
-	self.killsLabel:SetText("Kills: "..self.customData.kills);
+	self.killsLabel:SetText("Kills: "..self.customData.kills or 0);
 	self.killsLabel:SetTextColor(Color(160, 145, 145));
 	self.killsLabel:SetFont("Decay_FormText");
 	self.killsLabel:SetPos(348, 80);
@@ -1547,7 +1570,7 @@ function PANEL:Init()
 		
 		-- Called when the button is clicked.
 		function self.unPermakillButton.DoClick()
-			Clockwork.datastream:Start("UnpermakillCharacter", {
+			netstream.Start("UnpermakillCharacter", {
 				characterID = self.customData.characterID}
 			);
 			
@@ -1589,7 +1612,7 @@ function PANEL:Init()
 	function self.deleteButton.DoClick()
 		local cData = self.customData;
 		
-		Clockwork.datastream:Start("InteractCharacter", {
+		netstream.Start("InteractCharacter", {
 			characterID = cData.characterID, action = "delete"}
 		);
 		
@@ -1687,23 +1710,15 @@ function PANEL:Rebuild()
 					skin = tonumber(v.skin) or 0,
 					gender = v.gender,
 					banned = v.banned,
-					--clothes = v.clothes,
 					faction = v.faction,
 					subfaction = subfaction_override,
-					kinisgerOverride = v.kinisgerOverride,
-					kinisgerOverrideSubfaction = v.kinisgerOverrideSubfaction,
-					rank = v.rank,
-					faith = v.faith,
-					kills = v.kills,
-					level = v.level or 1,
-					location = v.location,
-					timesurvived = v.timesurvived,
-					deathcause = v.deathcause,
 					details = v.details,
 					characterID = v.characterID,
 					characterTable = v,
 					charTable = v,
 				};
+				
+				hook.Run("PlayerAdjustCharacterScreenInfo", v, self.customData);
 
 				v.panel = vgui.Create("cwNecropolisPanel", self);
 				
@@ -2211,6 +2226,19 @@ function PANEL:Init()
 						skinCount = Clockwork.Client.CharSelectionModel.HeadModel:SkinCount() - 1;
 					end
 					
+					if self.info.faction ~= "Goreic Warrior" then
+						-- Get rid of leper skin as an option.
+						skinCount = skinCount - 1;
+					end
+
+					if self.selectedTraits then
+						for k, v in pairs(self.selectedTraits) do
+							if v.disablesSkins then
+								skinCount = 0;
+							end
+						end
+					end
+					
 					if (skinCount > 0) then
 						local options = {};
 
@@ -2333,6 +2361,7 @@ function PANEL:Init()
 		self.traitItemsList:EnableVerticalScrollbar(true);
 		self.traitItemsList:SetDrawBackground(false);
 		self.traitItemsList:HideScrollbar();
+		self.traitItemsList.traitButtons = {};
 		
 		self.chosenTraitItemsList = vgui.Create("DPanelList", self.traitsList);
 		self.chosenTraitItemsList:SetPadding(4);
@@ -2348,8 +2377,6 @@ function PANEL:Init()
 		self.traitsList:AddItem(self.traitItemsList);
 		self.traitsList:AddItem(self.chosenTraitItemsList);
 		self.traitsForm:AddItem(self.traitsList);
-		
-		TRAITBUTTONS = {};
 	
 		local selectedBad = Color(255, 50, 50, 255);
 		local selectedGood = Color(50, 255, 50, 255);
@@ -2363,7 +2390,7 @@ function PANEL:Init()
 			traitButton:SetColor(Color(41, 26, 0), true);
 			traitButton:SetSize(228, 24);
 			traitButton:SetToolTipTitle(v.name);
-			traitButton:SetTooltip("");
+			traitButton:SetTooltip(false);
 			
 			traitButton.uniqueID = v.uniqueID;
 			
@@ -2456,42 +2483,54 @@ function PANEL:Init()
 			
 			-- Called when the spawn icon is clicked.
 			function traitButton.DoClick(spawnIcon)
+				local traitButtons = self.traitItemsList.traitButtons;
+			
 				if (table.HasValue(self.selectedTraits, traitTable)) then
 					table.RemoveByValue(self.selectedTraits, traitTable);
 					table.RemoveByValue(self.info.traits, traitTable.uniqueID);
 
 					if traitButton.disableTable then
-						for i = 1, #TRAITBUTTONS do		
-							if IsValid(TRAITBUTTONS[i]) then
-								if table.HasValue(traitButton.disableTable, TRAITBUTTONS[i].uniqueID) then
-									if TRAITBUTTONS[i].factions or TRAITBUTTONS[i].excludedsubfactions or TRAITBUTTONS[i].requiredfactions then
-										if TRAITBUTTONS[i].excludedfactions then
-											if not table.HasValue(TRAITBUTTONS[i].excludedfactions, Clockwork.Client.SelectedFaction) then
-												--printp("Enabling: "..TRAITBUTTONS[i].uniqueID);
-												TRAITBUTTONS[i]:SetColor(Color(41, 26, 0), true);
-												TRAITBUTTONS[i]:SetDisabled(false);
+						if traitTable.disablesSkins then
+							if IsValid(Clockwork.Client.CharSelectionModel.HeadModel) then
+								Clockwork.Client.CharSelectionModel.HeadModel:SetSkin(0);
+							else
+								Clockwork.Client.CharSelectionModel:SetSkin(0);
+							end
+							
+							self.info.skin = 0;
+						end
+
+						for i = 1, #traitButtons do		
+							if IsValid(traitButtons[i]) then
+								if table.HasValue(traitButton.disableTable, traitButtons[i].uniqueID) then
+									if traitButtons[i].factions or traitButtons[i].excludedsubfactions or traitButtons[i].requiredfactions then
+										if traitButtons[i].excludedfactions then
+											if not table.HasValue(traitButtons[i].excludedfactions, Clockwork.Client.SelectedFaction) then
+												--printp("Enabling: "..traitButtons[i].uniqueID);
+												traitButtons[i]:SetColor(Color(41, 26, 0), true);
+												traitButtons[i]:SetDisabled(false);
 											end
 										end
 									
-										if TRAITBUTTONS[i].excludedsubfactions then
-											if not table.HasValue(TRAITBUTTONS[i].excludedsubfactions, Clockwork.Client.SelectedSubfaction) then
-												--printp("Enabling: "..TRAITBUTTONS[i].uniqueID);
-												TRAITBUTTONS[i]:SetColor(Color(41, 26, 0), true);
-												TRAITBUTTONS[i]:SetDisabled(false);
+										if traitButtons[i].excludedsubfactions then
+											if not table.HasValue(traitButtons[i].excludedsubfactions, Clockwork.Client.SelectedSubfaction) then
+												--printp("Enabling: "..traitButtons[i].uniqueID);
+												traitButtons[i]:SetColor(Color(41, 26, 0), true);
+												traitButtons[i]:SetDisabled(false);
 											end
 										end
 										
-										if TRAITBUTTONS[i].requiredfactions then
-											if table.HasValue(TRAITBUTTONS[i].requiredfactions, Clockwork.Client.SelectedFaction) then
-												--printp("Enabling: "..TRAITBUTTONS[i].uniqueID);
-												TRAITBUTTONS[i]:SetColor(Color(41, 26, 0), true);
-												TRAITBUTTONS[i]:SetDisabled(false);
+										if traitButtons[i].requiredfactions then
+											if table.HasValue(traitButtons[i].requiredfactions, Clockwork.Client.SelectedFaction) then
+												--printp("Enabling: "..traitButtons[i].uniqueID);
+												traitButtons[i]:SetColor(Color(41, 26, 0), true);
+												traitButtons[i]:SetDisabled(false);
 											end
 										end
 									else
-										--printp("Enabling: "..TRAITBUTTONS[i].uniqueID);
-										TRAITBUTTONS[i]:SetColor(Color(41, 26, 0), true);
-										TRAITBUTTONS[i]:SetDisabled(false);
+										--printp("Enabling: "..traitButtons[i].uniqueID);
+										traitButtons[i]:SetColor(Color(41, 26, 0), true);
+										traitButtons[i]:SetDisabled(false);
 									end
 								end;
 							end;
@@ -2503,13 +2542,27 @@ function PANEL:Init()
 					table.insert(self.selectedTraits, traitTable);
 					table.insert(self.info.traits, traitTable.uniqueID);
 					
+					if traitTable.disablesSkins then
+						if IsValid(Clockwork.Client.CharSelectionModel.HeadModel) then
+							local skinCount = Clockwork.Client.CharSelectionModel.HeadModel:SkinCount() - 1;
+							
+							Clockwork.Client.CharSelectionModel.HeadModel:SetSkin(skinCount);
+							self.info.skin = skinCount;
+						else
+							local skinCount = Clockwork.Client.CharSelectionModel:SkinCount() - 1;
+						
+							Clockwork.Client.CharSelectionModel:SetSkin(skinCount);
+							self.info.skin = skinCount;
+						end
+					end
+					
 					if traitButton.disableTable then
-						for i = 1, #TRAITBUTTONS do
-							if IsValid(TRAITBUTTONS[i]) then
-								if table.HasValue(traitButton.disableTable, TRAITBUTTONS[i].uniqueID) then
-									--printp("Disabling: "..TRAITBUTTONS[i].uniqueID);
-									TRAITBUTTONS[i]:SetColor(Color(74, 26, 0), true);
-									TRAITBUTTONS[i]:SetDisabled(true);
+						for i = 1, #traitButtons do
+							if IsValid(traitButtons[i]) then
+								if table.HasValue(traitButton.disableTable, traitButtons[i].uniqueID) then
+									--printp("Disabling: "..traitButtons[i].uniqueID);
+									traitButtons[i]:SetColor(Color(74, 26, 0), true);
+									traitButtons[i]:SetDisabled(true);
 								end;
 							end
 						end;
@@ -2520,7 +2573,7 @@ function PANEL:Init()
 
 				--[[if self.disableTable then
 					for k, v in pairs(self.disableTable) do
-						for k2, v2 in pairs(TRAITBUTTONS) do
+						for k2, v2 in pairs(traitButtons) do
 							if (string.find(v, v2.uniqueID)) then
 								temptable[k2]:SetDisabled(true);
 							end;
@@ -2578,7 +2631,7 @@ function PANEL:Init()
 			end);
 			
 			self.traitItemsList:AddItem(traitButton);
-			table.insert(TRAITBUTTONS, traitButton);
+			table.insert(self.traitItemsList.traitButtons, traitButton);
 		end;
 	end
 	
@@ -3680,9 +3733,9 @@ end;
 
 vgui.Register("cwCharacterStageSubfaction", PANEL, "EditablePanel");
 
-Clockwork.datastream:Hook("CharacterRemove", function(data)
+net.Receive("CharacterRemove", function()
 	local characters = Clockwork.character:GetAll();
-	local characterID = data;
+	local characterID = net.ReadUInt(16);
 	
 	if (table.Count(characters) == 0) then
 		return;
@@ -3706,12 +3759,15 @@ Clockwork.datastream:Hook("CharacterRemove", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("SetWhitelisted", function(data)
+net.Receive("SetWhitelisted", function()
+	local faction = net.ReadString()
+	local isWhitelisted = net.ReadBool()
+
 	local whitelisted = Clockwork.character:GetWhitelisted();
 	
 	for k, v in pairs(whitelisted) do
-		if (v == data[1]) then
-			if (!data[2]) then
+		if (v == faction) then
+			if (!isWhitelisted) then
 				whitelisted[k] = nil;
 				
 				return;
@@ -3719,17 +3775,20 @@ Clockwork.datastream:Hook("SetWhitelisted", function(data)
 		end;
 	end;
 	
-	if (data[2]) then
-		whitelisted[#whitelisted + 1] = data[1];
+	if (isWhitelisted) then
+		whitelisted[#whitelisted + 1] = faction;
 	end;
-end);
+end)
 
-Clockwork.datastream:Hook("SetWhitelistedSubfaction", function(data)
+net.Receive("SetWhitelistedSubfaction", function()
+	local faction = net.ReadString()
+	local isWhitelisted = net.ReadBool()
+
 	local whitelisted = Clockwork.character:GetWhitelistedSubfactions();
 	
 	for k, v in pairs(whitelisted) do
-		if (v == data[1]) then
-			if (!data[2]) then
+		if (v == faction) then
+			if (!isWhitelisted) then
 				whitelisted[k] = nil;
 				
 				return;
@@ -3737,21 +3796,23 @@ Clockwork.datastream:Hook("SetWhitelistedSubfaction", function(data)
 		end;
 	end;
 	
-	if (data[2]) then
-		whitelisted[#whitelisted + 1] = data[1];
+	if (isWhitelisted) then
+		whitelisted[#whitelisted + 1] = faction;
 	end;
-end);
+end)
 
-Clockwork.datastream:Hook("CharacterAdd", function(data)
+net.Receive("CharacterAdd", function()
+	data = net.ReadTable()
+
 	Clockwork.character:Add(data.characterID, data);
 	
 	if (!Clockwork.character:IsPanelLoading()) then
 		Clockwork.character:RefreshPanelList();
 	end;
-end);
+end)
 
-Clockwork.datastream:Hook("CharacterMenu", function(data)
-	local menuState = data;
+net.Receive("CharacterMenu", function()
+	local menuState = net.ReadUInt(2);
 
 	if (menuState == CHARACTER_MENU_LOADED) then
 		if (Clockwork.character:GetPanel()) then
@@ -3766,15 +3827,11 @@ Clockwork.datastream:Hook("CharacterMenu", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("CharacterOpen", function(data)
+netstream.Hook("CharacterOpen", function(data)
 	Clockwork.character:SetPanelOpen(true);
-	
-	if (data) then
-		Clockwork.character.isMenuReset = true;
-	end;
 end);
 
-Clockwork.datastream:Hook("CharacterFinish", function(data)
+netstream.Hook("CharacterFinish", function(data)
 	if (data.bSuccess) then
 		Clockwork.Client:ScreenFade(SCREENFADE.OUT, Color(0, 0, 0, 255 ), 0.1, 1.2);
 		

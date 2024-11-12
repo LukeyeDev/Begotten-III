@@ -47,7 +47,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.name = "Bear Trap";
 	ITEM.uniqueID = "bear_trap";
 	ITEM.model = "models/begotten/beartrap/beartrapopen.mdl";
-	ITEM.weight = 10;
+	ITEM.weight = 8;
 	ITEM.category = "Tools";
 	ITEM.description = "A metal pressure-activated trap with jagged teeth, designed to capture the strongest of prey, be they animal or man.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/bear_trap.png";
@@ -79,6 +79,62 @@ local ITEM = Clockwork.item:New();
 ITEM:Register();
 
 local ITEM = Clockwork.item:New();
+	ITEM.name = "Campfire Kit";
+	ITEM.uniqueID = "campfire_kit"
+	ITEM.model = "models/mosi/fallout4/props/junk/components/wood.mdl";
+	ITEM.weight = 2;
+	ITEM.useText = "Deploy";
+	ITEM.category = "Other";
+	ITEM.useSound = "physics/wood/wood_strain3.wav";
+	ITEM.description = "A large kit that is able to deploy a campfire which will last for 15 minutes, though more wood may be added as fuel to extend its lifetime.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/wood.png"
+	ITEM.stackable = false;
+
+	-- Called when a player uses the item.
+	function ITEM:OnUse(player, itemEntity)
+		local tr = player:GetEyeTrace();
+		local position = tr.HitPos;
+		local valuewater = bit.band(util.PointContents(position), CONTENTS_WATER) == CONTENTS_WATER;
+		
+		if player:InTower() then
+			Schema:EasyText(player, "peru", "You cannot deploy this in the Tower of Light!");
+			return false;
+		end
+		
+		if tr.Entity and tr.Entity:GetClass() == "cw_longship" then
+			Schema:EasyText(player, "peru", "You cannot deploy this on a longship!");
+			return false;
+		end
+		
+		for i, v in ipairs(ents.FindByClass("cw_longship")) do
+			if v.playersOnBoard then
+				for i2, v2 in ipairs(v.playersOnBoard) do
+					if player == v2 then
+						Schema:EasyText(player, "peru", "You cannot deploy this while sailing!");
+						return false;
+					end
+				end
+			end
+		end
+		
+		if (player:GetPos():DistToSqr(position) <= 36864) and valuewater == false then
+			local ent = ents.Create("cw_fireplace")
+			ent:SetPos(position)
+			ent:Spawn()
+		elseif valuewater == true then
+			Schema:EasyText(player, "peru", "You cannot deploy this underwater!");
+			return false;
+		else
+			Schema:EasyText(player, "peru", "You cannot deploy this that far away!")
+			return false;
+		end
+	end;
+
+	-- Called when a player drops the item.
+	function ITEM:OnDrop(player, position) end;
+ITEM:Register();
+
+local ITEM = Clockwork.item:New();
 	ITEM.name = "Siege Ladder";
 	ITEM.uniqueID = "siege_ladder";
 	ITEM.model = "models/begotten/misc/siegeladder_compact.mdl";
@@ -96,15 +152,16 @@ local ITEM = Clockwork.item:New();
 			
 			if not ladderPos.occupier then
 				if playerPos:WithinAABox(ladderPos.boundsA, ladderPos.boundsB) then
-					player.ladderConstructing = {index = i, condition = self:GetCondition()};
+					player.ladderConstructing = {index = i, itemTable = self};
 					ladderPos.occupier = "constructing";
 					
 					Clockwork.chatBox:AddInTargetRadius(player, "me", "begins erecting a siege ladder!", player:GetPos(), config.Get("talk_radius"):Get() * 2);
 					
 					Clockwork.player:SetAction(player, "building", 30, 3, function()
-						if IsValid(player) and player.ladderConstructing then
+						if IsValid(player) and player.ladderConstructing and player:HasItemInstance(self) then
 							local ladderPos = Schema.siegeLadderPositions[player.ladderConstructing.index];
 							local ladderEnt = ents.Create("cw_siege_ladder");
+							
 							if IsValid(ladderEnt) then
 								ladderEnt:SetAngles(ladderPos.ang);
 								ladderEnt:SetPos(ladderPos.pos);
@@ -112,17 +169,19 @@ local ITEM = Clockwork.item:New();
 								ladderEnt:Spawn();
 								
 								ladderEnt.strikesRequired = math.Round(15 * ((self:GetCondition() or 100) / 100));
+								ladderPos.occupier = ladderEnt;
+								ladderEnt.occupyingPosition = player.ladderConstructing.index;
+								
+								player:TakeItem(self);
 							end
-							
-							ladderPos.occupier = ladderEnt;
-							ladderEnt.occupyingPosition = player.ladderConstructing.index;
+
 							player.ladderConstructing = nil;
 						else
 							ladderPos.occupier = nil;
 						end
 					end);
 					
-					return;
+					return false;
 				end
 			end
 		end
@@ -131,7 +190,13 @@ local ITEM = Clockwork.item:New();
 		return false;
 	end
 	-- Called when a player drops the item.
-	function ITEM:OnDrop(player, position) end;
+	function ITEM:OnDrop(player, position)
+		if player.ladderConstructing then
+			if player.ladderConstructing.itemTable == self then
+				Clockwork.player:SetAction(player, false);
+			end
+		end
+	end;
 	
 	ITEM.components = {breakdownType = "breakdown", items = {"wood", "wood", "wood", "wood", "wood", "wood"}};
 ITEM:Register();
@@ -180,11 +245,10 @@ local ITEM = Clockwork.item:New();
 	ITEM.uniqueID = "armor_repair_kit";
 	ITEM.cost = 50;
 	ITEM.model = "models/props/de_prodigy/ammo_can_02.mdl";
-	ITEM.weight = 1;
+	ITEM.weight = 3;
 	ITEM.category = "Tools";
-	ITEM.business = true;
 	ITEM.description = "A collection of tools and materials that can easily be used to repair one's armor.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit.png";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit_armor.png";
 	ITEM.conditionReplenishment = 200;
 	ITEM.stackable = false;
 	
@@ -199,11 +263,10 @@ local ITEM = Clockwork.item:New();
 	ITEM.uniqueID = "firearm_repair_kit";
 	ITEM.cost = 50;
 	ITEM.model = "models/props/de_prodigy/ammo_can_02.mdl";
-	ITEM.weight = 1;
+	ITEM.weight = 3;
 	ITEM.category = "Tools";
-	ITEM.business = true;
 	ITEM.description = "A collection of delicate tools and spare parts that can be used to repair firearms.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit.png";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit_firearms.png";
 	ITEM.conditionReplenishment = 200;
 	ITEM.stackable = false;
 	
@@ -218,11 +281,10 @@ local ITEM = Clockwork.item:New();
 	ITEM.uniqueID = "weapon_repair_kit";
 	ITEM.cost = 50;
 	ITEM.model = "models/props/de_prodigy/ammo_can_02.mdl";
-	ITEM.weight = 1;
+	ITEM.weight = 3;
 	ITEM.category = "Tools";
-	ITEM.business = true;
 	ITEM.description = "A collection of tools and materials that can easily be used to repair one's melee weapon or shield.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit.png";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/repair_kit_melee.png";
 	ITEM.conditionReplenishment = 200;
 	ITEM.stackable = false;
 	
@@ -236,12 +298,11 @@ local ITEM = Clockwork.item:New();
 	ITEM.name = "Engraving Tool";
 	ITEM.uniqueID = "engraving_tool";
 	ITEM.cost = 50;
-	ITEM.model = "models/props_c17/TrapPropeller_Lever.mdl";
+	ITEM.model = "models/items/weapons/blacksmithhammer/bl_hammer.mdl";
 	ITEM.weight = 0.25;
 	ITEM.category = "Tools";
-	ITEM.business = true;
 	ITEM.description = "A small tool that can be used to etch a name into a weapon or shield.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/ampoule.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/engraving_tool.png"
 	--ITEM.itemSpawnerInfo = {category = "Junk", rarity = 95};
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position) end;
@@ -255,7 +316,6 @@ local ITEM = Clockwork.item:New();
 	ITEM.weight = 0.2;
 	ITEM.access = "v";
 	ITEM.useText = "Tie";
-	ITEM.business = true;
 	ITEM.description = "A collection of rope that can be fitted around a person's wrists to bind them together.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/bindings.png"
 	
@@ -277,7 +337,7 @@ local ITEM = Clockwork.item:New();
 			
 			if (target) then
 				if (!target:HasGodMode() and !target.cwObserverMode and !target.possessor) then
-					if (target:GetSharedVar("tied") == 0) then
+					if (target:GetNetVar("tied") == 0) then
 						if (target:GetShootPos():Distance( player:GetShootPos() ) <= 192) then
 							if (target:GetAimVector():DotProduct( player:GetAimVector() ) > 0 or (target:IsRagdolled() and !trace.Entity.cwIsBelongings)) then
 								local faction = player:GetFaction();
@@ -297,7 +357,7 @@ local ITEM = Clockwork.item:New();
 								Clockwork.player:SetAction(player, "tie", tieTime);
 								
 								Clockwork.player:EntityConditionTimer(player, target, trace.Entity, tieTime, 192, function()
-									if (player:Alive() and !player:IsRagdolled() and target:GetSharedVar("tied") == 0 and !target.cwObserverMode and !target.possessor 
+									if (player:Alive() and !player:IsRagdolled() and target:GetNetVar("tied") == 0 and !target.cwObserverMode and !target.possessor 
 									and (target:GetAimVector():DotProduct(player:GetAimVector()) > 0 or (target:IsRagdolled() and !trace.Entity.cwIsBelongings))) then
 										return true;
 									end;
@@ -307,7 +367,7 @@ local ITEM = Clockwork.item:New();
 										
 										Schema:TiePlayer(target, true, nil);
 										
-										player:TakeItem(self);
+										player:TakeItem(self, true);
 									else
 										player.isTying = nil;
 									end;
@@ -369,7 +429,6 @@ local ITEM = Clockwork.item:New();
 	ITEM.model = "models/kali/miscstuff/stalker/aid/first aid kit.mdl";
 	ITEM.weight = 0.4;
 	ITEM.useText = "Test Blood";
-	ITEM.business = true;
 	ITEM.description = "An ancient device used to test another person's blood for corruption. This one is worn by age and may even be unreliable.";
 	ITEM.stackable = false;
 	
@@ -410,7 +469,7 @@ local ITEM = Clockwork.item:New();
 								local condition = self:GetCondition() - 20;
 							
 								if condition <= 0 then
-									player:TakeItem(self);
+									player:TakeItem(self, true);
 								else
 									self:SetCondition(condition);
 								end
@@ -457,7 +516,6 @@ local ITEM = Clockwork.item:New();
 	ITEM.model = "models/kali/miscstuff/stalker/aid/first aid kit.mdl";
 	ITEM.weight = 0.4;
 	ITEM.useText = "Test Blood";
-	ITEM.business = true;
 	ITEM.description = "An ancient device used to test another person's blood for corruption. This device in particular is an advanced model, designed by Skylight engineers to detect the blood of the infamous Black Hats.";
 	ITEM.stackable = false;
 	
@@ -498,7 +556,7 @@ local ITEM = Clockwork.item:New();
 								local condition = self:GetCondition() - 10;
 							
 								if condition <= 0 then
-									player:TakeItem(self);
+									player:TakeItem(self, true);
 								else
 									self:SetCondition(condition);
 								end
@@ -544,7 +602,6 @@ local ITEM = Clockwork.item:New();
 	ITEM.model = "models/kali/miscstuff/stalker/aid/first aid kit.mdl";
 	ITEM.weight = 0.4;
 	ITEM.useText = "Test Blood";
-	ITEM.business = true;
 	ITEM.description = "An ancient device used to test another person's blood for corruption.";
 	ITEM.stackable = false;
 	
@@ -585,7 +642,7 @@ local ITEM = Clockwork.item:New();
 								local condition = self:GetCondition() - 10;
 							
 								if condition <= 0 then
-									player:TakeItem(self);
+									player:TakeItem(self, true);
 								else
 									self:SetCondition(condition);
 								end
@@ -644,7 +701,7 @@ local ITEM = Clockwork.item:New();
 			local currentCharge = player:GetCharacterData("battery", 0);
 		
 			player:SetCharacterData("battery", math.Clamp(currentCharge + 75, 0, 100));
-			player:SetSharedVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
+			player:SetNetVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
 			
 			player.nextChargeDepleted = CurTime() + 120;
 		else
@@ -665,7 +722,7 @@ local ITEM = Clockwork.item:New();
 	ITEM.category = "Communication"
 	ITEM.description = "A stout warhorn that when blown will communicate orders to nearby friendlies.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/warhorn.png"
-	ITEM.customFunctions = {"Sound Attack", "Sound Rally", "Sound Rally - Line", "Sound Rally - Square", "Sound Retreat"};
+	ITEM.customFunctions = {"Sound Attack", "Sound Rally", "Sound Rally - Marching Formation", "Sound Rally - Shieldwall", "Sound Retreat"};
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position) end;
 	
@@ -676,7 +733,7 @@ local ITEM = Clockwork.item:New();
 			if !player.nextWarHorn or player.nextWarHorn <= curTime then
 				player.nextWarHorn = curTime + 5;
 				
-				local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+				local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 				local playerPos = player:GetPos();
 				local radius = Clockwork.config:Get("talk_radius"):Get() * 4;
 			
@@ -709,13 +766,13 @@ local ITEM = Clockwork.item:New();
 						end
 						
 						player:EmitSound("warhorns/warhorn7.mp3", 100, math.random(98, 102));
-					elseif (name == "Sound Rally - Line") then
+					elseif (name == "Sound Rally - Marching Formation") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == "Gatekeeper" or vFaction == "Holy Hierarchy" then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a line formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a marching formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, but its signal is unknown to you!");
 								end
@@ -723,13 +780,13 @@ local ITEM = Clockwork.item:New();
 						end
 						
 						player:EmitSound("warhorns/warhorn8.mp3", 100, math.random(98, 102));
-					elseif (name == "Sound Rally - Square") then
+					elseif (name == "Sound Rally - Shieldwall") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == "Gatekeeper" or vFaction == "Holy Hierarchy" then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a square formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a shieldwall formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, but its signal is unknown to you!");
 								end
@@ -766,7 +823,7 @@ local ITEM = Clockwork.item:New();
 							end
 						end
 						
-						player:EmitSound("warhorns/warhorn3.mp3", 100,  math.random(80, 95));
+						player:EmitSound("warhorns/gore_warhorn_attack.mp3", 100, math.random(88, 108));
 					elseif (name == "Sound Rally") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
@@ -780,35 +837,35 @@ local ITEM = Clockwork.item:New();
 							end
 						end
 						
-						player:EmitSound("warhorns/warhorn7.mp3", 100,  math.random(80, 95));
-					elseif (name == "Sound Rally - Line") then
+						player:EmitSound("warhorns/gore_warhorn_rally.mp3", 100, math.random(88, 108));
+					elseif (name == "Sound Rally - Marching Formation") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == faction then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a line formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a marching formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, but its signal is unknown to you!");
 								end
 							end
 						end
 						
-						player:EmitSound("warhorns/warhorn7.mp3", 100, math.random(98, 102));
-					elseif (name == "Sound Rally - Square") then
+						player:EmitSound("warhorns/gore_warhorn_formation.mp3", 100, math.random(95, 118));
+					elseif (name == "Sound Rally - Shieldwall") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == faction then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a square formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, signalling a rally in a shieldwall formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." blows their warhorn, but its signal is unknown to you!");
 								end
 							end
 						end
 						
-						player:EmitSound("warhorns/warhorn7.mp3", 100, math.random(98, 102));
+						player:EmitSound("warhorns/gore_warhorn_formation.mp3", 100, math.random(77, 86));
 					elseif (name == "Sound Retreat") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
@@ -822,7 +879,7 @@ local ITEM = Clockwork.item:New();
 							end
 						end
 						
-						player:EmitSound("warhorns/warhorn6.mp3", 100, math.random(80, 95));
+						player:EmitSound("warhorns/gore_warhorn_retreat.mp3", 100, math.random(88, 108));
 					end;
  
 				else
@@ -840,17 +897,21 @@ local ITEM = Clockwork.item:New();
 	ITEM.category = "Communication"
 	ITEM.description = "A human skull that has been grafted with holes to generate a bone-chilling whistle.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/skull.png"
-	ITEM.customFunctions = {"Sound Attack", "Sound Rally", "Sound Rally - Line", "Sound Rally - Square", "Sound Retreat"};
+	ITEM.customFunctions = {"Sound Attack", "Sound Rally", "Sound Rally - Marching Formation", "Sound Rally - Shieldwall", "Sound Retreat"};
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position) end;
+	
 	if (SERVER) then
 		function ITEM:OnCustomFunction(player, name)
 			local curTime = CurTime();
+			
 			if !player.nextWarHorn or player.nextWarHorn <= curTime then
 				player.nextWarHorn = curTime + 5;
+				
 				local faction = player:GetFaction();
 				local playerPos = player:GetPos();
 				local radius = Clockwork.config:Get("talk_radius"):Get() * 4;
+				
 				if faction == "Children of Satan" then
 					if (name == "Sound Attack") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
@@ -877,26 +938,26 @@ local ITEM = Clockwork.item:New();
 							end
 						end
 						player:EmitSound("warhorns/deathwhistle5.mp3", 100, math.random(98, 102));
-					elseif (name == "Sound Rally - Line") then
+					elseif (name == "Sound Rally - Marching Formation") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == "Children of Satan" then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds their death whistle, signalling a rally in a line formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds their death whistle, signalling a rally in a marching formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds a terrifying death whistle!");
 								end
 							end
 						end
 						player:EmitSound("warhorns/deathwhistle5.mp3", 100, math.random(98, 102));
-					elseif (name == "Sound Rally - Square") then
+					elseif (name == "Sound Rally - Shieldwall") then
 						for k, v in pairs(ents.FindInSphere(playerPos, radius)) do
 							if v:IsPlayer() then
 								local vFaction = v:GetFaction();
 								
 								if vFaction == "Children of Satan" then
-									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds their death whistle, signalling a rally in a square formation!");
+									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds their death whistle, signalling a rally in a shieldwall formation!");
 								else
 									Clockwork.chatBox:Add(v, nil, "localevent", player:Name().." sounds a terrifying death whistle!");
 								end

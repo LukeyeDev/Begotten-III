@@ -12,7 +12,7 @@ local ITEM = item.New(nil, true);
 	ITEM.useText = "Equip"
 	ITEM.category = "Charms"
 	ITEM.description = "An enchanted item with a mysterious aura."
-	ITEM.requiredFaiths = nil;
+	ITEM.requireFaith = nil;
 	ITEM.slots = {"Charm1", "Charm2"};
 	ITEM.equipmentSaveString = "charms";
 
@@ -34,19 +34,19 @@ local ITEM = item.New(nil, true);
 			end
 			
 			-- kind of shit but oh well
-			if self.uniqueID == "ring_vitality" then
+			if self.uniqueID == "ring_vitality" or self.uniqueID == "ring_vitality_lesser" then
 				local max_health = player:GetMaxHealth();
 				
 				player:SetMaxHealth(player:GetMaxHealth());
 				player:SetHealth(math.Clamp(player:Health(), 1, max_health));
-			elseif self.uniqueID == "ring_courier" then
+			--[[elseif self.uniqueID == "ring_courier" then
 				local max_stamina = player:GetMaxStamina();
 				local new_stamina = math.Clamp(player:GetCharacterData("Stamina", 100), 0, max_stamina);
 
 				player:SetLocalVar("Max_Stamina", max_stamina);
 				player:SetCharacterData("Max_Stamina", max_stamina);
 				player:SetNWInt("Stamina", new_stamina);
-				player:SetCharacterData("Stamina", new_stamina);
+				player:SetCharacterData("Stamina", new_stamina);]]--
 			end
 		end
 	end
@@ -76,20 +76,36 @@ local ITEM = item.New(nil, true);
 			return false
 		end
 	
-		if self.requiredFaiths and not (table.HasValue(self.requiredFaiths, player:GetFaith())) then
-			if !player.spawning then
-				Schema:EasyText(player, "chocolate", "You are not of the correct faith to wear this!")
+		if self.requireFaith and not (table.HasValue(self.requireFaith, player:GetFaith())) then
+			if !self.kinisgerOverride or self.kinisgerOverride and !player:GetCharacterData("apostle_of_many_faces") then
+				if !player.spawning then
+					Schema:EasyText(player, "chocolate", "You are not of the correct faith to wear this!")
+				end
+				
+				return false
 			end
-			
-			return false
 		end
 		
 		if self.requiredSubfaiths and not (table.HasValue(self.requiredSubfaiths, player:GetSubfaith())) then
-			if !player.spawning then
-				Schema:EasyText(player, "chocolate", "You are not of the correct subfaith to wear this!")
+			if !self.kinisgerOverride or self.kinisgerOverride and !player:GetCharacterData("apostle_of_many_faces") then
+				if !player.spawning then
+					Schema:EasyText(player, "chocolate", "You are not of the correct subfaith to wear this!")
+				end
+				
+				return false
 			end
-			
-			return false
+		end
+		
+		if self.mutuallyExclusive then
+			for i, v in ipairs(self.mutuallyExclusive) do
+				if player:GetCharmEquipped(v) then
+					if !player.spawning then
+						Schema:EasyText(player, "chocolate", "This charm is mutually exclusive with another equipped charm!")
+					end
+					
+					return false
+				end
+			end
 		end
 
 		if (player:Alive()) then

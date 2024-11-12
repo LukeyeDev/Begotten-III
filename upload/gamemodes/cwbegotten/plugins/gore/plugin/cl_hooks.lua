@@ -2,7 +2,7 @@ local PLUGIN = PLUGIN;
 
 -- Called when screen space effects should be rendered.
 function cwGore:RenderScreenspaceEffects()
-	if (Clockwork.Client:GetSharedVar("blackOut") and Clockwork.Client:Alive()) then
+	if (Clockwork.Client:GetNetVar("blackOut") and Clockwork.Client:Alive()) then
 		local blackOut = {
 			[ "$pp_colour_brightness" ] = 0,
 			[ "$pp_colour_contrast" ] = 0,
@@ -322,17 +322,17 @@ end
 			end
 		end
 		
-		Clockwork.datastream:Hook("ResetBoneScale", function(data)
+		netstream.Hook("ResetBoneScale", function(data)
 			if (type(data) == "Player" or type(data) == "Entity" and IsValid(data)) then
 				LIMBS:ResetBoneScale(data)
 			end
 		end)
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			LIMBS:ResetBoneScale(v)
 		end
 		
-		Clockwork.datastream:Hook("ResizeBone", function(data)
+		netstream.Hook("ResizeBone", function(data)
 			if (IsValid(data.entity)) then
 				if (data.removeGroup and LIMBS.Groups[data.removeGroup]) then
 					for k, v in pairs (LIMBS.Groups[data.removeGroup]) do

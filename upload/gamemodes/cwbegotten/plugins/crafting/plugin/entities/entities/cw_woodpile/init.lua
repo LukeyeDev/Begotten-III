@@ -44,7 +44,7 @@ function ENT:OnTakeDamage(damageInfo)
 	if IsValid(player) and player:IsPlayer() then
 		local activeWeapon = player:GetActiveWeapon();
 		
-		if (damageInfo:IsDamageType(4) and damageInfo:GetDamage() >= 25) or (activeWeapon and activeWeapon.isHatchet) then
+		if (damageInfo:IsDamageType(4) and damageInfo:GetDamage() >= 15) or (activeWeapon and activeWeapon.isHatchet) then
 			self:EmitSound(self.BreakSounds[math.random(1, #self.BreakSounds)]);
 			
 			if !self.woodLeft then
@@ -52,10 +52,14 @@ function ENT:OnTakeDamage(damageInfo)
 			end
 			
 			if !self.strikesRequired then
-				self.strikesRequired = math.random(5, 10);
+				self.strikesRequired = math.random(10, 20);
 			end
 			
-			self.strikesRequired = self.strikesRequired - 1;
+			if activeWeapon and activeWeapon.isHatchet then
+				self.strikesRequired = self.strikesRequired - 2;
+			else
+				self.strikesRequired = self.strikesRequired - 1;
+			end
 			
 			if cwCharacterNeeds and player.HandleNeed then
 				player:HandleNeed("thirst", 0.75);
@@ -99,7 +103,7 @@ function ENT:OnTakeDamage(damageInfo)
 				
 				if weaponItemTable then
 					if cwBeliefs then
-						if !player:HasBelief("ingenuity_finisher") then
+						if !player:HasBelief("ingenuity_finisher") or weaponItemTable.unrepairable then
 							if player:HasBelief("scour_the_rust") then
 								weaponItemTable:TakeCondition(0.25);
 							else
@@ -115,25 +119,6 @@ function ENT:OnTakeDamage(damageInfo)
 			if self.woodLeft <= 0 then
 				Clockwork.chatBox:AddInTargetRadius(player, "it", "The wood pile is reduced to nothing, its resources fully extracted.", player:GetPos(), config.Get("talk_radius"):Get() * 2);
 				
-				--[[local piles = cwRecipes.Piles;
-				
-				for i = 1, #piles do
-					local pileTable = piles[i];
-					
-					for k, v in pairs(cwRecipes.pileLocations) do
-						for j = 1, #v do
-							if v[j].occupier == self:EntIndex() then
-								v[j].occupier = nil;
-								
-								self:Remove();
-								table.remove(cwRecipes.Piles, i);
-								
-								return;
-							end
-						end
-					end
-				end]]--
-				
 				self:Remove();
 			end
 		end
@@ -141,20 +126,22 @@ function ENT:OnTakeDamage(damageInfo)
 end
 
 function ENT:OnRemove()
-	local piles = cwRecipes.Piles;
+	for category, v in pairs(cwRecipes.Piles) do
+		for i, pileTable in ipairs(v) do
+			if pileTable.pile == self then
+				table.remove(cwRecipes.Piles[category], i);
+				
+				break;
+			end
+		end
+	end
 	
-	for i = 1, #piles do
-		local pileTable = piles[i];
-		
-		for k, v in pairs(cwRecipes.pileLocations) do
-			for j = 1, #v do
-				if v[j].occupier == self:EntIndex() then
-					v[j].occupier = nil;
-					
-					table.remove(cwRecipes.Piles, i);
-					
-					return;
-				end
+	for category, v in pairs(cwRecipes.pileLocations) do
+		for i, location in ipairs(v) do
+			if location.occupier == self:EntIndex() then
+				cwRecipes.pileLocations[category][i].occupier = nil;
+				
+				break;
 			end
 		end
 	end

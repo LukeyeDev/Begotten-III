@@ -48,9 +48,22 @@ end
 
 -- Called each frame.
 function ENT:Think()
+	local curTime = CurTime();
+
 	if (!Clockwork.entity:HasFetchedItemData(self)) then
-		Clockwork.entity:FetchItemData(self)
-		return
+		local plyTab = Clockwork.Client:GetTable();
+		
+		if Clockwork.Client:GetNetVar("Initialized") then
+			Clockwork.entity:FetchItemData(self);
+			
+			if plyTab.nextItemFetch then
+				plyTab.nextItemFetch = nil;
+			end
+		elseif !plyTab.nextItemFetch or plyTab.nextItemFetch <= curTime then
+			plyTab.nextItemFetch = curTime + 0.5;
+			
+			Clockwork.entity:FetchItemData(self);
+		end
 	end
 
 	--[[local itemTable = Clockwork.entity:FetchItemTable(self)
@@ -66,6 +79,10 @@ function ENT:Think()
 
 		hook.Run("ItemEntityThink", itemTable, self)
 	end]]--
+	
+	self:SetNextClientThink(curTime + math.Rand(0.5, 1));
+	
+	return true;
 end
 
 -- Called when the entity should draw.
@@ -109,3 +126,18 @@ function ENT:Draw()
 		end
 	end
 end
+
+-- Called when the entity is removed.
+function ENT:OnRemove()
+	local itemTable = self:GetItemTable();
+	
+	if (itemTable) then
+		timer.Simple(0, function()
+			if !IsValid(self) then
+				if !Clockwork.inventory:HasItemInstance(Clockwork.inventory.client, itemTable) then
+					item.RemoveInstance(itemTable.itemID, true);
+				end
+			end
+		end);
+	end;
+end;

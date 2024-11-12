@@ -48,7 +48,7 @@ SWEP.data 				= {}				--The starting firemode
 SWEP.data.ironsights			= 1
 
 SWEP.Primary.NumShots	= 1		-- How many bullets to shoot per trigger pull
-SWEP.Primary.Damage		= 80	-- Base damage per bullet
+SWEP.Primary.Damage		= 45	-- Base damage per bullet
 SWEP.Primary.Spread		= .02	-- Define from-the-hip accuracy 1 is terrible, .0001 is exact)
 SWEP.Primary.IronAccuracy = .01 -- Ironsight accuracy, should be the same for shotguns
 
@@ -67,7 +67,7 @@ SWEP.AmmoTypes = {
 	["Old World Shot"] = function(SWEP)
 		SWEP.Primary.Sound = Sound("weapons/thompson_01.wav");
 		SWEP.Primary.NumShots = 1;
-		SWEP.Primary.Damage = 80;
+		SWEP.Primary.Damage = 45;
 		SWEP.Primary.Spread = .02;
 		SWEP.Primary.IronAccuracy = .01;
 		SWEP.Primary.ClipSize = 1;
@@ -147,7 +147,20 @@ function SWEP:PrimaryAttack()
 				self:ShootBulletInformation();
 				self.Weapon:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
 				self.Weapon:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-				self.Weapon:EmitSound(self.Primary.Sound, 75, math.random(90, 95))
+				
+				if SERVER then
+					local filter = RecipientFilter();
+					
+					if zones then
+						filter:AddPlayers(zones:GetPlayersInSupraZone(zones:GetPlayerSupraZone(self.Owner)));
+					else
+						filter:AddAllPlayers();
+					end
+					
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(90, 95), 1, CHAN_WEAPON, 0, 0, filter);
+				else
+					self.Weapon:EmitSound(self.Primary.Sound, self.Primary.SoundLevel or 511, math.random(90, 95), 1, CHAN_WEAPON, 0, 0);
+				end
 
 				local effect = EffectData();
 				local Forward = self.Owner:GetForward()

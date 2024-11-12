@@ -107,15 +107,16 @@ function cwMedicalSystem:PlayerUseMedical(player, itemTable, hitGroup)
 	if (!IsValid(player) or !itemTable or !player:HasItemInstance(itemTable) or !player:Alive()) then
 		return;
 	end;
-
 	local action = Clockwork.player:GetAction(player);
 	
 	if (action != "heal" and action != "healing" and action != "performing_surgery") then
 		local consumeTime = itemTable.useTime or 7;
 		
 		if player:HasBelief("dexterity") then
-			consumeTime = (itemTable.useTime or 7) * 0.67;
+			consumeTime = consumeTime * 0.67;
 		end
+		
+		player:SetWeaponRaised(false);
 			
 		Clockwork.player:SetAction(player, "heal", consumeTime, nil, function()
 			if !IsValid(player) then
@@ -123,8 +124,8 @@ function cwMedicalSystem:PlayerUseMedical(player, itemTable, hitGroup)
 			end
 		
 			if (itemTable("morphine")) then
-				Clockwork.datastream:Start(player, "Stunned", 1);
-				Clockwork.datastream:Start(player, "MorphineDream", 60);
+				netstream.Start(player, "Stunned", 1);
+				netstream.Start(player, "MorphineDream", 60);
 				
 				player:HandleSanity(10);
 			end;
@@ -211,20 +212,35 @@ function cwMedicalSystem:PlayerUseMedical(player, itemTable, hitGroup)
 
 			if (itemTable("healAmount") and itemTable("healDelay") and itemTable("healRepetition")) then
 				local playerIndex = player:EntIndex();
-				local playerMaxHealth = player:GetMaxHealth();
 				local healAmount = itemTable("healAmount");
 				local healDelay = itemTable("healDelay");
 				local healRepetition = itemTable("healRepetition");
 				local timesHealed = 0;
 				
 				if cwBeliefs and player:HasBelief("medicine_man") then
-					healAmount = healAmount * 3;
+					healAmount = healAmount * 1.7;
 				end
 				
-				timer.Create(playerIndex.."_heal", healDelay, healRepetition, function()
-					if (IsValid(player)) then
-						local healAmount = math.Clamp(player:Health() + healAmount, 0, playerMaxHealth);
+				if cwBeliefs and player:HasBelief("one_with_the_druids") then
+					healAmount = healAmount * 1.5;
+				end
 
+				timer.Create(playerIndex.."_heal_"..itemTable.itemID, healDelay, healRepetition, function()
+					if (IsValid(player)) then
+						local playerMaxHealth = player:GetMaxHealth(); -- Moving this here since max health could theoretically change while a heal is happening.
+						local healAmount = math.Clamp(player:Health() + healAmount, 0, playerMaxHealth);
+						
+						if player:Health() == playerMaxHealth then
+							timer.Destroy(playerIndex.."_heal_"..itemTable.itemID);
+							
+							Clockwork.limb:HealDamage(player, k, healAmount * (healRepetition - timesHealed));
+							
+							Clockwork.hint:Send(player, itemTable("name").." has worn off...", 5, Color(100, 175, 100), true, true);
+							hook.Run("PlayerHealed", player, itemTable);
+							
+							return;
+						end
+						
 						player:SetHealth(healAmount);
 						
 						if hitGroup == "all" then
@@ -247,14 +263,14 @@ function cwMedicalSystem:PlayerUseMedical(player, itemTable, hitGroup)
 					
 						timesHealed = timesHealed + 1;
 						
-						if (timesHealed >= healRepetition) then
-							timer.Destroy(playerIndex.."_heal");
+						if (timesHealed >= healRepetition) or player:Health() == playerMaxHealth then
+							timer.Destroy(playerIndex.."_heal_"..itemTable.itemID);
 							
 							Clockwork.hint:Send(player, itemTable("name").." has worn off...", 5, Color(100, 175, 100), true, true);
 							hook.Run("PlayerHealed", player, itemTable);
 						end;
 					else
-						timer.Destroy(playerIndex.."_heal");
+						timer.Destroy(playerIndex.."_heal_"..itemTable.itemID);
 					end;
 				end);
 			end;
@@ -267,7 +283,7 @@ function cwMedicalSystem:PlayerUseMedical(player, itemTable, hitGroup)
 				player:HandleXP(itemTable.useXP or 5);
 			end
 			
-			player:TakeItem(itemTable);
+			player:TakeItem(itemTable, true);
 
 			return true;
 		end);
@@ -289,11 +305,17 @@ function cwMedicalSystem:HealPlayer(player, target, itemTable, hitGroup)
 	local consumeTime = itemTable.useTime or 7;
 	
 	if player:HasBelief("dexterity") then
-		consumeTime = (itemTable.useTime or 7) * 0.67;
+		consumeTime = consumeTime * 0.67;
+	end
+	
+	if player:HasBelief("doctor") then
+		consumeTime = consumeTime * 0.5;
 	end
 	
 	if (actionPlayer != "heal" and actionPlayer != "healing" and actionPlayer != "performing_surgery") then
 		if (actionTarget != "heal" and actionTarget != "healing" and actionTarget != "performing_surgery") then
+			player:SetWeaponRaised(false);
+			
 			Clockwork.player:SetAction(player, "healing", consumeTime, nil, function()
 				if !IsValid(player) or !IsValid(target) then
 					return;
@@ -398,7 +420,6 @@ function cwMedicalSystem:HealPlayer(player, target, itemTable, hitGroup)
 				
 				if (itemTable("healAmount") and itemTable("healDelay") and itemTable("healRepetition")) then
 					local targetIndex = target:EntIndex();
-					local targetMaxHealth = target:GetMaxHealth();
 					local healAmount = itemTable("healAmount");
 					local healDelay = itemTable("healDelay");
 					local healRepetition = itemTable("healRepetition");
@@ -408,9 +429,25 @@ function cwMedicalSystem:HealPlayer(player, target, itemTable, hitGroup)
 						healAmount = healAmount * 3;
 					end
 					
-					timer.Create(targetIndex.."_heal", healDelay, healRepetition, function()
+					if cwBeliefs and player:HasBelief("one_with_the_druids") then
+						healAmount = healAmount * 1.5;
+					end
+					
+					timer.Create(targetIndex.."_heal_"..itemTable.itemID, healDelay, healRepetition, function()
 						if (IsValid(target)) then
+							local targetMaxHealth = target:GetMaxHealth(); -- Moving this here since max health could theoretically change while a heal is happening.
 							local healAmount = math.Clamp(target:Health() + healAmount, 0, targetMaxHealth);
+							
+							if target:Health() == targetMaxHealth then
+								timer.Destroy(targetIndex.."_heal_"..itemTable.itemID);
+								
+								Clockwork.limb:HealDamage(target, k, healAmount * (healRepetition - timesHealed));
+								
+								Clockwork.hint:Send(target, itemTable("name").." has worn off...", 5, Color(100, 175, 100), true, true);
+								hook.Run("PlayerHealed", target, itemTable);
+								
+								return;
+							end
 
 							target:SetHealth(healAmount);
 							
@@ -434,14 +471,14 @@ function cwMedicalSystem:HealPlayer(player, target, itemTable, hitGroup)
 
 							timesHealed = timesHealed + 1;
 							
-							if (timesHealed >= healRepetition) then
-								timer.Destroy(targetIndex.."_heal");
+							if (timesHealed >= healRepetition) or target:Health() == targetMaxHealth then
+								timer.Destroy(targetIndex.."_heal_"..itemTable.itemID);
 								
 								Clockwork.hint:Send(target, itemTable("name").." has worn off...", 5, Color(100, 175, 100), true, true);
 								hook.Run("PlayerHealed", target, itemTable);
 							end;
 						else
-							timer.Destroy(targetIndex.."_heal");
+							timer.Destroy(targetIndex.."_heal_"..itemTable.itemID);
 						end;
 					end);
 				end;
@@ -462,10 +499,10 @@ function cwMedicalSystem:HealPlayer(player, target, itemTable, hitGroup)
 					player:HandleXP(healXP);
 				end
 				
-				player:TakeItem(itemTable);
+				player:TakeItem(itemTable, true);
 			end);
 		else
-			Schema:EasyText(player, "peru","This player is already healing!");
+			Schema:EasyText(player, "peru", "This player is already healing!");
 		end;
 	else
 		Schema:EasyText(player, "peru", "You are already healing!");
@@ -496,7 +533,7 @@ function cwMedicalSystem:PerformSurgeryOnPlayer(player, target, itemTable, hitGr
 				return;
 			end
 			
-			--[[if target:GetRagdollState() ~= RAGDOLL_KNOCKEDOUT and target:GetSharedVar("tied") == 0 then
+			--[[if target:GetRagdollState() ~= RAGDOLL_KNOCKEDOUT and target:GetNetVar("tied") == 0 then
 				Schema:EasyText(player, "chocolate","To perform surgery on someone, they must be unconscious or tied up.");
 			
 				return;
@@ -675,7 +712,7 @@ function cwMedicalSystem:DoBleedEffect(entity, bForce)
 				
 				if (IsEntity(entity) and entity:IsPlayer()) then
 					if (math.random(1, 2) == 2) then
-						Clockwork.datastream:Start(player, "ScreenBloodEffect");
+						netstream.Start(player, "ScreenBloodEffect");
 					end;
 				end;
 			end;
@@ -804,42 +841,6 @@ function cwMedicalSystem:PlayerUseUnknownItemFunction(player, itemTable, itemFun
 			Schema:EasyText(player, "firebrick", "You must look at a character!");
 		end;
 	end;
-end;
-
--- Called after all armor and melee effects have been created.
-function cwMedicalSystem:FuckMyLife(player, damageInfo)
-	if player:IsPlayer() then
-		local attacker = damageInfo:GetAttacker();
-		local hitGroup = player:LastHitGroup();
-		
-		if (IsValid(attacker) and attacker:IsPlayer()) then
-			local activeWeapon = attacker:GetActiveWeapon();
-			
-			if (IsValid(activeWeapon) and activeWeapon.Base == "sword_swepbase") then
-				hitGroup = Clockwork.kernel:GetRagdollHitGroup(player, damageInfo:GetDamagePosition());
-			end
-		end
-		
-		if (hitGroup and isnumber(hitGroup)) then
-			hitGroup = self.cwHitGroupToString[hitGroup];
-		end;
-
-		if (self:IsLimbDisabled(player, hitGroup)) then
-			return;
-		end;
-		
-		local limbs = self:GetLimbs(player);
-		
-		if limbs and limbs[hitGroup] then
-			local damage = damageInfo:GetDamage() or 0;
-			local maxHealth = player:GetMaxHealth() or 100;
-			local health = math.max(player:Health() or 100, maxHealth);
-			
-			limbs[hitGroup] = math.Clamp(limbs[hitGroup] + damage, 0, health);
-		end
-		
-		hook.Run("PlayerLimbDamageTaken", player, hitGroup, damage, damageInfo);
-	end
 end;
 
 -- Called when a player's limb is damaged from EntityTakeDamage.
@@ -1063,10 +1064,12 @@ function cwMedicalSystem:RemoveInjury(player, limb, uniqueID)
 	end
 	
 	player:SetCharacterData("Injuries", injuries);
+	player:SetMaxHealth(player:GetMaxHealth());
 end;
 
 function cwMedicalSystem:ResetInjuries(player)
 	player:SetCharacterData("Injuries", {});
+	player:SetMaxHealth(player:GetMaxHealth());
 end
 
 -- A function to get the player's limb damage tables.
@@ -1085,7 +1088,7 @@ end;
 
 -- A function to get the player's injury tables.
 function cwMedicalSystem:GetInjuries(player)
-	local injuries = player:GetCharacterData("Injuries",  {});
+	local injuries = player:GetCharacterData("Injuries");
 	
 	if (!injuries or !istable(injuries) or table.IsEmpty(injuries)) then
 		self:SetupPlayer(player, true);
@@ -1313,7 +1316,7 @@ function playerMeta:GiveDisease(uniqueID, stage)
 		
 		if !has_disease then
 			local diseaseData = {};
-			local diseaseSharedVar = self:GetSharedVar("diseases", {});
+			local diseaseSharedVar = self:GetNetVar("diseases", {});
 			
 			diseaseData.uniqueID = uniqueID;
 			diseaseData.stage = tonumber(stage) or 1;
@@ -1330,8 +1333,8 @@ function playerMeta:GiveDisease(uniqueID, stage)
 			end
 		
 			self:SetCharacterData("diseases", diseases);
-			self:SetSharedVar("diseases", diseaseSharedVar);
-			self:SetSharedVar("symptoms", self:GetSymptoms());
+			self:SetLocalVar("diseases", diseaseSharedVar);
+			self:SetNetVar("symptoms", self:GetSymptoms());
 			
 			return true;
 		end
@@ -1345,7 +1348,7 @@ function playerMeta:TakeDisease(uniqueID)
 	
 	if diseaseTable then
 		local diseases = self:GetCharacterData("diseases", {});
-		local diseaseSharedVar = self:GetSharedVar("diseases", {});
+		local diseaseSharedVar = self:GetNetVar("diseases", {});
 		
 		for i = 1, #diseases do
 			local disease = diseases[i];
@@ -1365,8 +1368,8 @@ function playerMeta:TakeDisease(uniqueID)
 				end
 				
 				self:SetCharacterData("diseases", diseases);
-				self:SetSharedVar("diseases", diseaseSharedVar);
-				self:SetSharedVar("symptoms", self:GetSymptoms());
+				self:SetLocalVar("diseases", diseaseSharedVar);
+				self:SetNetVar("symptoms", self:GetSymptoms());
 				
 				return;
 			end
@@ -1395,17 +1398,17 @@ function playerMeta:TakeAllDiseases()
 			end
 		
 			self:SetCharacterData("diseases", diseases);
-			self:SetSharedVar("diseases", diseaseSharedVar);
-			self:SetSharedVar("symptoms", self:GetSymptoms());
+			self:SetLocalVar("diseases", diseaseSharedVar);
+			self:SetNetVar("symptoms", self:GetSymptoms());
 		else
 			self:SetCharacterData("diseases", {});
-			self:SetSharedVar("diseases", nil);
-			self:SetSharedVar("symptoms", nil);
+			self:SetLocalVar("diseases", nil);
+			self:SetNetVar("symptoms", nil);
 		end
 	else
 		self:SetCharacterData("diseases", {});
-		self:SetSharedVar("diseases", nil);
-		self:SetSharedVar("symptoms", nil);
+		self:SetLocalVar("diseases", nil);
+		self:SetNetVar("symptoms", nil);
 	end
 end
 
@@ -1504,20 +1507,20 @@ function playerMeta:NetworkDiseases()
 	end
 	
 	if !table.IsEmpty(diseaseNetworkStrings) then
-		self:SetSharedVar("diseases", diseaseNetworkStrings);
+		self:SetLocalVar("diseases", diseaseNetworkStrings);
 	else
-		self:SetSharedVar("diseases", nil);
+		self:SetLocalVar("diseases", nil);
 	end
 	
 	if !table.IsEmpty(symptoms) then
-		self:SetSharedVar("symptoms", symptoms);
+		self:SetNetVar("symptoms", symptoms);
 	else
-		self:SetSharedVar("symptoms", nil);
+		self:SetNetVar("symptoms", nil);
 	end
 end
 
 -- COMMENT THIS OUT WHEN NOT TESTING, THIS RESETS INJURIES
-for k, v in pairs (_player.GetAll()) do
+for _, v in _player.Iterator() do
 	if (!v:IsBot()) then
 		--v:Freeze(false)
 	else
@@ -1573,7 +1576,7 @@ function cwMedicalSystem:NetworkInjuries(player)
 	local injuries = self:FlattenInjuries(player);
 		
 	if (string.len(injuries) > 2) then
-		Clockwork.datastream:Start(player, "NetworkInjuries", injuries);
+		netstream.Start(player, "NetworkInjuries", injuries);
 	end;
 end;
 
@@ -1582,7 +1585,7 @@ function cwMedicalSystem:NetworkLimbs(player)
 	local limbs = self:FlattenLimbs(player);
 
 	if (string.len(limbs) > 2) then
-		Clockwork.datastream:Start(player, "NetworkLimbs", limbs);
+		netstream.Start(player, "NetworkLimbs", limbs);
 	end;
 end;
 

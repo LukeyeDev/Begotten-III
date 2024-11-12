@@ -184,18 +184,18 @@ function ENT:SetGunner(player)
 	local playerPosition = player:GetPos();
 	local playerAngles = player:GetAngles();
 	
-	self.Gunner:SetSharedVar("mountedGun", self);
+	self.Gunner:SetNetVar("mountedGun", self);
 	player:SetForcedAnimation("ACT_IDLE_MANNEDGUN", 0)
-	player:SetSharedVar("StancePos", playerPosition);
-	player:SetSharedVar("StanceAng", playerAngles);
-	player:SetSharedVar("StanceIdle", true);
+	player:SetNetVar("StancePos", playerPosition);
+	player:SetNetVar("StanceAng", playerAngles);
+	player:SetNetVar("StanceIdle", true);
 end;
 
 -- A function to remove the turret's active gunner.
 function ENT:RemoveGunner()
 	if (IsValid(self.Gunner)) then
 		self.Gunner.MountedGun = nil;
-		self.Gunner:SetSharedVar("mountedGun", nil);
+		self.Gunner:SetNetVar("mountedGun", nil);
 		self.Gunner:SetForcedAnimation(false);
 		self.Gunner:SetFOV(0, 0.3);
 	end;
@@ -213,7 +213,7 @@ function ENT:DisableGunnerWeapons()
 	local gunner = self.Gunner;
 	local activeWeapon = gunner:GetActiveWeapon();
 	
-	if (IsValid(activeWeapon)) then
+	if (activeWeapon:IsValid()) then
 		local viewModel = gunner:GetViewModel();
 		local curTime = CurTime();
 		
@@ -230,7 +230,7 @@ function ENT:EnableGunnerWeapons()
 	local gunner = self.Gunner;
 	local activeWeapon = self.Gunner:GetActiveWeapon();
 	
-	if (IsValid(activeWeapon)) then
+	if (activeWeapon:IsValid()) then
 		local viewModel = gunner:GetViewModel();
 		local curTime = CurTime();
 		

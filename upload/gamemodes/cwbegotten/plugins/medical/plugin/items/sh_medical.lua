@@ -8,7 +8,7 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.model = "models/props_c17/TrapPropeller_Lever.mdl";
 	ITEM.weight = 0.15;
 	ITEM.description = "A glass vial filled with a mysterious clear liquid that can be injected into someone for a burst of energy...";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/ampoule.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/syringe.png"
 	ITEM.useSound = "begotten/items/meat_inject.mp3";
 	ITEM.uniqueID = "ampoule"
 	
@@ -16,12 +16,12 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.healAmount = 10;
 	ITEM.healDelay = 5;
 	ITEM.healRepetition = 5;
-	ITEM.canSave = true;
+	ITEM.canSave = false; -- Behavior overriden in OnUsed.
 	ITEM.restoresBlood = 1000;
 	ITEM.useXP = 10;
 	ITEM.useTime = 1;
 
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 1000};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 1200};
 	ITEM.limbs = "all";
 	
 	-- Called when the player uses the item.
@@ -31,15 +31,18 @@ local ITEM = Clockwork.item:New("medical_base");
 		
 		player:SetCharacterData("painpills", curTime + 60);]]--
 		player:HandleStamina(100);
-		player:GivePoise(player:GetMaxPoise());
+		--player:GivePoise(player:GetMaxPoise());
 		player:HandleSanity(25);
-		Clockwork.datastream:Start(player, "Stunned", 1);
-		Clockwork.datastream:Start(player, "MorphineDream", 60);
+		netstream.Start(player, "Stunned", 1);
+		netstream.Start(player, "MorphineDream", 60);
 		
 		--if action == "die" or action == "die_bleedout" then
 		if player:GetRagdollState() == RAGDOLL_KNOCKEDOUT then
-			Clockwork.player:SetAction(player, nil);
-			Clockwork.player:SetRagdollState(target, RAGDOLL_NONE);
+			if player:Health() < 10 then
+				player:SetHealth(10);
+			end
+			
+			Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER);
 			
 			Clockwork.chatBox:AddInTargetRadius(player, "me", "jolts awake!", player:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
 		end
@@ -52,7 +55,7 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.model = "models/props_c17/TrapPropeller_Lever.mdl";
 	ITEM.weight = 0.15;
 	ITEM.description = "A syringe that hosts something...";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/ampoule.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/blacksyringe.png"
 	ITEM.useSound = "begotten/items/meat_inject.mp3";
 	ITEM.uniqueID = "blacksyringe"
 	
@@ -67,13 +70,12 @@ local ITEM = Clockwork.item:New("medical_base");
 		player:HandleStamina(40);
 		player:HandleSanity(25);
 		Schema:EasyText(player, "olivedrab","It's been done. The plight will take hold in due time.");
-		Clockwork.datastream:Start(player, "Stunned", 1);
+		netstream.Start(player, "Stunned", 1);
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Antibiotic Paste";
-	ITEM.cost = 100;
 	ITEM.model = "models/props_c17/TrapPropeller_Lever.mdl";
 	ITEM.weight = 0.5;
 	ITEM.useText = "Apply";
@@ -85,29 +87,28 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.applicable = true;
 
 	ITEM.curesInjuries = {"infection", "minor_infection"};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 400};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 675};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 	ITEM.useXP = 25;
 	
 	function ITEM:OnUsed(player, itemEntity)
 		Schema:EasyText(player, "olivedrab","You apply the antibiotic paste to your wound.");
-		Clockwork.datastream:Start(self, "Stunned", 2);
+		netstream.Start(self, "Stunned", 2);
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Antibiotics";
-	ITEM.cost = 150;
-	ITEM.model = "models/props_junk/glassjug01.mdl";
+	ITEM.model = "models/healthvial_nmrih.mdl";
 	ITEM.weight = 0.5;
 	ITEM.useText = "Drink";
 	ITEM.useSound = "npc/barnacle/barnacle_gulp1.wav";
 	ITEM.description = "A rarity indeed! These ancient capsules are renowned for their ability to stop most diseases or cure infections.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/laudanum.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/antibiotics.png"
 	ITEM.uniqueID = "antibiotics"
 
 	ITEM.ingestible = {orally = true, anally = false};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 700};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 800};
 	ITEM.useXP = 50;
 	
 	function ITEM:OnUsed(player, itemEntity)
@@ -127,14 +128,13 @@ local ITEM = Clockwork.item:New("medical_base");
 			
 			player:HandleSanity(10);
 			player:EmitSound(self.useSound);
-			player:TakeItem(self);
+			player:TakeItem(self, true);
 		end
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Black Remedy";
-	ITEM.cost = 150;
 	ITEM.model = "models/weapons/w_oil.mdl";
 	ITEM.weight = 0.2;
 	ITEM.useText = "Drink";
@@ -163,14 +163,13 @@ local ITEM = Clockwork.item:New("medical_base");
 			
 			player:HandleSanity(100);
 			player:EmitSound(self.useSound);
-			player:TakeItem(self);
+			player:TakeItem(self, true);
 		end
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Bloody Fucked Bandage";
-	ITEM.cost = 8;
 	ITEM.model = "models/kali/miscstuff/stalker/aid/bandage.mdl";
 	ITEM.weight = 0.1;
 	ITEM.useText = "Apply";
@@ -186,13 +185,12 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.stopsBleeding = true;
 	ITEM.infectionChance = 80;
 
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 65};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 70};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Gauze";
-	ITEM.cost = 8;
 	ITEM.model = "models/healthvial_gauze.mdl";
 	ITEM.weight = 0.2;
 	ITEM.useText = "Apply";
@@ -208,15 +206,15 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.stopsBleeding = true;
 	ITEM.infectionChance = 30;
 	ITEM.useXP = 15;
+	ITEM.useTime = 10;
 
 	ITEM.curesInjuries = {"gash"};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 95};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 225};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Skingauze";
-	ITEM.cost = 8;
 	ITEM.model = "models/mosi/fnv/props/gore/gorehead01.mdl";
 	ITEM.weight = 0.4;
 	ITEM.useText = "Apply";
@@ -232,9 +230,10 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.stopsBleeding = true;
 	ITEM.infectionChance = 50;
 	ITEM.useXP = 15;
+	ITEM.useTime = 10;
 
 	ITEM.curesInjuries = {"gash"};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 100};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 300};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 
 	-- Called when a player uses the item.
@@ -259,7 +258,7 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.healRepetition = 5;
 	
 	ITEM.ingestible = {orally = true, anally = false};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 175};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 250};
 	ITEM.useXP = 25;
 	
 	function ITEM:OnUsed(player, itemEntity)
@@ -272,16 +271,15 @@ local ITEM = Clockwork.item:New("medical_base");
 			
 			player:HandleSanity(100);
 			player:EmitSound(self.useSound);
-			player:TakeItem(self);
+			player:TakeItem(self, true);
 			
-			Clockwork.datastream:Start(player, "Stunned", 3);
+			netstream.Start(player, "Stunned", 3);
 		end
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Crafted Bandage";
-	ITEM.cost = 15;
 	ITEM.model = "models/props_wasteland/prison_toiletchunk01f.mdl";
 	ITEM.weight = 0.1;
 	ITEM.useText = "Apply";
@@ -303,13 +301,12 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Ointment";
-	ITEM.cost = 8;
-	ITEM.model = "models/props_junk/glassjug01.mdl";
+	ITEM.model = "models/mosi/fallout4/props/junk/components/adhesive.mdl";
 	ITEM.weight = 0.5;
 	ITEM.useText = "Apply";
 	ITEM.useSound = "begotten/ui/sanity_gain.mp3";
 	ITEM.description = "A bottle of old ointment for use in treating burn injuries.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/laudanum.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/ointment.png"
 	ITEM.uniqueID = "ointment"
 	
 	ITEM.applicable = true;
@@ -320,18 +317,17 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.useXP = 15;
 
 	ITEM.curesInjuries = {"burn"};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 300, bNoSupercrate = true};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 700, bNoSupercrate = true};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 	
 	function ITEM:OnUsed(player, itemEntity)
 		Schema:EasyText(player, "olivedrab","The ointment is applied to your skin. It stings like hell, but hopefully it will work.");
-		Clockwork.datastream:Start(self, "Stunned", 2);
+		netstream.Start(self, "Stunned", 2);
 	end;
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Skintape";
-	ITEM.cost = 15;
 	ITEM.model = "models/cofprops/skintape.mdl";
 	ITEM.weight = 0.2;
 	ITEM.access = "v";
@@ -349,7 +345,7 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.stopsBleeding = true;
 	ITEM.useXP = 5;
 	
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 50};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 200};
 	ITEM.limbs = {HITGROUP_CHEST, HITGROUP_HEAD, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 
 	-- Called when a player uses the item.
@@ -361,7 +357,6 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Makeshift Splint";
-	ITEM.cost = 8;
 	ITEM.model = "models/Gibs/wood_gib01b.mdl"; -- find a good model later
 	ITEM.weight = 1;
 	ITEM.useText = "Place";
@@ -375,14 +370,13 @@ local ITEM = Clockwork.item:New("medical_base");
 
 	ITEM.curesInjuries = {"broken_bone"};
 	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 125};
-	ITEM.limbs = {HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
+	ITEM.limbs = {HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Survival Pack";
-	ITEM.cost = 30;
 	ITEM.model = "models/items/healthkit_nmrih.mdl";
-	ITEM.weight = 1;
+	ITEM.weight = 3;
 	ITEM.access = "v";
 	ITEM.useText = "Heal";
 	ITEM.useSound = "bandaging_1.wav";
@@ -397,9 +391,10 @@ local ITEM = Clockwork.item:New("medical_base");
 	ITEM.stopsBleeding = true;
 	ITEM.canSave = true;
 	ITEM.useXP = 50;
+	ITEM.useTime = 30;
 
 	ITEM.curesInjuries = {"burn", "gash", "gunshot_wound", "minor_infection"};
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 1000};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 4500};
 	ITEM.limbs = "all";
 	
 	-- Called when a player uses the item.
@@ -411,14 +406,13 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Scalpel";
-	ITEM.cost = 15;
-	ITEM.model = "models/props_c17/TrapPropeller_Lever.mdl";
+	ITEM.model = "models/gibs/metal_gib4.mdl";
 	ITEM.weight = 0.25;
 	ITEM.access = "v";
 	ITEM.useText = "Cut";
 	ITEM.useSound = "bandaging_1.wav";
 	ITEM.description = "A rusty scalpel for surgical incisions.";
-	ITEM.iconoverride = "materials/begotten/ui/itemicons/ampoule.png"
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/scalpel.png"
 	ITEM.uniqueID = "scalpel"
 	
 	ITEM.applicable = true;
@@ -431,7 +425,6 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Forceps";
-	ITEM.cost = 15;
 	ITEM.model = "models/downpour/scissors01_m0_ah.mdl";
 	ITEM.weight = 0.25;
 	ITEM.access = "v";
@@ -451,7 +444,6 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New("medical_base");
 	ITEM.name = "Suture";
-	ITEM.cost = 15;
 	ITEM.model = "models/props_junk/cardboard_box004a.mdl";
 	ITEM.weight = 0.25;
 	ITEM.access = "v";
@@ -471,7 +463,6 @@ ITEM:Register();
 
 local ITEM = Clockwork.item:New();
 	ITEM.name = "Chloroform";
-	ITEM.cost = 50;
 	ITEM.model = "models/props_junk/garbage_newspaper001a.mdl";
 	ITEM.weight = 0.1;
 	ITEM.useText = "Knock Out";
@@ -495,10 +486,14 @@ local ITEM = Clockwork.item:New();
 					local canChloroform = (target:GetAimVector():DotProduct(player:GetAimVector()) > 0);
 					local chloroformTime = 5;
 					
+					if cwBeliefs and player:HasBelief("doctor") then
+						chloroformTime = 2.5;
+					end
+					
 					if (canChloroform or target:IsRagdolled()) then
 						Clockwork.player:SetAction(player, "chloroform", chloroformTime);
 						
-						target:SetSharedVar("beingChloro", true);
+						target:SetNetVar("beingChloro", true);
 						
 						Clockwork.player:EntityConditionTimer(player, target, trace.Entity, chloroformTime, 192, function()
 							local canChloroform = (target:GetAimVector():DotProduct(player:GetAimVector()) > 0);
@@ -512,7 +507,7 @@ local ITEM = Clockwork.item:New();
 								
 								Clockwork.player:SetRagdollState(target, RAGDOLL_KNOCKEDOUT, 240);
 								
-								player:TakeItem(self);
+								player:TakeItem(self, true);
 							else
 								player.isChloroforming = nil;
 							end;
@@ -520,7 +515,7 @@ local ITEM = Clockwork.item:New();
 							Clockwork.player:SetAction(player, "chloroform", false);
 							
 							if (IsValid(target)) then
-								target:SetSharedVar("beingChloro", false);
+								target:SetNetVar("beingChloro", false);
 							end;
 						end);
 					else
@@ -550,7 +545,7 @@ local ITEM = Clockwork.item:New();
 	-- Called when a player drops the item.
 	function ITEM:OnDrop(player, position) end;
 	
-	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 600, bNoSupercrate = true};
+	ITEM.itemSpawnerInfo = {category = "Medical", rarity = 1000, bNoSupercrate = true};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New();
@@ -614,7 +609,7 @@ local ITEM = Clockwork.item:New();
 					
 					player:TakeDamageInfo(d);
 					
-					player:TakeItem(self);
+					player:TakeItem(self, true);
 					
 					Schema:EasyText(player, "olive", "You stab yourself with the circuitry!");
 				end
@@ -689,7 +684,7 @@ local ITEM = Clockwork.item:New();
 					player:HandleNeed("sleep", -50 * malus);
 					player:HandleNeed("corruption", -40 * malus);
 					player:HandleXP(80 * malus);
-					player:TakeItem(self);
+					player:TakeItem(self, true);
 					player:EmitSound("physics/plastic/plastic_barrel_break1.wav");
 				else
 					local d = DamageInfo()
@@ -698,7 +693,7 @@ local ITEM = Clockwork.item:New();
 					d:SetDamagePosition(player:GetPos() + Vector(0, 0, 64));
 					
 					player:TakeDamageInfo(d);
-					player:TakeItem(self);
+					player:TakeItem(self, true);
 					
 					Schema:EasyText(player, "olive", "You shove the circuitry in your mouth and fuck up your teeth!");
 				end
@@ -845,7 +840,7 @@ local ITEM = Clockwork.item:New();
 					player:HandleNeed("sleep", -200 * malus);
 					player:HandleNeed("corruption", -200 * malus);
 					player:HandleXP(500 * malus);
-					player:TakeItem(self);
+					player:TakeItem(self, true);
 					player:EmitSound("physics/plastic/plastic_barrel_break1.wav");
 				else
 					local d = DamageInfo()
@@ -854,7 +849,7 @@ local ITEM = Clockwork.item:New();
 					d:SetDamagePosition(player:GetPos() + Vector(0, 0, 64));
 					
 					player:TakeDamageInfo(d);
-					player:TakeItem(self);
+					player:TakeItem(self, true);
 					
 					Schema:EasyText(player, "olive", "You shove the circuitry in your mouth and fuck up your teeth!");
 				end

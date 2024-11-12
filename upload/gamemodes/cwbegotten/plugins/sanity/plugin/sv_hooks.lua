@@ -2,13 +2,9 @@
 	Begotten III: Jesus Wept
 --]]
 
-local requiredDistance = (256 * 256);
+local requiredDistance = 256;
 local sanity_interval = 60;
 local map = game.GetMap();
-
-cwSanity.DrainEntities = {
-	--["cw_example"] = 1;
-}
 
 local sanitySafezones = {
 	["gore"] = true,
@@ -17,9 +13,11 @@ local sanitySafezones = {
 }
 
 local sanitySubSafezones = {
-	["wasteland"] = {
-		{pos1 = Vector(-13813, -13472, -1546), pos2 = Vector(-13048, -12315, -1133)}, -- Castle 
-		{pos1 = Vector(11278, -11108, -835), pos2 = Vector(14556, -13878, -1798)}, -- Caves
+	["rp_begotten3"] = {
+		["wasteland"] = {
+			{pos1 = Vector(-13813, -13472, -1546), pos2 = Vector(-13048, -12315, -1133)}, -- Castle 
+			{pos1 = Vector(11278, -11108, -835), pos2 = Vector(14556, -13878, -1798)}, -- Caves
+		},
 	},
 };
 
@@ -29,21 +27,26 @@ local hellZones = {
 }
 
 -- Called at an interval while the player is connected to the server.
-function cwSanity:PlayerThink(player, curTime, infoTable)
-	if (!player.nextSanityDecay or player.nextSanityDecay <= curTime) then
-		if (Clockwork.player:HasFlags(player, "E")) then
+function cwSanity:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
+	if !initialized then
+		return;
+	end
+
+	if (!plyTab.nextSanityDecay or plyTab.nextSanityDecay <= curTime) then
+		if (Clockwork.player:HasFlags(player, "E") or Clockwork.player:HasFlags(player, "N")) then
 			player:HandleSanity(100);
-			player.nextSanityDecay = curTime + sanity_interval;
+			plyTab.nextSanityDecay = curTime + sanity_interval;
 			
 			return;
 		end
 	
+		local nearFire = false;
 		local sanityDecay = -1;
 	
 		if (map != "rp_begotten3") then
 			if (map == "rp_begotten_redux") or (map == "rp_scraptown") then
 				if player:InTower() then
-					player.nextSanityDecay = curTime + sanity_interval;
+					plyTab.nextSanityDecay = curTime + sanity_interval;
 					
 					local lastZone = player:GetCharacterData("LastZone");
 					
@@ -54,54 +57,30 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 					end
 				end
 			else
-				player.nextSanityDecay = curTime + 1000
+				plyTab.nextSanityDecay = curTime + 1000
 				
 				return;
 			end
 		end;
 
-		if (!player:Alive() or player:GetMoveType() == MOVETYPE_NOCLIP or player.opponent or player:GetRagdollState() == RAGDOLL_KNOCKEDOUT or player.cwWakingUp or (player.possessor and IsValid(player.possessor)) or (player.victim and IsValid(player.victim))) then
-			player.nextSanityDecay = curTime + sanity_interval;
+		if (!alive or player:GetMoveType() == MOVETYPE_NOCLIP or plyTab.opponent or player:GetRagdollState() == RAGDOLL_KNOCKEDOUT or plyTab.cwWakingUp or (plyTab.possessor and IsValid(plyTab.possessor)) or (plyTab.victim and IsValid(plyTab.victim))) then
+			plyTab.nextSanityDecay = curTime + sanity_interval;
 			
 			return;
 		end;
 		
 		local lastZone = player:GetCharacterData("LastZone");
 		
-		if !lastZone or string.find(lastZone, "sea") then
-			player.nextSanityDecay = curTime + sanity_interval;
+		if !lastZone or string.find(lastZone, "sea") or (lastZone == "hell" and self.hellZoneSanityDisabled) or (player:GetSubfaction() == "Rekh-khet-sa") then
+			plyTab.nextSanityDecay = curTime + sanity_interval;
 		
 			return;
 		end
-		
-		if (lastZone == "hell" and self.hellZoneSanityDisabled) then
-			player.nextSanityDecay = curTime + sanity_interval;
-			
-			return;
-		end;
-		
-		local subfaction = player:GetSubfaction();
-		
-		if (subfaction == "Rekh-khet-sa") then
-			player.nextSanityDecay = curTime + sanity_interval;
-			
-			return;
-		end;
 
 		local playerPos = player:GetPos();
-		local drainEntities = self.DrainEntities;
 
-		for i = 1, #entsGetAllThisPlayerTick do
-			local entTab = entsGetAllThisPlayerTick[i];
-			local entity = entTab.entity;
-			local position = entTab.position;
-			local distToSqr = position:DistToSqr(playerPos);
-
-			if (distToSqr > requiredDistance) then
-				continue
-			end;
-			
-			local bIsPlayer = entTab.bIsPlayer;
+		for i, entity in ipairs(ents.FindInSphere(playerPos, requiredDistance)) do
+			local bIsPlayer = entity:IsPlayer();
 			
 			if (bIsPlayer and entity != player) then
 				if !entity:Alive() then
@@ -110,54 +89,50 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 				
 				if (player:GetFaith() != "Faith of the Dark" and entity:GetFaith() == "Faith of the Dark" and entity:HasBelief("blank_stare")) then
 					local entityFaction = entity:GetFaction();
-					local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-					local kinisgerOverride = entity:GetSharedVar("kinisgerOverride");
+					local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+					local kinisgerOverride = entity:GetNetVar("kinisgerOverride");
 					local factionTable = Clockwork.faction:FindByID(entityFaction);
-					local alliedFactions = {};
 					
-					if factionTable.alliedfactions then
-						alliedFactions = table.Copy(factionTable.alliedfactions);
-					end
-					
-					-- Check faction twice in case player is disguised.
-					if !kinisgerOverride and entityFaction ~= playerFaction and entityFaction ~= player:GetFaction() and !table.HasValue(alliedFactions, playerFaction) then
-						sanityDecay = sanityDecay - 1.5;
+					if factionTable then
+						local alliedFactions = factionTable.alliedfactions or {};
+
+						-- Check faction twice in case player is disguised.
+						if !kinisgerOverride and entityFaction ~= playerFaction and entityFaction ~= player:GetFaction() and !table.HasValue(alliedFactions, playerFaction) then
+							sanityDecay = sanityDecay - 1.5;
+						end
 					end
 				end
 			end;
 			
-			local class = entTab.class;
+			local class = entity:GetClass();
 			local bRagdoll = (class == "prop_ragdoll");
-			local bIsNPC = entTab.bIsNPC;
-			local toothboy = entity == toothBoy;
 
-			if (drainEntities[class] or bRagdoll or bIsNPC or toothboy) then
-				local entity = entTab.entity;
-				local isOnFire = entity:IsOnFire();
-				
-				if (!entity or !IsValid(entity) or entity:IsWorld()) then
-					continue;
-				end;
-				
-				if (drainEntities[class]) then
-					sanityDecay = sanityDecay + drainEntities[class]; -- sanity loss for any other classes
-				elseif (bRagdoll) then
+			if (bRagdoll) then
+				if (bRagdoll) then
+					local isOnFire = entity:IsOnFire();
+					
 					if (isOnFire) then
-						sanityDecay = sanityDecay - 1; -- sanity loss from burning players and corpses
+						sanityDecay = sanityDecay - 1; -- sanity loss from burning corpses
 					end;
-				elseif (toothboy) then
-					sanityDecay = sanityDecay - 1; -- sanity loss from toothboy
 				end;
 			elseif (!bIsPlayer and !bRagdoll) then
+				local isOnFire = entity:IsOnFire();
+			
 				if (isOnFire or class == "env_fire") then
-					sanityDecay = sanityDecay + 2; -- sanity gain from fires etc
+					sanityDecay = sanityDecay + 4; -- sanity gain from fires etc
+					
+					if cwBeliefs and player:HasBelief("acolyte") then
+						sanityDecay = sanityDecay + 4;
+					end
+					
+					nearFire = true;
 				end;
 			end;
 		end;
 
 		local activeWeapon = player:GetActiveWeapon()
 		
-		if (IsValid(activeWeapon)) then
+		if (activeWeapon:IsValid()) then
 			if (activeWeapon:GetClass() == "cw_lantern") then
 				sanityDecay = sanityDecay + 2;
 			end
@@ -165,11 +140,11 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 		
 		local cycle = cwDayNight.currentCycle;
 		local bNight = tobool(cycle == "night")
-		local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction()
+		local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction()
 		
-		if (player.LightColor) then
+		if (plyTab.LightColor) then
 			local requiredLight = 15;
-			local lightColor = player.LightColor
+			local lightColor = plyTab.LightColor
 			local r, g, b = lightColor.r, lightColor.g, lightColor.b
 
 			if (r > requiredLight or g > requiredLight or b > requiredLight) then
@@ -183,11 +158,11 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 			end
 		end
 		
-		if sanitySubSafezones[lastZone] then
-			for i = 1, #sanitySubSafezones[lastZone] do
-				local subSafezoneTab = sanitySubSafezones[lastZone][i];
-				
-				if playerPos:WithinAABox(subSafezoneTab.pos2, subSafezoneTab.pos1) then
+		local subSafezones = sanitySubSafezones[map];
+		
+		if subSafezones and subSafezones[lastZone] then
+			for i, v in ipairs(subSafezones[lastZone]) do
+				if playerPos:WithinAABox(v.pos2, v.pos1) then
 					sanityDecay = sanityDecay + 3.5;
 
 					break;
@@ -195,9 +170,23 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 			end
 		elseif (sanitySafezones[lastZone]) or (string.find(lastZone, "gore") and playerFaction == "Goreic Warrior") then
 			sanityDecay = sanityDecay + 3.5;
-		elseif (lastZone == "wasteland" and bNight) then
-			if (map == "rp_begotten_redux") or (map == "rp_scraptown") then
-				if !player:InTower() then
+		elseif !nearFire then
+			if (lastZone == "wasteland" and (bNight or cwWeather and cwWeather.weather == "bloodstorm")) then
+				if (map == "rp_begotten_redux") or (map == "rp_scraptown") then
+					if !player:InTower() then
+						local decay = 3;
+						
+						if player:HasBelief("thirst_blood_moon") then
+							decay = (decay - 1.5);
+						end
+					
+						if player:HasBelief("lunar_repudiation") then
+							decay = (decay - 1.5);
+						end
+
+						sanityDecay = (sanityDecay - decay);
+					end
+				else
 					local decay = 3;
 					
 					if player:HasBelief("thirst_blood_moon") then
@@ -210,21 +199,11 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 
 					sanityDecay = (sanityDecay - decay);
 				end
-			else
-				local decay = 3;
-				
-				if player:HasBelief("thirst_blood_moon") then
-					decay = (decay - 1.5);
+			elseif (lastZone == "caves") then
+				if !cwBeliefs or !player:HasBelief("embrace_the_darkness") then
+					sanityDecay = (sanityDecay - 2);
 				end
-			
-				if player:HasBelief("lunar_repudiation") then
-					decay = (decay - 1.5);
-				end
-
-				sanityDecay = (sanityDecay - decay);
-			end
-		elseif (lastZone == "caves") then
-			sanityDecay = (sanityDecay - 2);
+			end;
 		end;
 
 		if (hellZones[lastZone]) then
@@ -235,10 +214,10 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 			end;
 		end;
 
-		if player.banners then
-			for k, v in pairs(player.banners) do
+		if plyTab.banners then
+			for k, v in pairs(plyTab.banners) do
 				if v == "glazic" then
-					if playerFaction == "Gatekeeper" or playerFaction == "Holy Hierarchy" then
+					if playerFaction == "Gatekeeper" or playerFaction == "Pope Adyssa's Gatekeepers" or playerFaction == "Holy Hierarchy" then
 						sanityDecay = sanityDecay + 2;
 					
 						break;
@@ -252,16 +231,12 @@ function cwSanity:PlayerThink(player, curTime, infoTable)
 		player:HandleSanity(sanityDecay)
 
 		if (player:HasBelief("prudence")) then
-			player.nextSanityDecay = curTime + (sanity_interval * 1.25);
+			plyTab.nextSanityDecay = curTime + (sanity_interval * 1.25);
 		else
-			player.nextSanityDecay = curTime + sanity_interval;
+			plyTab.nextSanityDecay = curTime + sanity_interval;
 		end;
 	end
 end
-
-for k, v in pairs (_player.GetAll()) do
-	v.nextSanityDecay = nil
-end;
 
 -- Called when the player looks at an entity.
 function cwSanity:PlayerOnHit(player, entity) end
@@ -286,7 +261,7 @@ function cwSanity:EntityTakeDamageNew(entity, damageInfo)
 				local activeWeapon = attacker:GetActiveWeapon()
 				local entityPosition = entity:GetPos()
 				
-				if (IsValid(activeWeapon) and activeWeapon:GetClass() != "begotten_fists") then
+				if (activeWeapon:IsValid() and activeWeapon:GetClass() != "begotten_fists") then
 					for k, v in pairs (ents.FindInSphere(entityPosition, 768)) do
 						if (!v:IsPlayer() or v == attacker or v == entity) then
 							continue
@@ -385,7 +360,7 @@ function cwSanity:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 		player.enemies = {}
 	end
 	
-	player:SetSharedVar("sanity", player:GetCharacterData("sanity", 100));
+	player:SetNetVar("sanity", player:GetCharacterData("sanity", 100));
 end
 
 function cwSanity:CanHearClass(listener, speaker, class)
@@ -393,7 +368,7 @@ function cwSanity:CanHearClass(listener, speaker, class)
 		for k, v in pairs(self.deafClasses) do
 			if k == class then
 				if v == true and IsValid(speaker) then
-					Clockwork.datastream:Start(listener, "SanitySpeech", speaker:GetPos());
+					netstream.Start(listener, "SanitySpeech", speaker:GetPos());
 				end
 			
 				return false;
@@ -406,8 +381,8 @@ end
 function cwSanity:OnePlayerHalfSecond(player)
 	local sanity = math.Round(player:GetCharacterData("sanity", 100));
 	
-	if player:GetSharedVar("sanity", 100) < sanity then
-		player:SetSharedVar("sanity", sanity);
+	if player:GetNetVar("sanity", 100) < sanity then
+		player:SetNetVar("sanity", sanity);
 	end
 end
 
@@ -430,7 +405,7 @@ function cwSanity:SanityDegrade(player, oldSanity, newSanity, amount)
 		--player:PlaySound("begotten/ui/sanity_damage.mp3", 100, 90)
 		
 		if (amount >= 5 and newSanity < 50) then
-			--Clockwork.datastream:Start(player, "SanityZoom")
+			--netstream.Start(player, "SanityZoom")
 		end
 	end
 end

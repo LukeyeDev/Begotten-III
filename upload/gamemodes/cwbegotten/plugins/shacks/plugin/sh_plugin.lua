@@ -111,7 +111,7 @@ local COMMAND = Clockwork.command:New("CoinslotAddCoowner");
 							
 							if target and target:Alive() and target ~= player then
 								local characterKey = target:GetCharacterKey();
-								local faction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+								local faction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 								local targetShack = target:GetOwnedShack();
 								
 								if faction == "Holy Hierarchy" or faction == "Goreic Warrior" then
@@ -241,9 +241,9 @@ local COMMAND = Clockwork.command:New("ClearProperty");
 		end
 		
 		if shack then
-			for k, v in pairs (_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				if v:GetCharacterKey() == shack.owner then
-					v:SetSharedVar("shack", nil);
+					v:SetNetVar("shack", nil);
 					
 					if v:GetFaction() ~= "Holy Hierarchy" then
 						Clockwork.player:TakeSpawnWeapon(v, "cw_keys");
@@ -257,8 +257,8 @@ local COMMAND = Clockwork.command:New("ClearProperty");
 			
 			Clockwork.entity:ClearProperty(shack.doorEnt);
 			
-			cwShacks:NetworkShackData(_player.GetAll());
-			cwShacks:SaveShackData();
+			cwShacks:NetworkShackData(PlayerCache or _player.GetAll());
+			--cwShacks:SaveShackData();
 			Schema:EasyText(player, "cornflowerblue", "["..self.name.."] You have cleared this property.");
 		else
 			Schema:EasyText(player, "grey", "A valid property could not be found!");

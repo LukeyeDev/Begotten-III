@@ -5,26 +5,13 @@
 
 local map = game.GetMap() == "rp_begotten3";
 
-function GetAdmins()
-	local admins = {}
-	local players = _player.GetAll();
-	
-	for i = 1, _player.GetCount() do
-		local v = players[i];
-		if (v:IsAdmin()) then
-			admins[#admins + 1] = v;
-		end;
-	end;
-	
-	return admins;
-end;
-
 function Schema:ClockworkInitialized()
 	if !self.bountyData then
 		self.bountyData = Clockwork.kernel:RestoreSchemaData("bountyData") or {};
 	end
 	
 	local charactersTable = config.Get("mysql_characters_table"):Get()
+	local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 	
 	for k, v in pairs(self.bountyData) do
 		local queryObj = Clockwork.database:Select(charactersTable)
@@ -57,7 +44,8 @@ function Schema:ClockworkInitialized()
 					end
 				end
 			end);
-				
+
+			queryObj:Where("_Schema", schemaFolder)
 			queryObj:Where("_Key", k)
 		queryObj:Execute()
 	end
@@ -155,9 +143,7 @@ function Schema:PlayerCanInteractCharacter(player, action, character)
 	end;]]--
 	
 	if action ~= "delete" and factionTable.disabled then
-		Clockwork.player:SetCreateFault(player, "This character's faction is disabled and thus cannot be loaded!");
-	
-		return false;
+		return "This character's faction is disabled and thus cannot be loaded!";
 	end
 end;
 
@@ -165,7 +151,9 @@ end;
 function Schema:ClockworkInitPostEntity()
 	self:LoadDummies();
 	self:LoadRadios();
+	self:LoadPopeSpeakers()
 	self:LoadNPCs();
+	self:LoadNPCSpawns();
 	self:SpawnBegottenEntities();
 	
 	-- Breaks some stuff.
@@ -179,12 +167,26 @@ function Schema:ClockworkInitPostEntity()
 		return;
 	end;
 	
+	self.towerTax = Clockwork.kernel:RestoreSchemaData("towerTax")[1] or 0;
 	self.towerTreasury = Clockwork.kernel:RestoreSchemaData("treasury")[1] or 0;
 	self.archivesBookList = Clockwork.kernel:RestoreSchemaData("archivesBookList") or {};
 end;
 
+util.AddNetworkString("ServerSaveData");
+
+function Schema:SaveDataImminent()
+	-- Sends net message for icon in top right that notifies players server is being saved.
+	net.Start("ServerSaveData", true);
+	net.WriteBool(true);
+	net.Broadcast();
+end
+
 -- Called when data should be saved.
 function Schema:SaveData() 
+	if self.towerTax then
+		Clockwork.kernel:SaveSchemaData("towerTax", {self.towerTax});
+	end
+
 	if self.towerTreasury then
 		Clockwork.kernel:SaveSchemaData("treasury", {self.towerTreasury});
 	end
@@ -205,12 +207,32 @@ function Schema:PostSaveData()
 	self:SaveNPCs();
 end;
 
+function Schema:SaveDataCompleted()
+	-- Sends net message to fade out save icon.
+	net.Start("ServerSaveData", true);
+	net.WriteBool(false);
+	net.Broadcast();
+end
+
 -- Called when a player attempts to drop a weapon.
 function Schema:PlayerCanDropWeapon(player, itemTable, weapon, bNoMsg)
 	if (itemTable.isUnique) then
 		return false;
 	else
 		return true
+	end
+end
+
+-- Called when a player attempts to order an item shipment.
+function Schema:PlayerCanOrderShipment(player, itemTable)
+	if !player:IsAdmin() then
+		return false;
+	end
+end
+
+function Schema:PlayerCanEarnWagesCash(player, wages)
+	if player:GetSubfaction() == "Clan Reaver" then
+		return true;
 	end
 end
 
@@ -244,21 +266,21 @@ end
 -- Called when traits need to be networked.
 function Schema:SetTraitSharedVars(player)
 	if player:HasTrait("marked") then
-		player:SetSharedVar("marked", true);
-	elseif player:GetSharedVar("marked") then
-		player:SetSharedVar("marked", false);
+		player:SetNetVar("marked", true);
+	elseif player:GetNetVar("marked") then
+		player:SetNetVar("marked", false);
 	end
 	
 	if player:HasTrait("possessed") then
-		player:SetSharedVar("possessed", true);
-	elseif player:GetSharedVar("possessed") then
-		player:SetSharedVar("possessed", false);
+		player:SetNetVar("possessed", true);
+	elseif player:GetNetVar("possessed") then
+		player:SetNetVar("possessed", false);
 	end
 	
 	if player:HasTrait("followed") then
-		player:SetSharedVar("followed", true);
-	elseif player:GetSharedVar("followed") then
-		player:SetSharedVar("followed", false);
+		player:SetNetVar("followed", true);
+	elseif player:GetNetVar("followed") then
+		player:SetNetVar("followed", false);
 	end
 end
 
@@ -267,8 +289,8 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 	local class = entity:GetClass();
 
 	if entity:IsPlayer() and entity:GetNetVar("tied") != 0 then
-		local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-		local entFaction = entity:GetSharedVar("kinisgerOverride") or entity:GetFaction();
+		local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+		local entFaction = entity:GetNetVar("kinisgerOverride") or entity:GetFaction();
 	
 		if (arguments == "cw_sellSlave") and playerFaction == "Goreic Warrior" and entFaction ~= "Goreic Warrior" then
 			for k, v in pairs(ents.FindInSphere(player:GetPos(), 512)) do
@@ -279,10 +301,10 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 					if cwBeliefs then
 						local killXP = cwBeliefs.xpValues["kill"];
 						
-						killXP = killXP * math.Clamp(player:GetCharacterData("level", 1), 1, 40);
+						killXP = killXP * math.Clamp(entity:GetCharacterData("level", 1), 1, 40);
 						
 						if player:HasBelief("sister") then
-							if player:GetCharacterData("level", 1) > player:GetCharacterData("level", 1) then
+							if player:GetCharacterData("level", 1) > entity:GetCharacterData("level", 1) then
 								killXP = killXP * 2;
 							end
 						end
@@ -351,7 +373,7 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 						playerName = "an unknown Goreic Warrior";
 					elseif playerFaction == "Children of Satan" then
 						playerName = "an unknown Child of Satan";
-					elseif playerFaction == "Gatekeeper" then
+					elseif playerFaction == "Gatekeeper" or playerFaction == "Pope Adyssa's Gatekeepers" then
 						playerName = "an unknown Gatekeeper";
 					elseif playerFaction == "Holy Hierarchy" then
 						local playerSubfaction = player:GetSubfaction();
@@ -398,6 +420,8 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 					player:EmitSound("physics/body/body_medium_impact_soft"..math.random(1, 7)..".wav");
 				end
 				
+				hook.Run("PreOpenedContainer", player, entity);
+				
 				Clockwork.storage:Open(player, {
 					name = "Corpse",
 					weight = 8,
@@ -417,8 +441,8 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 			local entityPlayer = Clockwork.entity:GetPlayer(entity);
 			
 			if entityPlayer then
-				local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-				local entFaction = entityPlayer:GetSharedVar("kinisgerOverride") or entityPlayer:GetFaction();
+				local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+				local entFaction = entityPlayer:GetNetVar("kinisgerOverride") or entityPlayer:GetFaction();
 			
 				if playerFaction == "Goreic Warrior" and entFaction ~= "Goreic Warrior" and entityPlayer:GetNetVar("tied") != 0 then
 					for k, v in pairs(ents.FindInSphere(player:GetPos(), 512)) do
@@ -500,7 +524,7 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 							end
 							
 							local playerName;
-							local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+							local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 							
 							if Clockwork.player:DoesRecognise(entityPlayer, player) then
 								playerName = player:Name();
@@ -508,7 +532,7 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 								playerName = "an unknown Goreic Warrior";
 							elseif playerFaction == "Children of Satan" then
 								playerName = "an unknown Child of Satan";
-							elseif playerFaction == "Gatekeeper" then
+							elseif playerFaction == "Gatekeeper" or playerFaction == "Pope Adyssa's Gatekeepers" then
 								playerName = "an unknown Gatekeeper";
 							elseif playerFaction == "Holy Hierarchy" then
 								local playerSubfaction = player:GetSubfaction();
@@ -539,7 +563,7 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 							entity:Remove();
 						end
 						
-						Schema:EasyText(GetAdmins(), "green", player:Name().." has claimed the bounty on "..entityPlayer:Name().." for "..tostring(entityPlayer:GetBounty()).." coin!");
+						Schema:EasyText(Schema:GetAdmins(), "green", player:Name().." has claimed the bounty on "..entityPlayer:Name().." for "..tostring(entityPlayer:GetBounty()).." coin!");
 						
 						entityPlayer:RemoveBounty();
 						
@@ -556,7 +580,7 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 					Schema:RemoveBounty(entity:GetNWInt("bountyKey"));
 					entity:Remove();
 					
-					Schema:EasyText(GetAdmins(), "green", player:Name().." has claimed the bounty on "..bountyData.name.." for "..tostring(bountyData.bounty).." coin!");
+					Schema:EasyText(Schema:GetAdmins(), "green", player:Name().." has claimed the bounty on "..bountyData.name.." for "..tostring(bountyData.bounty).." coin!");
 				end
 			end
 		end
@@ -675,7 +699,26 @@ function Schema:EntityHandleMenuOption(player, entity, option, arguments)
 			entity:Remove();
 		end
 	elseif (class == "cw_bear_trap") then
-		if arguments == "cwTakeBearTrap" then
+		if arguments == "cwItemExamine" then
+			local examineText = "A deployed bear trap.";
+			local itemCondition = entity.condition;
+			
+			if itemCondition then
+				if itemCondition >= 90 then
+					examineText = examineText.." It appears to be in immaculate condition.";
+				elseif itemCondition < 90 and itemCondition >= 60 then
+					examineText = examineText.." It appears to be in a somewhat battered condition.";
+				elseif itemCondition < 60 and itemCondition >= 30 then
+					examineText = examineText.." It appears to be in very poor condition.";
+				elseif itemCondition < 30 and itemCondition > 0 then
+					examineText = examineText.." It appears to be on the verge of breaking.";
+				elseif itemCondition <= 0 then
+					examineText = examineText.." It is completely destroyed and only worth its weight in scrap now.";
+				end
+			end
+			
+			Schema:EasyText(player, "skyblue", examineText);
+		elseif arguments == "cwTakeBearTrap" then
 			if entity:GetNWString("state") ~= "trap" then
 				local trapItem = item.CreateInstance("bear_trap");
 				
@@ -737,18 +780,14 @@ function Schema:PlayerRadioUsed(player, text, listeners, eavesdroppers)
 	local newEavesdroppers = {};
 	local talkRadius = Clockwork.config:Get("talk_radius"):Get() * 2;
 	local frequency = player:GetCharacterData("frequency");
-	
-	local playerCount = _player.GetCount();
-	local players = _player.GetAll();
 
 	for k, v in ipairs(ents.FindByClass("cw_radio")) do
 		local radioPosition = v:GetPos();
 		local radioFrequency = v:GetFrequency();
 		
 		if (!v:IsOff() and !v:IsCrazy() and radioFrequency == frequency) then
-			for i = 1, playerCount do
-				local v2, k2 = players[i], i;
-				if ( v2:HasInitialized() and !listeners[v2] and !eavesdroppers[v2] ) then
+			for _, v2 in _player.Iterator() do
+				if (v2:HasInitialized() and !listeners[v2] and !eavesdroppers[v2]) then
 					if (v2:GetPos():DistToSqr(radioPosition) <= (talkRadius * talkRadius)) then
 						newEavesdroppers[v2] = v2;
 					end;
@@ -764,12 +803,62 @@ function Schema:PlayerRadioUsed(player, text, listeners, eavesdroppers)
 	end;
 end;
 
+-- Called when a player's character screen info should be adjusted.
+function Schema:PlayerAdjustCharacterScreenInfo(player, character, info)
+	if (character.data["permakilled"]) then
+		info.details = "This character is permanently killed.";
+	end;
+
+	--[[if (character.data["customclass"]) then
+		info.customClass = character.data["customclass"];
+	end;]]--
+	
+	if (character.data["rank"]) then
+		info.rank = character.data["rank"];
+	end
+	
+	if (character.data["rankOverride"]) then
+		info.rankOverride = character.data["rankOverride"];
+	end
+	
+	if character.data["kills"] then
+		info.kills = character.data["kills"];
+	end
+	
+	if character.data["kinisgerOverride"] then
+		info.kinisgerOverride = character.data["kinisgerOverride"];
+		info.kinisgerOverrideSubfaction = character.data["kinisgerOverrideSubfaction"];
+	end
+	
+	info.location = character.data["LastZone"] or "unknown";
+	info.faith = character.faith;
+	info.subfaith = character.subfaith;
+	
+	if character.data["clothes"] then
+		info.clothes = character.data["clothes"];
+	end
+	
+	if character.data["helmet"] then
+		info.helmet = character.data["helmet"];
+	end
+	
+	if character.data["shield"] then
+		info.shield = character.data["shield"];
+	end
+
+	info.necropolisData = character.data["necropolisData"];
+	
+	if character.subfaction == "Clan Grock" then
+		info.subfaith = "The Old Ways";
+	end
+end;
+
 -- Called when a player's radio info should be adjusted.
 function Schema:PlayerAdjustRadioInfo(player, info)
-	--[[for k, v in ipairs( _player.GetAll() ) do
+	--[[for i, v in _player.Iterator() do
 		if ( v:HasInitialized() and v:HasItem("handheld_radio")) then
 			if ( v:GetCharacterData("frequency") == player:GetCharacterData("frequency") ) then
-				if (v:GetSharedVar("tied") == 0) then
+				if (v:GetNetVar("tied") == 0) then
 					info.listeners[v] = v;
 				end;
 			end;
@@ -800,6 +889,19 @@ function Schema:GetPlayerDefaultInventory(player, character, inventory)
 		);
 	end;
 end;
+
+-- Called when a player has had an item unequipped.
+function Schema:PlayerUnequippedItem(player, itemTable)
+	if itemTable.bodygroupCharms then
+		if player.equipmentSlots then
+			for k, v in pairs(player.equipmentSlots) do
+				if v and v.OnBodygroupItemUnequipped then
+					v:OnBodygroupItemUnequipped(player, itemTable);
+				end
+			end
+		end
+	end
+end
 
 -- Called when a player's inventory item has been updated.
 function Schema:PlayerInventoryItemUpdated(player, itemTable, amount, force) end;
@@ -835,7 +937,7 @@ function Schema:ShowSpare1(player)
 		return;
 	end;
 
-	Clockwork.player:InventoryAction(player, "use", itemTable.uniqueID, itemTable.itemID);
+	Clockwork.player:InventoryAction(player, itemTable, "use");
 end;
 
 -- Called when a player presses F4.
@@ -952,17 +1054,14 @@ function Schema:PlayerCanRadio(player, text, listeners, eavesdroppers)
 	local fault;
 	local stationaryRadiusSqr = (80 * 80);
 	local radios = ents.FindByClass("cw_radio");
+	local playerPos = player:GetPos();
 	
-	for k, v in ipairs(radios) do
-		if (!v:IsOff() and !v:IsCrazy() and player:GetPos():DistToSqr(v:GetPos()) <= stationaryRadiusSqr) then
-			if player:GetEyeTrace().Entity == v then
-				return nil, v:GetFrequency();
-			else
-				return;
-			end
+	for i, v in ipairs(radios) do
+		if (!v:IsOff() and !v:IsCrazy() and playerPos:DistToSqr(v:GetPos()) <= stationaryRadiusSqr) then
+			return "", v:GetFrequency();
 		end
 	end
-
+	
 	if (player:HasItemByID("handheld_radio")) or (player:HasItemByID("ecw_radio")) then
 		if !player:GetCharacterData("radioState", false) then
 			fault = "Your radio is turned off!";
@@ -990,8 +1089,13 @@ end;
 
 -- Called when a player spawns for the first time.
 function Schema:PlayerInitialSpawn(player)
-	player:SetNetVar("customClass", "");
-	player:SetNetVar("permaKilled", false);
+	--[[if player:GetNetVar("customClass") then
+		player:SetNetVar("customClass", nil);
+	end]]--
+	
+	--[[if player:GetNetVar("permaKilled") then
+		player:SetLocalVar("permaKilled", false);
+	end]]--
 	
 	if !self.autoTieEnabled or player:IsAdmin() then
 		player:SetNetVar("tied", 0);
@@ -1073,14 +1177,7 @@ function Schema:KeyPress(player, key)
 	elseif (key == IN_ATTACK) then
 		local action = Clockwork.player:GetAction(player);
 		
-		if (action == "reloading") then
-			if player.itemUsing and IsValid(player.itemUsing) then
-				player.itemUsing.beingUsed = false;
-				player.itemUsing = nil;
-			end
-			
-			Clockwork.player:SetAction(player, nil);
-		elseif (action == "mutilating") or (action == "skinning") then
+		if (action == "reloading") or (action == "mutilating") or (action == "skinning") or (action == "building") then
 			Clockwork.player:SetAction(player, nil);
 		elseif (action == "bloodTest") then
 			Clockwork.chatBox:AddInTargetRadius(player, "me", "stops the blood test.", player:GetPos(), config.Get("talk_radius"):Get() * 2);
@@ -1124,8 +1221,16 @@ function Schema:PlayerCanSwitchCharacter(player, character)
 		return false, "You cannot switch to this character while your current character is dying!";
 	end
 	
-	if Schema.fuckerJoeActive and !player:IsAdmin() then
-		return false, "You cannot switch to this character while Fucker Joe is on the loose!";
+	if !player:IsAdmin() then
+		if Clockwork.charSwappingDisabled and player.cwCharacter and player:Alive() then
+			Clockwork.player:NotifyAdmins("operator", player:Name().." has attempted to switch characters while charswapping is disabled!");
+		
+			if Schema.fuckerJoeActive then
+				return false, "You cannot switch to this character while Fucker Joe is on the loose!";
+			end
+			
+			return false, "You cannot switch to this character while charswapping is disabled!";
+		end
 	end
 end;
 
@@ -1150,28 +1255,11 @@ function Schema:PlayerCanUseCharacter(player, character)
 	end;
 end;
 
--- Called when a player's character screen info should be adjusted.
-function Schema:PlayerAdjustCharacterScreenInfo(player, character, info)
-	if (character.data["permakilled"]) then
-		info.details = "This character is permanently killed.";
-	end;
-
-	if (character.data["customclass"]) then
-		info.customClass = character.data["customclass"];
-	end;
-	
-	if (character.data["rank"]) then
-		info.rank = character.data["rank"];
-	end
-end;
-
 -- Called when a player attempts to use a tool.
 function Schema:CanTool(player, trace, tool) end;
 
 -- Called when a player's shared variables should be set.
-function Schema:OnePlayerSecond(player, curTime, infoTable)
-	--player:SetNetVar("customClass", player:GetCharacterData("customclass", ""));
-end;
+function Schema:OnePlayerSecond(player, curTime, infoTable) end;
 
 -- Called when an entity is created.
 function Schema:OnEntityCreated(entity)
@@ -1309,57 +1397,67 @@ function Schema:Think()
 		end;
 		
 		if self.npcSpawnsEnabled ~= false then
-			if self.spawnedNPCS and self.maxNPCS and #self.spawnedNPCS < self.maxNPCS then
-				if math.random(1, 6) == 1 then
-					local goreNPCs = {"npc_animal_bear", "npc_animal_deer", "npc_animal_goat"};
-					local npcName;
-					local spawnPos = self.npcSpawns["gore"][math.random(1, #self.npcSpawns["gore"])];
+			if #self.spawnedNPCs["animal"] < self.maxNPCs["animal"] then
+				local goreNPCs = {"npc_drg_animals_deer", "npc_drg_animals_goat"};
+				local npcName;
+				local spawnPos = self.npcSpawns["animal"][math.random(1, #self.npcSpawns["animal"])].pos;
+				
+				if math.random(1, 10) == 1 then
+					npcName = "npc_drg_animals_bear";
 					
-					if math.random(1, 20) == 1 then
-						npcName = "npc_animal_cave_bear";
-					else
-						npcName = goreNPCs[math.random(1, #goreNPCs)];
+					if math.random(1, 4) == 1 then
+						npcName = "npc_drg_animals_cave_bear";
 					end
-					
-					if npcName and spawnPos then
-						local entity = ents.Create(npcName);
-						
-						if IsValid(entity) then
-							entity:SetPos(spawnPos + Vector(0, 0, 32));
-							entity:SetAngles(Angle(0, math.random(1, 359), 0));
-							entity:Spawn();
-							entity:Activate();
-							
-							table.insert(self.spawnedNPCS, entity:EntIndex());
-						end
-					end
+				elseif math.random(1, 20) == 1 then
+					npcName = "npc_drg_animals_snowleopard";
 				else
-					local spawnPos = self.npcSpawns["wasteland"][math.random(1, #self.npcSpawns["wasteland"])];
-					local thrallNPCs;
+					npcName = goreNPCs[math.random(1, #goreNPCs)];
+				end
+				
+				if npcName and spawnPos then
+					local entity = ents.Create(npcName);
 					
+					if IsValid(entity) then
+						entity:SetPos(spawnPos + Vector(0, 0, 32));
+						entity:SetAngles(Angle(0, math.random(1, 359), 0));
+						entity:Spawn();
+						entity:Activate();
+						
+						table.insert(self.spawnedNPCs["animal"], entity:EntIndex());
+					end
+				end
+			end
+			
+			if #self.spawnedNPCs["thrall"] < self.maxNPCs["thrall"] then
+				local spawnPos = self.npcSpawns["thrall"][math.random(1, #self.npcSpawns["thrall"])].pos;
+				local thrallNPCs;
+				
+				if cwWeather and cwWeather.weather == "bloodstorm" then
+					thrallNPCs = {"npc_bgt_chaser", "npc_bgt_guardian"};
+				else
 					if cwDayNight and cwDayNight.currentCycle == "night" then
 						thrallNPCs = {"npc_bgt_another", "npc_bgt_guardian", "npc_bgt_otis", "npc_bgt_pursuer", "npc_bgt_shambler"};
 					else
 						thrallNPCs = {"npc_bgt_another", "npc_bgt_brute", "npc_bgt_eddie", "npc_bgt_grunt"};
 					end
-
+					
 					if math.random(1, 33) == 1 then
 						thrallNPCs = {"npc_bgt_coinsucker", "npc_bgt_ironclad", "npc_bgt_suitor"};
 					end
-					
-					local npcName = thrallNPCs[math.random(1, #thrallNPCs)];
-					
-					ParticleEffect("teleport_fx", spawnPos, Angle(0,0,0), nil);
-					sound.Play("misc/summon.wav", spawnPos, 100, 100);
-					
-					timer.Simple(0.75, function()
-						local entity = cwZombies:SpawnThrall(npcName, spawnPos, Angle(0, math.random(1, 359), 0));
-						
-						if IsValid(entity) then
-							table.insert(self.spawnedNPCS, entity:EntIndex())
-						end
-					end);
 				end
+
+				local npcName = thrallNPCs[math.random(1, #thrallNPCs)];
+				
+				ParticleEffect("teleport_fx", spawnPos, Angle(0,0,0), nil);
+				sound.Play("misc/summon.wav", spawnPos, 100, 100);
+				
+				timer.Simple(0.75, function()
+					local entity = cwZombies:SpawnThrall(npcName, spawnPos, Angle(0, math.random(1, 359), 0));
+					
+					if IsValid(entity) then
+						table.insert(self.spawnedNPCs["thrall"], entity:EntIndex())
+					end
+				end);
 			end
 		end
 		
@@ -1368,7 +1466,7 @@ function Schema:Think()
 end;
 
 -- Called at an interval while a player is connected.
-function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
+function Schema:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
 	--[[if (player:Alive() and !player:IsRagdolled()) then
 		if (!player:InVehicle() and player:GetMoveType() == MOVETYPE_WALK) then
 			if (player:IsInWorld()) then
@@ -1393,58 +1491,63 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 	infoTable.jumpPower = infoTable.jumpPower + acrobatics;
 	infoTable.runSpeed = infoTable.runSpeed + agility;]]--
 	if initialized and alive then
-		local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+		local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 		local bOnGround = player:IsOnGround();
 		local moveType = player:GetMoveType();
 		local waterLevel = player:WaterLevel();
 		
 		if (moveType == MOVETYPE_NOCLIP) then
-			if (player.bOnGround) then
-				player.bOnGround = nil;
+			if (plyTab.bOnGround) then
+				plyTab.bOnGround = nil;
 			end;
 			
-			if (player.bWasInAir) then
-				player.bWasInAir = nil;
+			if (plyTab.bWasInAir) then
+				plyTab.bWasInAir = nil;
 			end;
 		end;	
 		
 		if (bOnGround) then
-			if (!player.bOnGround) then
-				player.bOnGround = true;
+			if (!plyTab.bOnGround) then
+				plyTab.bOnGround = true;
 			end;
 			
-			if (player.bWasInAir) then
+			if (plyTab.bWasInAir) then
 				if (waterLevel >= 1 and waterLevel < 3) then
-					hook.Run("HitGroundWater", player, player.bWasInAir);
+					hook.Run("HitGroundWater", player, plyTab.bWasInAir);
 				end;
 				
-				player.bWasInAir = nil;
+				plyTab.bWasInAir = nil;
 			end;
 		else
-			if (player.bWasInAir) then
+			if (plyTab.bWasInAir) then
 				if (waterLevel >= 1 and waterLevel < 3) then
-					hook.Run("HitGroundWater", player, player.bWasInAir);
+					hook.Run("HitGroundWater", player, plyTab.bWasInAir);
 					
-					player.bWasInAir = nil;
+					plyTab.bWasInAir = nil;
 				end;
 			end;
 		
-			if (player.bOnGround) then
-				player.bWasInAir = player:GetPos().z;
-				player.bOnGround = nil;
+			if (plyTab.bOnGround) then
+				plyTab.bWasInAir = player:GetPos().z;
+				plyTab.bOnGround = nil;
 			end;
 		end;
 		
 		local wages = Clockwork.class:Query(player:Team(), "coinslotWages", 0);
+		local rank = player:GetCharacterData("rank", 1);
+		local ranksToCoin = Schema.RanksToCoin;
 		
-		if Schema.RanksToCoin[faction] then
-			wages = Schema.RanksToCoin[faction][math.Clamp(player:GetCharacterData("rank", 1), 1, #Schema.RanksToCoin[faction])];
+		if ranksToCoin and ranksToCoin[faction] then
+			wages = ranksToCoin[faction][math.Clamp(rank, 1, #ranksToCoin[faction])];
 		end
 		
 		infoTable.coinslotWages = wages;
 		
 		if infoTable.coinslotWages > 0 then
-			if !infoTable.nextCoinslotWages or infoTable.nextCoinslotWages < curTime then
+			local ranksRestrictedWages = Schema.RanksRestrictedWages;
+			local nextWages = player:GetCharacterData("nextWages", 0);
+			
+			if nextWages >= config.GetVal("coinslot_wages_interval") then
 				if !self.towerTreasury then
 					self.towerTreasury = Clockwork.kernel:RestoreSchemaData("treasury")[1] or 0;
 				end
@@ -1455,12 +1558,20 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 					player:SetCharacterData("collectableWages", collectableWages + 1);
 				end
 				
-				infoTable.nextCoinslotWages = curTime + 1800;
+				player:SetCharacterData("nextWages", 0);
+			else
+				if ranksRestrictedWages and ranksRestrictedWages[faction] and table.HasValue(ranksRestrictedWages[faction], rank) then
+					if !player:InTower() then
+						player:SetCharacterData("nextWages", math.Round(nextWages + (cwThinkRate or 0.2), 2));
+					end
+				else
+					player:SetCharacterData("nextWages", math.Round(nextWages + (cwThinkRate or 0.2), 2));
+				end
 			end
 		end;
 		
-		if (!player.nextOneSecond or player.nextOneSecond < curTime) then
-			player.nextOneSecond = curTime + 1;
+		if (!plyTab.nextOneSecond or plyTab.nextOneSecond < curTime) then
+			plyTab.nextOneSecond = curTime + 1;
 			
 			local nextTeleport = player:GetCharacterData("nextTeleport");
 			
@@ -1468,12 +1579,12 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 				player:SetCharacterData("nextTeleport", math.max(nextTeleport - 1, 0));
 			end
 			
-			if cwCharacterNeeds and player:HasTrait("followed") and player.sleepData then
-				if !player.sleepData.wakeupTime then
-					player.sleepData.wakeupTime = curTime + math.random(10, 30);
+			if cwCharacterNeeds and player:HasTrait("followed") and plyTab.sleepData then
+				if !plyTab.sleepData.wakeupTime then
+					plyTab.sleepData.wakeupTime = curTime + math.random(10, 30);
 				end
 				
-				if player.sleepData.wakeupTime <= curTime then
+				if plyTab.sleepData.wakeupTime <= curTime then
 					Clockwork.player:SetRagdollState(player, RAGDOLL_NONE);
 					Clockwork.chatBox:Add(player, nil, "itnofake", Schema.cheapleMessages[math.random(1, #Schema.cheapleMessages)]);
 					
@@ -1490,7 +1601,7 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 			if (waterLevel >= 1) then
 				if player:GetSubfaith() == "Voltism" and !Clockwork.player:HasFlags(player, "T") then
 					if cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
-						if player:Alive() and !player.cwObserverMode then
+						if !plyTab.cwObserverMode then
 							if waterLevel == 1 then
 								Schema:DoTesla(player, true);
 							else
@@ -1506,7 +1617,7 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 			if (player:GetMoveType() != MOVETYPE_NOCLIP) then
 				if (player:IsRunning()) then
 					if (player:HasTrait("clumsy")) then
-						if (!player.lastClumsyFallen or player.lastClumsyFallen < curTime) then
+						if (!plyTab.lastClumsyFallen or plyTab.lastClumsyFallen < curTime) then
 							if (math.random(1, 4) == 4) then
 								Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER, math.random(4, 7));
 								Clockwork.chatBox:AddInTargetRadius(player, "me", "trips and falls like a fucking idiot!", player:GetPos(), config.Get("talk_radius"):Get() * 2);
@@ -1523,9 +1634,9 @@ function Schema:PlayerThink(player, curTime, infoTable, alive, initialized)
 								end;
 								
 								player:TakeDamage(2);
-								player.lastClumsyFallen = curTime + math.random(30, 90);
+								plyTab.lastClumsyFallen = curTime + math.random(30, 90);
 							else
-								player.lastClumsyFallen = curTime + 5;
+								plyTab.lastClumsyFallen = curTime + 5;
 							end;
 						end;
 					end;
@@ -1586,11 +1697,13 @@ function Schema:EntityRemoved(entity)
 		end;
 	end;
 	
-	if IsValid(entity) and (entity:IsNPC() or entity:IsNextBot()) and self.spawnedNPCS then
-		for i = 1, #self.spawnedNPCS do
-			if self.spawnedNPCS[i] == entity:EntIndex() then
-				table.remove(self.spawnedNPCS, i);
-				break;
+	if IsValid(entity) and (entity:IsNPC() or entity:IsNextBot()) and self.spawnedNPCs then
+		for k, v in pairs(self.spawnedNPCs) do
+			for i, entIndex in ipairs(v) do
+				if entIndex == entity:EntIndex() then
+					table.remove(self.spawnedNPCs[k], i);
+					break;
+				end
 			end
 		end
 	end
@@ -1814,17 +1927,13 @@ function Schema:PlayerAttributeUpdated(player, attributeTable, amount) end;
 
 -- Called to check if a player does recognise another player.
 function Schema:PlayerDoesRecognisePlayer(player, target, status, isAccurate, realValue)
-	local playerFaction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
-	local targetFaction = target:GetSharedVar("kinisgerOverride") or target:GetFaction();
+	local playerFaction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+	local targetFaction = target:GetNetVar("kinisgerOverride") or target:GetFaction();
 
 	if targetFaction == "Holy Hierarchy" then
 		return true;
-	elseif targetFaction == "Gatekeeper" then
-		if playerFaction == "Gatekeeper" or playerFaction == "Holy Hierarchy" then
-			return true;
-		end
-	elseif targetFaction == "Pope Adyssa's Gatekeepers" then
-		if playerFaction == "Pope Adyssa's Gatekeepers" or playerFaction == "Holy Hierarchy" then
+	elseif targetFaction == "Gatekeeper" or targetFaction == "Pope Adyssa's Gatekeepers" then
+		if playerFaction == "Gatekeeper" or playerFaction == "Pope Adyssa's Gatekeepers" or playerFaction == "Holy Hierarchy" then
 			return true;
 		end
 	elseif targetFaction == "Goreic Warrior" and playerFaction == "Goreic Warrior" then
@@ -1910,10 +2019,10 @@ function Schema:PlayerCanUseDoor(player, door)
 		local doorName = door:GetName();
 		
 		if doors["tower"] and table.HasValue(doors["tower"], doorName) then
-			local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+			local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 			local curTime = CurTime();
 			
-			if faction ~= "Holy Hierarchy" and faction ~= "Gatekeeper" then
+			if faction ~= "Holy Hierarchy" and faction ~= "Gatekeeper" and faction ~= "Pope Adyssa's Gatekeepers" then
 				if !player.nextDoorNotify or player.nextDoorNotify < curTime then
 					player.nextDoorNotify = curTime + 1;
 				
@@ -1923,11 +2032,11 @@ function Schema:PlayerCanUseDoor(player, door)
 				return false;
 			end
 			
-			if faction == "Gatekeeper" then
+			if faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" then
 				local rank = Schema.Ranks[faction][player:GetCharacterData("rank") or 1];
 				
 				if self:GetRankTier(faction, rank) < 3 then
-					if not (doors["forge"] and table.HasValue(doors["forge"], doorName) and rank == "Smith") then
+					if not (doors["forge"] and table.HasValue(doors["forge"], doorName) and rank == "Artificer") then
 						if !player.nextDoorNotify or player.nextDoorNotify < curTime then
 							player.nextDoorNotify = curTime + 1;
 						
@@ -1938,11 +2047,25 @@ function Schema:PlayerCanUseDoor(player, door)
 					end
 				end
 			end
-		elseif doors["gorewatch"] and table.HasValue(doors["gorewatch"], doorName) then
-			local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+		elseif doors["knights"] and table.HasValue(doors["knights"], doorName) then
+			local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+			local subfaction = player:GetNetVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
 			local curTime = CurTime();
 			
-			if faction ~= "Gatekeeper" and faction ~= "Holy Hierarchy" then
+			if faction ~= "Holy Hierarchy" or (subfaction ~= "Ministry" and subfaction ~= "Knights of Sol") then
+				if !player.nextDoorNotify or player.nextDoorNotify < curTime then
+					player.nextDoorNotify = curTime + 1;
+				
+					Schema:EasyText(player, "firebrick", "You aren't the correct faction to open this blastdoor!");
+				end
+				
+				return false;
+			end
+		elseif doors["gorewatch"] and table.HasValue(doors["gorewatch"], doorName) then
+			local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
+			local curTime = CurTime();
+			
+			if faction ~= "Holy Hierarchy" and faction ~= "Gatekeeper" and faction ~= "Pope Adyssa's Gatekeepers" then
 				if !player.nextDoorNotify or player.nextDoorNotify < curTime then
 					player.nextDoorNotify = curTime + 1;
 				
@@ -2091,7 +2214,9 @@ function Schema:PlayerUseItem(player, itemTable, itemEntity)
 						if Schema.Ranks then
 							for k, v in pairs(Schema.Ranks) do
 								for i, v2 in ipairs(v) do
-									table.insert(blacklistedNames, string.lower(v2));
+									if v2 ~= "" then
+										table.insert(blacklistedNames, string.lower(v2));
+									end
 								end
 							end
 						end
@@ -2232,8 +2357,11 @@ function Schema:ChatBoxAdjustInfo(info)
 	end;
 end;
 
--- Called when a player destroys generator.
-function Schema:PlayerDestroyGenerator(player, entity, generator) end;
+function Schema:PlayerCanSpeak(speaker)
+	if speaker:HasTrait("imbecile") then
+		return false;
+	end
+end
 
 -- Called just before a player dies.
 function Schema:DoPlayerDeath(player, attacker, damageInfo)
@@ -2349,35 +2477,49 @@ function Schema:PostPlayerDeath(player)
 		player.scriptedDying = false;
 	end
 	
-	if (player:GetSharedVar("blackOut")) then
-		player:SetSharedVar("blackOut", false);
+	if (player:GetNetVar("blackOut")) then
+		player:SetLocalVar("blackOut", false);
 	end;
 end
 
 -- Called when a player changes ranks.
 function Schema:PlayerChangedRanks(player)
-	local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+	local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 	
 	if (self.Ranks[faction]) then
 		if (!player:GetCharacterData("rank")) then
 			player:SetCharacterData("rank", 1);
 		end;
 		
-		player:OverrideName(nil)
-		local name = player:Name();
-
-		for k, v in pairs (self.Ranks[faction]) do
-			if (string.find(name, v)) then
-				local newName = self:StripRank(name, v)
-				Clockwork.player:SetName(player, string.Trim(newName));
-			end;
-		end;
+		local factionTable = Clockwork.faction:FindByID(faction);
 		
-		local rank = math.Clamp(player:GetCharacterData("rank", 1), 1, #self.Ranks[faction]);
+		if factionTable and factionTable.GetName then
+			player:OverrideName(factionTable:GetName(player));
+			
+			return;
+		else
+			local rankOverride = player:GetCharacterData("rankOverride");
+			
+			if rankOverride and rankOverride ~= "" then
+				player:OverrideName(rankOverride.." "..player:Name(true));
+				
+				return;
+			else
+				local rank = math.Clamp(player:GetCharacterData("rank", 1), 1, #self.Ranks[faction]);
 
-		if (rank and isnumber(rank) and self.Ranks[faction][rank]) then
-			player:OverrideName(self.Ranks[faction][rank].." "..player:Name());
-		end;
+				if (rank and isnumber(rank)) then
+					local rankText = self.Ranks[faction][rank];
+					
+					if rankText and rankText ~= "" then
+						player:OverrideName(rankText.." "..player:Name(true));
+					
+						return;
+					end
+				end;
+			end;
+		end
+		
+		player:OverrideName(nil);
 	end;
 end;
 
@@ -2387,7 +2529,7 @@ function Schema:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 	
 	if (!player.nextSpawnRun or player.nextSpawnRun < curTime) then
 		if (!lightSpawn) then
-			Clockwork.datastream:Start(player, "ClearEffects", true);
+			netstream.Start(player, "ClearEffects", true);
 			player.beingSearched = nil;
 			player.searching = nil;
 		end;
@@ -2398,13 +2540,13 @@ function Schema:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 		
 		if (!lightSpawn) then
 			if firstSpawn then
-				if (!player.cwWakingUp and !player.cwWoke) then
-					if not player:IsBot() then
+				if (!player.cwWakingUp) and !player:IsBot() then
+					if player:GetCharacterData("charPlayTime", 0) < 1 then
 						self:PlayerWakeup(player);
 					end
-					
-					player.cwWoke = true;
 				end
+				
+				player.spawnTime = curTime;
 			end
 
 			if player:HasTrait("followed") then
@@ -2422,9 +2564,13 @@ function Schema:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 			end
 		end
 
-		Clockwork.datastream:Start(player, "GetZone", true);
+		netstream.Start(player, "GetZone", true);
 		
 		player.nextSpawnRun = curTime + 1;
+	end;
+	
+	if (player:IsAdmin() or player:IsUserGroup("operator")) then
+		netstream.Heavy(player, "NPCSpawnESPInfo", {self.npcSpawns});
 	end;
 end;
 
@@ -2439,8 +2585,8 @@ function Schema:PostPlayerLightSpawn(player, weapons, ammo, special) end;
 function Schema:PlayerCharacterLoaded(player)
 	netstream.Start(player, "GetZone", true);
 	
-	if self.autoTieEnabled and !player:IsAdmin() then
-		player:SetNetVar("tied", 1);
+	if player:GetCharacterData("tied") or (self.autoTieEnabled and !player:IsAdmin()) then
+		Schema:TiePlayer(player, true);
 	end
 	
 	if player.banners then
@@ -2448,13 +2594,23 @@ function Schema:PlayerCharacterLoaded(player)
 	end
 	
 	local faction = player:GetCharacterData("kinisgerOverride") or player:GetFaction();
+	local subfaction = player:GetCharacterData("kinisgerOverrideSubfaction") or player:GetSubfaction();
+	
+	if subfaction == "Clan Grock" then
+		player:SetModelScale(1.12, FrameTime());
+		player:SetViewOffset(Vector(0, 0, 72))
+		player:SetViewOffsetDucked(Vector(0, 0, 32))
+	else
+		player:SetModelScale(1, FrameTime());
+		player:SetViewOffset(Vector(0, 0, 64));
+		player:SetViewOffsetDucked(Vector(0, 0, 28));
+	end
 	
 	player:OverrideName(nil)
 	
 	if (self.Ranks[faction]) then
 		if (!player:GetCharacterData("rank") or player:GetCharacterData("rank") < 1 or player:GetCharacterData("rank") > #self.Ranks[faction]) then
 			local factionTable = Clockwork.faction:FindByID(faction);
-			local subfaction = player:GetSubfaction();
 			local subfactionRankFound = false;
 			
 			if subfaction and subfaction ~= "" and subfaction ~= "N/A" then
@@ -2480,35 +2636,28 @@ function Schema:PlayerCharacterLoaded(player)
 		end;
 
 		local name = player:Name();
+		local factionTable = Clockwork.faction:FindByID(faction);
 		
-		for k, v in pairs (self.Ranks[faction]) do
-			if (string.find(name, v)) then
-				player:SetCharacterData("rank", k);
-				local newName = self:StripRank(name, v)
-				Clockwork.player:SetName(player, string.Trim(newName));
+		if factionTable and factionTable.GetName then
+			player:OverrideName(factionTable:GetName(player));
+		else
+			local rankOverride = player:GetCharacterData("rankOverride");
+			
+			if rankOverride and rankOverride ~= "" then
+				player:OverrideName(rankOverride.." "..player:Name());
+			else
+				local rank = math.Clamp(player:GetCharacterData("rank", 1), 1, #self.Ranks[faction]);
+
+				if (rank and isnumber(rank) and self.Ranks[faction][rank]) then
+					if self.Ranks[faction][rank] ~= "" then
+						player:OverrideName(self.Ranks[faction][rank].." "..player:Name());
+					end
+				end;
 			end;
-		end;
-		
-		local rank = math.Clamp(player:GetCharacterData("rank", 1), 1, #self.Ranks[faction]);
-		
-		if (rank and isnumber(rank) and self.Ranks[faction][rank]) then
-			player:OverrideName(self.Ranks[faction][rank].." "..player:Name());
-		end;
+		end
 	end;
 	
-	if faction == "Goreic Warrior" then
-		local subfaction = player:GetSharedVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
-		
-		if subfaction == "Clan Crast" then
-			if !Clockwork.player:HasFlags(player, "U") then
-				Clockwork.player:GiveFlags(player, "U");
-			end
-		else
-			if Clockwork.player:HasFlags(player, "U") then
-				Clockwork.player:TakeFlags(player, "U");
-			end
-		end
-	elseif faction == "Gatekeeper" then
+	if faction == "Gatekeeper" then
 		player:SetLocalVar("collectedGear", player:GetCharacterData("collectedGear"));
 	
 		-- Code to grandfather in pre-rank update Gatekeeper characters to the new rank system during the original Begotten III, no longer required.
@@ -2553,11 +2702,13 @@ function Schema:GetPlayerDefaultModel(player) end;
 
 -- Called when an NPC has been killed.
 function Schema:OnNPCKilled(npc, attacker, inflictor)
-	if IsValid(npc) and self.spawnedNPCS then
-		for i = 1, #self.spawnedNPCS do
-			if self.spawnedNPCS[i] == npc:EntIndex() then
-				table.remove(self.spawnedNPCS, i);
-				break;
+	if IsValid(npc) and self.spawnedNPCs then
+		for k, v in pairs(self.spawnedNPCs) do
+			for i, entIndex in ipairs(v) do
+				if entIndex == npc:EntIndex() then
+					table.remove(self.spawnedNPCs[k], i);
+					break;
+				end
 			end
 		end
 	end
@@ -2600,16 +2751,20 @@ function Schema:PlayerCharacterInitialized(player)
 		
 		if !bountyData and player:GetCharacterData("bounty", 0) > 0 then
 			player:SetCharacterData("bounty", 0);
-			player:SetSharedVar("bounty", 0);
+			player:SetNetVar("bounty", 0);
 		elseif bountyData then
 			player:SetCharacterData("bounty", bountyData.bounty)
-			player:SetSharedVar("bounty", bountyData.bounty);
+			player:SetNetVar("bounty", bountyData.bounty);
 		end
 	end
 end;
 
 -- Called when a player's name has changed.
-function Schema:PlayerNameChanged(player, previousName, newName) end;
+function Schema:PlayerNameChanged(player, previousName, newName)
+	if Schema.Ranks and player:GetCharacterData("rank") then
+		hook.Run("PlayerChangedRanks", player);
+	end
+end;
 
 -- Called when a player deletes a character.
 function Schema:PlayerDeleteCharacter(player, character)
@@ -2687,13 +2842,14 @@ function Schema:PostPlayerTakeFromStorage(player, storageTable, itemTable)
 end
 
 -- Called when a player should take damage.
-function Schema:PlayerShouldTakeDamage(player, attacker, inflictor, damageInfo)
+function Schema:PlayerShouldTakeDamage(player, attacker)
 	if (player.cwWakingUp) then
-		damageInfo:SetDamage(0);
-		damageInfo:ScaleDamage(0);
-		return true;
+		return false;
 	end;
-	
+end
+
+-- Called when a player should take damage.
+function Schema:PlayerShouldTakeDamageNew(player, attacker, inflictor, damageInfo)
 	-- rubber johnny flags
 	if (player:IsPlayer() and attacker:IsPlayer()) then
 		local hasFlags = Clockwork.player:HasFlags(player, "6");
@@ -2701,9 +2857,7 @@ function Schema:PlayerShouldTakeDamage(player, attacker, inflictor, damageInfo)
 
 		if (hasFlags and !attHasFlags) then
 			attacker:TakeDamage(damageInfo:GetDamage());
-			damageInfo:SetDamage(0);
-			damageInfo:ScaleDamage(0);
-			return true;
+			return false;
 		end;
 	end;
 end
@@ -2725,7 +2879,7 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 			end
 		end;
 	elseif (entity:IsNPC() or entity:IsNextBot()) then
-		if string.find(entity:GetClass(), "npc_animal") then
+		if string.find(entity:GetClass(), "npc_drg_animals_") then
 			local attacker = damageInfo:GetAttacker();
 			
 			if attacker:IsPlayer() and attacker:GetSubfaction() == "Clan Gore" then
@@ -2764,6 +2918,7 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 	
 	local attacker = damageInfo:GetAttacker();
 	local damage = damageInfo:GetDamage();
+	local inflictor = damageInfo:GetInflictor();
 	local bIsPlayer = entity:IsPlayer();
 	local bIsPlayerRagdoll = Clockwork.entity:IsPlayerRagdoll(entity);
 
@@ -2774,6 +2929,10 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 			local attackerWeapon = attacker:GetActiveWeapon();
 			
 			if IsValid(attackerWeapon) then
+				if !IsValid(inflictor) then
+					inflictor = attackerWeapon;
+				end
+			
 				if attackerWeapon:GetClass() == "weapon_crowbar" then
 					damageInfo:SetDamageType(4);
 					damageInfo:SetDamage(math.max(damage, 300));
@@ -2865,7 +3024,7 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 				if IsValid(damageInfo:GetAttacker()) and damageInfo:GetAttacker():IsPlayer() then
 					local faction = damageInfo:GetAttacker():GetFaction();
 				
-					if faction ~= "Gatekeeper" and faction ~= "Holy Hierarchy" and !damageInfo:GetAttacker():IsAdmin() then
+					if faction ~= "Gatekeeper" and faction ~= "Pope Adyssa's Gatekeepers" and faction ~= "Holy Hierarchy" and !damageInfo:GetAttacker():IsAdmin() then
 						damageInfo:SetDamage(0);
 						return true;
 					end
@@ -2878,38 +3037,38 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 	end
 	
 	if (bIsPlayer or bIsPlayerRagdoll or entity.isTrainingDummy) and IsValid(attacker) and attacker:IsPlayer() then
-		local attackerWeapon = attacker:GetActiveWeapon();
-		
-		if IsValid(attackerWeapon) then
-			local weaponClass = attackerWeapon:GetClass();
-			
-			if string.find(weaponClass, "begotten_dagger_") then
-				if attacker:GetSubfaction() == "Kinisger" then
-					damageInfo:ScaleDamage(1.25);
-				end
-				
-				-- 2x damage for daggers vs. ragdolled players.
-				if bIsPlayerRagdoll then
-					damageInfo:ScaleDamage(2);
-				end
-
-				if (entity.isTrainingDummy and math.abs(math.AngleDifference(entity:GetAngles().y, (attacker:GetPos() - entity:GetPos()):Angle().y)) >= 100) or (bIsPlayer and (!entity:IsRagdolled() and math.abs(math.AngleDifference(entity:EyeAngles().y, (attacker:GetPos() - entity:GetPos()):Angle().y)) >= 100)) then
-					if cwBeliefs and attacker:HasBelief("assassin") then
-						damageInfo:ScaleDamage(3);
-					else
-						damageInfo:ScaleDamage(2);
+		if IsValid(inflictor) then
+			if inflictor.isDagger then
+				if inflictor.isJavelin then
+					if attacker:GetSubfaction() == "Kinisger" then
+						damageInfo:ScaleDamage(1.25);
+					end
+				else
+					if attacker:GetSubfaction() == "Kinisger" then
+						damageInfo:ScaleDamage(1.25);
 					end
 					
-					entity:EmitSound("meleesounds/kill1.wav.mp3");
+					-- 2x damage for daggers vs. ragdolled players.
+					if bIsPlayerRagdoll then
+						damageInfo:ScaleDamage(2);
+					end
+
+					if (entity.isTrainingDummy and math.abs(math.AngleDifference(entity:GetAngles().y, (attacker:GetPos() - entity:GetPos()):Angle().y)) >= 100) or (bIsPlayer and (!entity:IsRagdolled() and math.abs(math.AngleDifference(entity:EyeAngles().y, (attacker:GetPos() - entity:GetPos()):Angle().y)) >= 100)) then
+						if cwBeliefs and attacker:HasBelief("assassin") then
+							damageInfo:ScaleDamage(3);
+						else
+							damageInfo:ScaleDamage(2);
+						end
+						
+						entity:EmitSound("meleesounds/kill1.wav.mp3");
+					end
 				end
 			end
 		end
 		
 		-- Flat 50% damage reduction vs. ragdolled players for melees to encourage the use of daggers or wrestle and subdue.
 		if bIsPlayerRagdoll then
-			local attackerWeapon = attacker:GetActiveWeapon();
-			
-			if IsValid(attackerWeapon) and attackerWeapon.IsABegottenMelee then
+			if IsValid(inflictor) and inflictor.IsABegottenMelee then
 				damageInfo:ScaleDamage(0.5);
 			end
 		end
@@ -2919,7 +3078,7 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 				if v == "glazic" then
 					local faction = entity:GetFaction();
 					
-					if faction == "Gatekeeper" or faction == "Holy Hierarchy" then
+					if faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" or faction == "Holy Hierarchy" then
 						damageInfo:ScaleDamage(0.75);
 
 						break;
@@ -2933,7 +3092,7 @@ function Schema:EntityTakeDamageNew(entity, damageInfo)
 				if v == "glazic" then
 					local faction = attacker:GetFaction();
 					
-					if faction == "Gatekeeper" or faction == "Holy Hierarchy" then
+					if faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" or faction == "Holy Hierarchy" then
 						damageInfo:ScaleDamage(1.15);
 
 						break;
@@ -2947,35 +3106,47 @@ end;
 function Schema:ActionStopped(player, action)
 	if action == "building" then
 		if player.ladderConstructing then
-			local ladderItem = item.CreateInstance("siege_ladder");
-			
-			if ladderItem then
-				ladderItem:SetCondition(player.ladderConstructing.condition, true);
-				
-				player:GiveItem(ladderItem);
-			end
-			
 			Schema.siegeLadderPositions[player.ladderConstructing.index].occupier = nil;
 			
 			player.ladderConstructing = nil;
 		end
+	elseif action == "reloading" then
+		if player.itemUsing and IsValid(player.itemUsing) then
+			player.itemUsing.beingUsed = false;
+			player.itemUsing = nil;
+		end
 	end
 end;
+
+-- Called to modify a player's wages info.
+function Schema:PlayerModifyWagesInfo(player, info) 
+	if player:GetSubfaction() == "Clan Reaver" then
+		info.wages = 100;
+	end
+end
 
 function Schema:ModifyPlayerSpeed(player, infoTable, action)
 	local subfaction = player:GetSubfaction();
 	
-	if subfaction == "Philimaxio" then
+	if subfaction == "Philimaxio" or subfaction == "Knights of Sol" then
 		infoTable.runSpeed = infoTable.runSpeed * 0.85;
 	elseif subfaction == "Varazdat" then
 		if player:Health() > player:GetMaxHealth() * 0.95 then
 			infoTable.runSpeed = infoTable.runSpeed * 1.1;
 		end
-	elseif subfaction == "Knights of Sol" then
-		infoTable.runSpeed = infoTable.runSpeed * 0.95;
 	elseif subfaction == "Praeventor" then
 		if player:GetSubfaith() ~= "Sol Orthodoxy" then
 			infoTable.runSpeed = infoTable.runSpeed * 1.05;
+		end
+	end
+	
+	local shieldItem = player:GetShieldEquipped();
+	
+	if shieldItem and shieldItem.requiredbeliefs and table.HasValue(shieldItem.requiredbeliefs, "defender") then
+		local activeWeapon = player:GetActiveWeapon();
+		
+		if activeWeapon:IsValid() and activeWeapon:GetNWString("activeShield"):len() > 0 and activeWeapon:GetNWString("activeShield") == shieldItem.uniqueID then
+			infoTable.runSpeed = infoTable.runSpeed * 0.9;
 		end
 	end
 
@@ -3010,7 +3181,7 @@ function Schema:CinderBlockExecution(player, target, itemTable)
 		local entity = trace.Entity
 		
 		if (target:IsPlayer()) then
-			if target:GetSharedVar("tied") then
+			if target:GetNetVar("tied") then
 				Clockwork.player:SetRagdollState(target, RAGDOLL_FALLENOVER, nil);
 				entity = target:GetRagdollEntity()
 			else
@@ -3041,9 +3212,7 @@ function Schema:CinderBlockExecution(player, target, itemTable)
 						cinderBlock:SetNWBool("BIsCinderBlock", true)
 						cinderBlock:SetOwner(entity)
 						
-						local players = _player.GetAll();
-
-						for k, v in pairs(players) do
+						for _, v in _player.Iterator() do
 							if (IsValid(v:GetRagdollEntity())) then
 								if (v:GetRagdollEntity() == entity) then
 									entity.RagdollOwner = v

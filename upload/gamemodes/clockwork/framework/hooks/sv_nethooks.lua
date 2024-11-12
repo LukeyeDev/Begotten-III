@@ -5,19 +5,23 @@
 	Other credits: kurozael, Alex Grist, Mr. Meow, zigbomb
 --]]
 
-netstream.Hook("SendCountryCode", function(player, data)
-	if (player.CountryCodeRequested) then
-		player.CountryCodeRequested = nil;
-		
-		Clockwork.kernel:CountryCode(player, data);
-	end;
-end);
+util.AddNetworkString("SendCountryCode")
 
-netstream.Hook("GetTargetRecognises", function(player, data)
+net.Receive("SendCountryCode", function(len, ply)
+	local countryCode = net.ReadString()
+
+	if (ply.CountryCodeRequested) then
+		ply.CountryCodeRequested = nil;
+		
+		Clockwork.kernel:CountryCode(ply, countryCode);
+	end;
+end)
+
+--[[netstream.Hook("GetTargetRecognises", function(player, data)
 	if (IsValid(data) and data:IsPlayer()) then
 		player:SetNetVar("TargetKnows", Clockwork.player:DoesRecognise(data, player))
 	end
-end)
+end)]]--
 
 netstream.Hook("EntityMenuOption", function(player, data)
 	local entity = data[1]
@@ -99,7 +103,7 @@ netstream.Hook("InteractCharacter", function(player, data)
 			local fault = hook.Run("PlayerCanInteractCharacter", player, action, character)
 
 			if (fault == false or type(fault) == "string") then
-				return Clockwork.player:SetCreateFault(fault or "You cannot interact with this character!")
+				return Clockwork.player:SetCreateFault(player, fault or "You cannot interact with this character!")
 			elseif (action == "delete") then
 				local bSuccess, fault = Clockwork.player:DeleteCharacter(player, characterID)
 
@@ -294,10 +298,9 @@ netstream.Hook("RecogniseOption", function(player, data)
 				end
 			else
 				local position = player:GetPos()
-				local plyTable = _player.GetAll()
 				local talkRadius = config.Get("talk_radius"):Get()
 
-				for k, v in ipairs(plyTable) do
+				for _, v in _player.Iterator() do
 					if (v:HasInitialized() and player != v) then
 						if (!Clockwork.player:IsNoClipping(v)) then
 							local distance = v:GetPos():Distance(position)
@@ -418,7 +421,7 @@ netstream.Hook("UseAmmo", function(player, data)
 			--if (firearmItemTable:HasPlayerEquipped(player)) then
 				if ammoItemTable:CanUseOnItem(player, firearmItemTable, true) then
 					ammoItemTable:UseOnItem(player, firearmItemTable, true);
-					--player:TakeItem(ammoItemTable);
+					--player:TakeItem(ammoItemTable, true);
 				end
 			--end
 		end
@@ -464,7 +467,7 @@ netstream.Hook("MergeRepair", function(player, data)
 					
 					repaireeItemTable:SetCondition(math.min(repaireeCondition + repairerCondition, 100));
 					
-					player:TakeItem(repairerItemTable);
+					player:TakeItem(repairerItemTable, true);
 					
 					Schema:EasyText(player, "cornflowerblue", "You have repaired a "..(repaireeItemTable.name or "item").." with another item of its type.");
 				else
@@ -495,7 +498,7 @@ netstream.Hook("MergeAmmoMagazine", function(player, data)
 
 		if (ammoItemTable and magazineItemTable and ammoItemTable.UseOnMagazine) then
 			if ammoItemTable:UseOnMagazine(player, magazineItemTable) then
-				player:TakeItem(ammoItemTable);
+				player:TakeItem(ammoItemTable, true);
 			end
 		end
 	end

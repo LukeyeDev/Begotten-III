@@ -24,31 +24,31 @@ local jumpServoSounds = {
 };
 
 -- Called at an interval while a player is connected.
-function cwPowerArmor:PlayerThink(player, curTime, infoTable, alive, initialized)
+function cwPowerArmor:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
 	if (alive and initialized) then
-		if (!player.nextWearingPowerArmor or player.nextWearingPowerArmor < curTime) then
-			player.nextWearingPowerArmor = curTime + 2.5;
-			player.wearingPowerArmor = player:IsWearingPowerArmor();
+		if (!plyTab.nextWearingPowerArmor or plyTab.nextWearingPowerArmor < curTime) then
+			plyTab.nextWearingPowerArmor = curTime + 2.5;
+			plyTab.wearingPowerArmor = player:IsWearingPowerArmor();
 		end;
 
-		if (!player.cwObserverMode) then
-			if (player.wearingPowerArmor) then
-				if (!player.nextServo or player.nextServo < curTime) then
+		if (!plyTab.cwObserverMode) then
+			if (plyTab.wearingPowerArmor) then
+				if (!plyTab.nextServo or plyTab.nextServo < curTime) then
 					player:EmitSound(servoSounds[math.random(1, #servoSounds)]);
-					player.nextServo = curTime + math.random(5, 15);
+					plyTab.nextServo = curTime + math.random(5, 15);
 				end;
 				
-				if (!player.nextChargeDepleted) then
-					player.nextChargeDepleted = curTime + 120;
-				elseif (player.nextChargeDepleted < curTime) then
+				if (!plyTab.nextChargeDepleted) then
+					plyTab.nextChargeDepleted = curTime + 120;
+				elseif (plyTab.nextChargeDepleted < curTime) then
 					local currentCharge = player:GetCharacterData("battery", 0);
 						player:SetCharacterData("battery", math.Clamp(currentCharge - 1, 0, 100));
-						player:SetSharedVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
-					player.nextChargeDepleted = curTime + 120;
+						player:SetNetVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
+					plyTab.nextChargeDepleted = curTime + 120;
 				end
 
-				if (!player.nextFireCheck or player.nextFireCheck < curTime) then
-					player.nextFireCheck = curTime + 0.5;
+				if (!plyTab.nextFireCheck or plyTab.nextFireCheck < curTime) then
+					plyTab.nextFireCheck = curTime + 0.5;
 					
 					if (player:IsOnFire()) then
 						player:Extinguish();
@@ -72,23 +72,46 @@ function cwPowerArmor:KeyRelease(player, key)
 	end;
 end;
 
-function cwPowerArmor:PostPlayerSpawn(player)
-	player.wearingPowerArmor = false;
-	
+function cwPowerArmor:PostPlayerSpawn(player)	
 	if (player:HasInitialized()) then
-		player:SetSharedVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
+		local powerArmor = player:GetCharacterData("powerArmor");
+
+		if powerArmor then
+			local clothesItem = player:GetClothesEquipped();
+			
+			if clothesItem then
+				clothesItem:OnPlayerUnequipped(player, nil, true);
+			end;
+			
+			local helmetItem = player:GetHelmetEquipped();
+			
+			if helmetItem then
+				helmetItem:OnPlayerUnequipped(player);
+			end
+		
+			player.wearingPowerArmor = true;
+			player:SetModel(powerArmor);
+			player.nextChargeDepleted = CurTime() + 120;
+			player:SetNetVar("battery", math.Round(player:GetCharacterData("battery", 0), 0));
+		elseif player.wearingPowerArmor then
+			player.wearingPowerArmor = false;
+		end
 	end
 end
 
 function cwPowerArmor:PostPlayerDeath(player)
 	if not player.opponent then
-		local ragCorpse = player:GetRagdollEntity();
-
 		if (player.wearingPowerArmor) then
-			Clockwork.plugin:Call("BuildUp", ragCorpse, true);
+			local ragCorpse = player:GetRagdollEntity();
 			
+			if IsValid(ragCorpse) then
+				Clockwork.plugin:Call("BuildUp", ragCorpse, true);
+			end
+			
+			player.wearingPowerArmor = false;
 			player:SetCharacterData("battery", 0);
-			player:SetSharedVar("battery", 0);
+			player:SetNetVar("battery", 0);
+			player:SetCharacterData("powerArmor", nil);
 		end;
 	end;
 end;
@@ -216,7 +239,7 @@ function cwPowerArmor:EntityTakeDamageArmor(player, damageInfo)
 				local newBattery = math.Clamp(currentCharge - math.Round((damageInfo:GetDamage() / 25)), 0, 100);
 				
 				player:SetCharacterData("battery", newBattery);
-				player:SetSharedVar("battery", newBattery);
+				player:SetNetVar("battery", newBattery);
 				
 				damageInfo:ScaleDamage(0);
 			end
@@ -250,3 +273,10 @@ function cwPowerArmor:ModifyPlayerSpeed(player, infoTable)
 		end
 	end
 end;
+
+-- Called when a player's character screen info should be adjusted.
+function cwPowerArmor:PlayerAdjustCharacterScreenInfo(player, character, info)
+	if character.data["powerArmor"] then
+		info.model = character.data["powerArmor"];
+	end
+end

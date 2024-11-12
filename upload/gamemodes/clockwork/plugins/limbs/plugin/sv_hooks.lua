@@ -60,6 +60,8 @@ end
 
 -- A function to calculate player damage.
 function cwLimbs:CalculatePlayerDamage(player, hitGroup, damageInfo)
+	if Clockwork.player:HasFlags(player, "I") then return end;
+
 	if --[[not player.opponent and ]](damageInfo) then
 		--local bulletDamage, clubDamage, slashDamage = damageInfo:IsBulletDamage(), damageInfo:IsDamageType(DMG_CLUB), damageInfo:IsDamageType(DMG_SLASH)
 		--local bDamageIsValid = bulletDamage or clubDamage or slashDamage
@@ -82,36 +84,38 @@ function cwLimbs:CalculatePlayerDamage(player, hitGroup, damageInfo)
 			end
 		end
 		
+		local newDamage = damage;
+		
 		if player:HasBelief("iron_bones") then
-			if player.GetCharmEquipped and player:GetCharmEquipped("effigy_human") then
-				damage = damage * 0.25;
-			else
-				damage = damage * 0.75;
-			end
-		elseif player.GetCharmEquipped and player:GetCharmEquipped("effigy_human") then
-			damage = damage * 0.5;
+			newDamage = newDamage - (damage * 0.3334);
 		end
 		
+		if player.GetCharmEquipped and player:GetCharmEquipped("effigy_human") then
+			newDamage = newDamage - (damage * 0.5);
+		end
+		
+		newDamage = math.max(newDamage, 0);
+		
 		if (bFallDamage) then
-			Clockwork.limb:TakeDamage(player, HITGROUP_RIGHTLEG, damage)
-			Clockwork.limb:TakeDamage(player, HITGROUP_LEFTLEG, damage)
+			Clockwork.limb:TakeDamage(player, HITGROUP_RIGHTLEG, newDamage)
+			Clockwork.limb:TakeDamage(player, HITGROUP_LEFTLEG, newDamage)
 			
-			hook.Run("PlayerLimbFallDamageTaken", player, damage)
+			hook.Run("PlayerLimbFallDamageTaken", player, newDamage)
 			return;
 		end
 
 		--[[if (armor > 0 and bDamageIsValid and bHitGroupIsValid) then
-			local armor = armor - damage
+			local armor = armor - newDamage
 			
 			if (armor < 0) then
-				Clockwork.limb:TakeDamage(player, hitGroup, damage)
+				Clockwork.limb:TakeDamage(player, hitGroup, newDamage)
 			end
 		else]]
-			Clockwork.limb:TakeDamage(player, hitGroup, damage)
+			Clockwork.limb:TakeDamage(player, hitGroup, newDamage)
 		--end
 		
 		--[[if (bDamageIsValid and bHitGroupIsValid) then
-			Clockwork.limb:TakeDamage(player, hitGroup, damage);
+			Clockwork.limb:TakeDamage(player, hitGroup, newDamage);
 		end]]--
 	end;
 end

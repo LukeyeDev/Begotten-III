@@ -12,14 +12,17 @@ local animalModels = {
 	"models/animals/deer1.mdl",
 	"models/animals/goat.mdl",
 	"models/animals/bear.mdl",
+	"models/animal_ragd/piratecat_leopard.mdl",
 };
 
 function cwBeliefs:PlayerCharacterInitialized(data)
 	-- Hide or display Kinisger darkwhisper.
-	if Clockwork.Client:GetSharedVar("subfaction") == "Kinisger" then
+	if Clockwork.Client:GetNetVar("subfaction") == "Kinisger" then
 		Clockwork.command:SetHidden("DarkWhisperFactionKinisger", false);
+		Clockwork.command:SetHidden("DarkWhisperFactionKinisgerProclaim", false);
 	else
 		Clockwork.command:SetHidden("DarkWhisperFactionKinisger", true);
+		Clockwork.command:SetHidden("DarkWhisperFactionKinisgerProclaim", true);
 	end
 
 	-- Reset belief outlines on character respawn.
@@ -43,7 +46,7 @@ function cwBeliefs:PlayerCharacterInitialized(data)
 		timer.Remove("warcryTimer");
 	end
 	
-	for k, v in pairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if v.warcryTarget then
 			v.warcryTarget = false;
 		end
@@ -52,6 +55,11 @@ function cwBeliefs:PlayerCharacterInitialized(data)
 			timer.Remove("deceitfulHighlightTimer_"..v:EntIndex());
 		end
 	end;
+end
+
+-- Called when a player's character screen info should be adjusted.
+function cwBeliefs:PlayerAdjustCharacterScreenInfo(character, info)
+	info.level = character.level or 1;
 end
 
 function cwBeliefs:GetEntityMenuOptions(entity, options)
@@ -74,12 +82,16 @@ function cwBeliefs:GetEntityMenuOptions(entity, options)
 			end
 		elseif player and player:Alive() then
 			if self:HasBelief("doctor") then
-				options["Diagnose"] = "cwDiagnose";
+				if !Clockwork.Client:IsWeaponRaised() then
+					options["Diagnose"] = "cwDiagnose";
+				end
 			end
 		end;
 	elseif entity:IsPlayer() and entity:Alive() then
 		if self:HasBelief("doctor") then
-			options["Diagnose"] = "cwDiagnose";
+			if !Clockwork.Client:IsWeaponRaised() then
+				options["Diagnose"] = "cwDiagnose";
+			end
 		end
 	end;
 end;
@@ -89,58 +101,58 @@ function cwBeliefs:CanPlayerDualWield()
 end
 
 local bearTrapDist = (256 * 256);
+local warcryColor = Color(180, 0, 0, 255);
+local troutColor = Color(120, 120, 120, 255);
+local ravenColor = Color(0, 180, 0);
 
+-- This can be optimized more.
 function cwBeliefs:AddEntityOutlines(outlines)
 	if self.highlightTargetOverride then
 		if IsValid(self.highlightTargetOverride) then
-			self:DrawPlayerOutline(self.highlightTargetOverride, outlines, Color(180, 0, 0, 255));
+			self:DrawPlayerOutline(self.highlightTargetOverride, outlines, warcryColor);
 		end
 	end
-
-	if self.upgradedWarcryActive then
-		--[[if self.trout then
-			for k, v in pairs(_player.GetAll()) do
-				if v.warcryTarget then
-					self:DrawPlayerOutline(v, outlines, Color(120, 120, 120, 255));
-				end;
-			end;
-		else]]
-			for i, v in ipairs(_player.GetAll()) do
-				if v.warcryTarget and v:Alive() and v:GetColor().a > 0 then
-					self:DrawPlayerOutline(v, outlines, Color(180, 0, 0, 255));
-				end
-			end;
-		--end
-	end
 	
-	if Clockwork.Client:GetSharedVar("faith") == "Faith of the Dark" then
+	local localPlayer = Clockwork.Client;
+	local playerPos = localPlayer:GetPos();
+	
+	if localPlayer:GetNetVar("faith") == "Faith of the Dark" then
 		local hasAssassin = self:HasBelief("assassin");
-		local isCOS = (Clockwork.Client:GetFaction() == "Children of Satan");
+		local hasDarkness = self:HasBelief("embrace_the_darkness");
+		local isCOS = (localPlayer:GetFaction() == "Children of Satan");
 		
-		for i, v in ipairs(_player.GetAll()) do
-			if v ~= Clockwork.Client and v:HasInitialized() and v:Alive() and v:GetColor().a > 0 then
-				if hasAssassin and (v:Health() < v:GetMaxHealth() / 4 or v:GetRagdollState() == RAGDOLL_FALLENOVER) then
-					if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= assassinDist) then
-						self:DrawPlayerOutline(v, outlines, Color(180, 0, 0, 255));
-						
-						return;
-					end
-				end
-
-				if isCOS or self:HasBelief("embrace_the_darkness") then
-					if v:GetSharedVar("yellowBanner") == true then
-						if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= bannerDist) then
+		for _, v in _player.Iterator() do
+			if v ~= localPlayer and v:HasInitialized() and v:Alive() and v:GetColor().a > 0 then
+				if isCOS or hasDarkness then
+					if v:GetNetVar("yellowBanner") then
+						if (v:GetPos():DistToSqr(playerPos) <= bannerDist) then
 							self:DrawPlayerOutline(v, outlines, Color(200, 200, 0, 255));
+							
+							continue;
 						end
-					elseif v:GetSharedVar("kinisgerOverride") then
-						if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= assassinDist) then
-							self:DrawPlayerOutline(v, outlines, Color(0, 225, 225, 255));
+					end
+					
+					if isCOS then
+						if v:GetNetVar("kinisgerOverride") then
+							if (v:GetPos():DistToSqr(playerPos) <= assassinDist) then
+								self:DrawPlayerOutline(v, outlines, Color(0, 225, 225, 255));
+								
+								continue;
+							end
 						end
 					end
 				end
 				
-				if v:GetSharedVar("markedBySatanist") == true then
-					if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= markedDist) then
+				if hasAssassin and (v:Health() < v:GetMaxHealth() / 4 or v:GetRagdollState() == RAGDOLL_FALLENOVER) then
+					if (v:GetPos():DistToSqr(playerPos) <= assassinDist) then
+						self:DrawPlayerOutline(v, outlines, warcryColor);
+						
+						continue;
+					end
+				end
+				
+				if v:GetNetVar("markedBySatanist") then
+					if (v:GetPos():DistToSqr(playerPos) <= markedDist) then
 						self:DrawPlayerOutline(v, outlines, Color(150, 0, 150, 255));
 					end
 				end
@@ -148,13 +160,33 @@ function cwBeliefs:AddEntityOutlines(outlines)
 		end;
 	end
 	
+	if self.upgradedWarcryActive then
+		if self.trout then
+			for _, v in _player.Iterator() do
+				if v.warcryTarget and v:Alive() and v:GetColor().a > 0 then
+					self:DrawPlayerOutline(v, outlines, troutColor);
+				end;
+			end;
+		elseif self.raven then
+			for _, v in _player.Iterator() do
+				if v.warcryTarget and v:Alive() and v:GetColor().a > 0 then
+					self:DrawPlayerOutline(v, outlines, ravenColor);
+				end;
+			end;
+		else
+			for _, v in _player.Iterator() do
+				if v.warcryTarget and v:Alive() and v:GetColor().a > 0 then
+					self:DrawPlayerOutline(v, outlines, warcryColor);
+				end
+			end;
+		end
+	end
+	
 	if cwSenses and self:HasBelief("the_black_sea") then
-		if Clockwork.Client:GetNWBool("senses") then
-			local playerPos = Clockwork.Client:GetPos();
-			
+		if localPlayer:GetNetVar("senses") then
 			for i, v in ipairs(ents.FindByClass("cw_bear_trap")) do
 				if v:GetNWString("state") == "trap" then
-					if playerPos:DistToSqr(v:GetPos()) < bearTrapDist then
+					if playerPos:DistToSqr(playerPos) < bearTrapDist then
 						if Clockwork.player:CanSeeEntity(Clockwork.Client, v) then
 							outlines:Add(v, Color(200, 0, 0, 255), 2, true);
 						end
@@ -189,9 +221,9 @@ end;
 
 -- Called when the target's marked status should be drawn.
 function cwBeliefs:DrawTargetPlayerMarked(target, alpha, x, y)
-	if target:GetSharedVar("markedBySatanist") == true then
+	if target:GetNetVar("markedBySatanist") == true then
 		if (target:Alive()) then
-			if Clockwork.Client:GetSharedVar("faith") == "Faith of the Dark" then
+			if Clockwork.Client:GetNetVar("faith") == "Faith of the Dark" then
 				local gender = "He";
 				
 				if (target:GetGender() == GENDER_FEMALE) then
@@ -229,17 +261,17 @@ end);
 netstream.Hook("TasteofBloodHighlight", function(data)
 	local cwBeliefs = cwBeliefs;
 
-	if IsValid(data) and data:IsPlayer() then
-		cwBeliefs.highlightTargetOverride = data;
-	end
+	cwBeliefs.highlightTargetOverride = data;
 	
 	if timer.Exists("tasteOfBloodTimer") then
 		timer.Remove("tasteOfBloodTimer");
 	end
 	
-	timer.Create("tasteOfBloodTimer", 180, 1, function()
-		cwBeliefs.highlightTargetOverride = nil;
-	end);
+	if IsValid(data) and data:IsPlayer() then
+		timer.Create("tasteOfBloodTimer", 180, 1, function()
+			cwBeliefs.highlightTargetOverride = nil;
+		end);
+	end
 end);
 
 netstream.Hook("UpgradedWarcry", function(data)
@@ -247,13 +279,37 @@ netstream.Hook("UpgradedWarcry", function(data)
 	
 	cwBeliefs.upgradedWarcryActive = true;
 	
-	local faction = Clockwork.Client:GetFaction();
-	local faith = Clockwork.Client:GetSharedVar("faith");
+	if cwBeliefs:HasBelief("watchful_raven") then
+		if data then
+			for i, v in ipairs(data) do
+				if IsValid(v) then
+					v.warcryTarget = true;
+				end
+			end
+		end
+		
+		cwBeliefs.raven = true;
+		
+		timer.Simple(10, function()
+			cwBeliefs.raven = false;
+			
+			for _, v in _player.Iterator() do
+				if v.warcryTarget then
+					v.warcryTarget = nil;
+				end
+			end
+		end);
 	
-	for k, v in pairs(_player.GetAll()) do
+		return;
+	end
+	
+	local faction = Clockwork.Client:GetFaction();
+	local faith = Clockwork.Client:GetNetVar("faith");
+	
+	for _, v in _player.Iterator() do
 		if v ~= Clockwork.Client and (v:HasInitialized()) then
-			if v:GetSharedVar("faith") ~= faith then
-				local vFaction = v:GetSharedVar("kinisgerOverride") or v:GetFaction();
+			if v:GetNetVar("faith") ~= faith then
+				local vFaction = v:GetNetVar("kinisgerOverride") or v:GetFaction();
 				
 				if faction == "Wanderer" or vFaction ~= faction then
 					if (v:GetPos():DistToSqr(Clockwork.Client:GetPos()) <= (800 * 800)) then
@@ -272,7 +328,7 @@ netstream.Hook("UpgradedWarcry", function(data)
 		timer.Create("warcryTimer", 20, 1, function()
 			cwBeliefs.upgradedWarcryActive = false;
 			
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				v.warcryTarget = false;
 			end;
 		end);
@@ -285,14 +341,14 @@ netstream.Hook("UpgradedWarcry", function(data)
 			timer.Remove("warcryTimer");
 		end
 	
-		timer.Create("warcryTimer", 15, 1, function()
+		timer.Create("warcryTimer", 10, 1, function()
 			if cwBeliefs.trout then
 				cwBeliefs.trout = false;
 			end
 			
 			cwBeliefs.upgradedWarcryActive = false;
 			
-			for k, v in pairs(_player.GetAll()) do
+			for _, v in _player.Iterator() do
 				v.warcryTarget = false;
 			end;
 		end);

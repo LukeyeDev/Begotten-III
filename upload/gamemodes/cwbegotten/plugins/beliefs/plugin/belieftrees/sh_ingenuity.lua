@@ -66,7 +66,7 @@ local INGENUITY = cwBeliefs.beliefTrees:New("ingenuity")
 			},
 			["marksman"] = {
 				name = "Marksman",
-				description = "Greatly increases accuracy while standing still for all firearms.",
+				description = "Greatly increases accuracy while standing still for all crossbows and firearms.",
 				lockedSubfactions = {"Knights of Sol", "Clan Gore", "Clan Crast", "Clan Reaver", "Clan Harald", "Clan Grock"},
 				requirements = {"ingenious", "powder_and_steel", "pistolier"},
 				row = 4,
@@ -75,7 +75,7 @@ local INGENUITY = cwBeliefs.beliefTrees:New("ingenuity")
 		[3] = {
 			["ingenious"] = {
 				name = "Ingenious",
-				description = "Unlocks the 'Crafting' mechanic and the ability to interact with traps.",
+				description = "Unlocks the 'Crafting' mechanic and the ability to interact with traps. Unlocks the ability to utilize equipped lanterns as a light source on your hip.",
 				row = 1,
 			},
 			["craftsman"] = {
@@ -128,7 +128,7 @@ local INGENUITY = cwBeliefs.beliefTrees:New("ingenuity")
 			},
 			["fortify_the_plate"] = {
 				name = "Fortify the Plate",
-				description = "Increases the protection value of all armor by 10%.",
+				description = "Increases the protection value of all armor by 10 points.",
 				iconOverride = "begotten/ui/belieficons/hauberk.png",
 				requirements = {"ingenious", "scour_the_rust"},
 				row = 3,

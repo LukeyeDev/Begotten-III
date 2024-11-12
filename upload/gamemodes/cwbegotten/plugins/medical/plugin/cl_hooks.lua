@@ -48,6 +48,64 @@ function cwMedicalSystem:HUDPaint()
 	end;
 end;
 
+function cwMedicalSystem:GetEntityMenuOptions(entity, options)
+	if (entity:GetClass() == "prop_ragdoll") then
+		local player = Clockwork.entity:GetPlayer(entity);
+
+		if player and player:Alive() then
+			entity = player;
+		end;
+	end
+	
+	if entity:IsPlayer() and entity:Alive() then
+		if !Clockwork.Client:IsWeaponRaised() then
+			local inventoryList = Clockwork.inventory:GetAsItemsList(Clockwork.inventory:GetClient());
+			
+			for k, itemTable in pairs (inventoryList) do
+				if options["Heal"] and options["Heal"][itemTable.name] then continue end;
+			
+				if itemTable.baseItem == "medical_base" and itemTable.applicable then
+					if !options["Heal"] then
+						options["Heal"] = {}
+					end;
+					
+					local optionsTable = {};
+					
+					if itemTable.limbs == "all" then
+						optionsTable[string.gsub("Give", "^.", string.upper)] = function()
+							Clockwork.inventory:InventoryAction("give_all", itemTable.uniqueID, itemTable.itemID);
+						end;
+					else
+						local methods = itemTable.limbs;
+						
+						if itemTable.isSurgeryItem then
+							if entity:IsRagdolled() then
+								for i = 1, #methods do
+									local hitGroupString = hitgroupToString[methods[i]];
+									
+									optionsTable[string.gsub(hitGroupString, "^.", string.upper)] = function()
+										Clockwork.inventory:InventoryAction(string.gsub("give_"..hitGroupString, " ", "_"), itemTable.uniqueID, itemTable.itemID);
+									end;
+								end;
+							end
+						else
+							for i = 1, #methods do
+								local hitGroupString = hitgroupToString[methods[i]];
+								
+								optionsTable[string.gsub(hitGroupString, "^.", string.upper)] = function()
+									Clockwork.inventory:InventoryAction(string.gsub("give_"..hitGroupString, " ", "_"), itemTable.uniqueID, itemTable.itemID);
+								end;
+							end;
+						end;
+					end;
+					
+					options["Heal"][itemTable.name] = optionsTable;
+				end
+			end
+		end
+	end;
+end;
+
 -- Called every frame.
 --[[function cwMedicalSystem:Think()
 	local action = Clockwork.player:GetAction(Clockwork.Client);
@@ -141,24 +199,27 @@ function cwMedicalSystem:HUDPaintForeground()
 end;
 
 -- Called when the post progress bar info is needed.
-function cwMedicalSystem:GetPostProgressBarInfo()
-	if (Clockwork.Client:Alive()) then
-		local action, percentage = Clockwork.player:GetAction(Clockwork.Client, true);
-		
-		if (action == "heal") then
-			return {text = "You are healing yourself.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "healing") then
-			return {text = "You are healing somebody.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "performing_surgery") then
-			return {text = "You are performing an operation on somebody.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "chloroform") then
-			return {text = "You are using chloroform on somebody.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "die") then
-			return {text = "You are slowly dying.", percentage = percentage, flash = percentage > 75};
-		elseif (action == "die_bleedout") then
-			return {text = "You are slowly bleeding out.", percentage = percentage, flash = percentage > 75};
-		end;
+function cwMedicalSystem:GetProgressBarInfoAction(action, percentage)
+	if (action == "heal") then
+		return {text = "You are healing yourself. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "healing") then
+		return {text = "You are healing somebody. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "performing_surgery") then
+		return {text = "You are performing an operation on somebody. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "chloroform") then
+		return {text = "You are using chloroform on somebody. Click to cancel.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "die") then
+		return {text = "You are slowly dying.", percentage = percentage, flash = percentage > 75};
+	elseif (action == "die_bleedout") then
+		return {text = "You are slowly bleeding out.", percentage = percentage, flash = percentage > 75};
 	end;
+end;
+
+-- Called when the local player attempts to get up.
+function cwMedicalSystem:PlayerCanGetUp(action)
+	if action == "die" or action == "die_bleedout" then
+		return false;
+	end
 end;
 
 -- Called when the screenspace effects are rendered.
@@ -217,7 +278,7 @@ function cwMedicalSystem:RenderScreenspaceEffects()
 		
 		if (!self.nauseaAttack or self.nauseaAttack < curTime) then
 			if !Clockwork.Client:IsRagdolled() and not Clockwork.Client.dueling and Clockwork.Client:HasInitialized() and !Clockwork.Client.LoadingText then
-				local symptoms = Clockwork.Client:GetSharedVar("symptoms", {});
+				local symptoms = Clockwork.Client:GetNetVar("symptoms", {});
 				
 				if table.HasValue(symptoms, "Nausea") then
 					local strings = {"I feel like I need to puke!", "I feel like I'm gonna be sick."};
@@ -237,7 +298,7 @@ function cwMedicalSystem:RenderScreenspaceEffects()
 		
 		if (!self.headache or self.headache < curTime) then
 			if !Clockwork.Client:IsRagdolled() and not Clockwork.Client.dueling and Clockwork.Client:HasInitialized() and !Clockwork.Client.LoadingText then
-				local symptoms = Clockwork.Client:GetSharedVar("symptoms", {});
+				local symptoms = Clockwork.Client:GetNetVar("symptoms", {});
 				
 				if table.HasValue(symptoms, "Headaches") then
 					local strings = {"My head is pounding!", "My head is killing me!", "Fuck, my head hurts like hell."};
@@ -250,7 +311,7 @@ function cwMedicalSystem:RenderScreenspaceEffects()
 					Clockwork.chatBox:Add(nil, nil, Color(255, 255, 150, 255), "*** "..strings[math.random(1, #strings)]);
 					Clockwork.Client:EmitSound("begotten/ui/sanity_damage.mp3");
 					
-					Clockwork.datastream:Start("TakeSanity", 5);
+					netstream.Start("TakeSanity", 5);
 				end
 			end
 			
@@ -355,7 +416,7 @@ end;
 -- Called when the target's symptoms should be drawn.
 function cwMedicalSystem:DrawTargetPlayerSymptoms(target, alpha, x, y)
 	local textColor = Color(200, 50, 50, 255);
-	local symptoms = target:GetSharedVar("symptoms", {});
+	local symptoms = target:GetNetVar("symptoms", {});
 	local symptomText;
 	
 	for i = 1, #symptoms do
@@ -373,12 +434,12 @@ function cwMedicalSystem:DrawTargetPlayerSymptoms(target, alpha, x, y)
 			else
 				symptomText = "They are covered in pustules and buboes.";
 			end
-		elseif symptom == "Deformities" then
+		--[[elseif symptom == "Deformities" then
 			if symptomText then
 				symptomText = symptomText.." Their skin is deformed and discolored, and their eyes bulging.";
 			else
 				symptomText = "Their skin is deformed and discolored, and their eyes bulging.";
-			end
+			end]]
 		end
 	end
 
@@ -389,7 +450,7 @@ end
 
 function cwMedicalSystem:ModifyStatusEffects(tab)
 	local bloodLevel = Clockwork.Client:GetNWInt("bloodLevel", self.maxBloodLevel);
-	local symptoms = Clockwork.Client:GetSharedVar("symptoms", {});
+	local symptoms = Clockwork.Client:GetNetVar("symptoms", {});
 
 	if Clockwork.Client.cwLimbs then
 		for k, v in pairs(Clockwork.Client.cwLimbs) do

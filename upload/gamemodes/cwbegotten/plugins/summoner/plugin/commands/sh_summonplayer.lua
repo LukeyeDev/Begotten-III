@@ -24,6 +24,10 @@ function COMMAND:OnRun(player, arguments)
 			
             timer.Create("summonplayer_"..tostring(target:EntIndex()), 0.75, 1, function()
 				if IsValid(target) then
+					if cwPickupObjects then
+						cwPickupObjects:ForceDropEntity(target)
+					end
+				
 					Clockwork.player:SetSafePosition(target, destination);
 					util.Decal("PentagramBurn", trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal);
 					util.Decal("PentagramBurn", origin, origin + Vector(0, 0, -256));
@@ -48,62 +52,63 @@ COMMAND.alias = {"SpawnNPC"};
 
 -- Called when the command has been run.
 function COMMAND:OnRun(player, arguments)
-	if string.find(arguments[1], "cw_") then
-		local npc = scripted_ents.GetStored(arguments[1]);
+	local entity = ents.Create(arguments[1]);
+	
+	if IsValid(entity) and (entity:IsNPC() or entity:IsNextBot()) then
+		local trace = player:GetEyeTraceNoCursor();
 		
-		if npc then
-			local trace = player:GetEyeTraceNoCursor();
+		if (trace.Hit) then
+			local destination = trace.HitPos;
+			local spawnDelay = math.Rand(1, 2);
 			
-			if (trace.Hit) then
-				local destination = trace.HitPos;
-				
+			sound.Play("begotten/npc/tele2_fadeout2.ogg", destination, 80, math.random(95, 105));
+			
+			timer.Simple(spawnDelay, function()
 				ParticleEffect("teleport_fx", destination, Angle(0,0,0));
 				sound.Play("misc/summon.wav", destination, 100, 100);
 				
-				timer.Simple(0.75, function()
-					if IsValid(player) and IsValid(npc) then
-						npc.t:SpawnFunction(player, trace);
-						
-						util.Decal("PentagramBurn", trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal);
-					end
+				timer.Simple(0.2, function()
+					local flash = ents.Create("light_dynamic")
+					flash:SetKeyValue("brightness", "2")
+					flash:SetKeyValue("distance", "256")
+					flash:SetPos(destination + Vector(0, 0, 8));
+					flash:Fire("Color", "255 100 0")
+					flash:Spawn()
+					flash:Activate()
+					flash:Fire("TurnOn", "", 0)
+					timer.Simple(0.5, function() if IsValid(flash) then flash:Remove() end end)
+					
+					util.ScreenShake(destination, 10, 100, 0.4, 1000, true);
 				end);
-			else
-				Schema:EasyText(player, "darkgrey", "Look at a valid spot!");
-			end;
-		else
-			Schema:EasyText(player, "grey", arguments[1].." is not a valid npc!");
-		end
-	else
-		local npc = ents.Create(arguments[1]);
 		
-		if IsValid(npc) then
-			local trace = player:GetEyeTraceNoCursor();
-			
-			if (trace.Hit) then
-				local destination = trace.HitPos;
-				
-				ParticleEffect("teleport_fx", destination, Angle(0,0,0));
-				sound.Play("misc/summon.wav", destination, 100, 100);
-				
 				timer.Simple(0.75, function()
+					local npc = ents.Create(arguments[1]);
+				
 					if IsValid(npc) then
-						if npc.CustomInitialize then
-							npc:CustomInitialize();
-						end
-						
 						npc:SetPos(destination + Vector(0, 0, 16));
 						npc:Spawn();
 						npc:Activate();
 						
 						util.Decal("PentagramBurn", trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal);
+						
+						if IsValid(player) then
+							undo.Create("Summoned "..(npc.PrintName or npc:GetClass()))
+							undo.SetPlayer(player)
+							undo.AddEntity(npc)
+							undo.Finish()
+						end
 					end
 				end);
-			else
-				Schema:EasyText(player, "darkgrey", "Look at a valid spot!");
-			end;
+			end);
 		else
-			Schema:EasyText(player, "grey", arguments[1].." is not a valid npc!");
-		end
+			Schema:EasyText(player, "darkgrey", "Look at a valid spot!");
+		end;
+	else
+		Schema:EasyText(player, "grey", arguments[1].." is not a valid npc!");
+	end
+	
+	if IsValid(entity) then
+		entity:Remove();
 	end
 end;
 

@@ -32,7 +32,7 @@ function playerMeta:HandleSanity(amount)
 	local subfaction = self:GetSubfaction();
 	
 	if subfaction == "Rekh-khet-sa" then
-		self:SetSharedVar("sanity", 100);
+		self:SetNetVar("sanity", 100);
 		self:SetCharacterData("sanity", 100);
 		return;
 	elseif subfaction == "Varazdat" then
@@ -51,7 +51,7 @@ function playerMeta:HandleSanity(amount)
 				amount = amount * 0.75;
 			end
 			
-			if self:GetCharmEquipped("warding_talisman") or self:GetCharmEquipped("holy_sigils") then
+			if self:GetCharmEquipped("warding_talisman") or self:GetCharmEquipped("holy_sigils") or self:GetCharmEquipped("abandoned_doll") then
 				amount = amount * 0.5;
 			end
 		end
@@ -87,7 +87,7 @@ function playerMeta:HandleSanity(amount)
 		player.moonCooldown = CurTime() + 125;
 	end
 
-	self:SetSharedVar("sanity", newSanity);
+	self:SetNetVar("sanity", newSanity);
 	self:SetCharacterData("sanity", newSanity)
 end
 

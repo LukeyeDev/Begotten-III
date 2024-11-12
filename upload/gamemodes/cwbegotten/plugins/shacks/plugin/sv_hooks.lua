@@ -53,11 +53,11 @@ function cwShacks:ShackPurchased(player, shack)
 					Clockwork.player:GiveDoor(player, v.doorEnt);
 					Schema:ModifyTowerTreasury(price);
 					
-					player:SetSharedVar("shack", shack);
+					player:SetNetVar("shack", shack);
 					Clockwork.player:GiveSpawnWeapon(player, "cw_keys");
 					
-					self:NetworkShackData(_player.GetAll());
-					self:SaveShackData();
+					self:NetworkShackData(PlayerCache or _player.GetAll());
+					--self:SaveShackData();
 					
 					Schema:EasyText(player, "olivedrab", "You have bought a property. It will be in your ownership until you expire or if your character has inactive for longer than one week. You may use /OpenStash to access your property's inventory, and the positive effects of /Sleep will be boosted depending on the quality of your property. You will now also spawn with 'Keys' to unlock and lock your property.");
 					Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has bought the property '"..k.."' for "..price.." coin! The treasury now sits at "..Schema.towerTreasury..".");
@@ -91,8 +91,8 @@ function cwShacks:ShackCoownerAdded(player, shack)
 			v.coowners = {};
 			v.coowners[player:GetCharacterKey()] = player:Name();
 			
-			self:NetworkShackData(_player.GetAll());
-			self:SaveShackData();
+			self:NetworkShackData(PlayerCache or _player.GetAll());
+			--self:SaveShackData();
 		
 			return;
 		end
@@ -103,7 +103,7 @@ end
 function cwShacks:ShackCoownerRemoved(coownerKey, shack)
 	for k, v in pairs(self.shacks) do
 		if k == shack then
-			for i, v2 in ipairs(_player.GetAll()) do
+			for _, v2 in _player.Iterator() do
 				if v2:GetCharacterKey() == coownerKey then
 					Clockwork.player:TakeDoorAccess(v2, v.doorEnt);
 					Clockwork.player:TakeSpawnWeapon(v2, "cw_keys");
@@ -114,8 +114,8 @@ function cwShacks:ShackCoownerRemoved(coownerKey, shack)
 			
 			v.coowners[coownerKey] = nil;
 			
-			self:NetworkShackData(_player.GetAll());
-			self:SaveShackData();
+			self:NetworkShackData(PlayerCache or _player.GetAll());
+			--self:SaveShackData();
 		
 			return;
 		end
@@ -146,14 +146,14 @@ function cwShacks:ShackSold(player, shack)
 					Clockwork.player:GiveCash(player, price, "Sold Property");
 					Schema:ModifyTowerTreasury(-price);
 					
-					player:SetSharedVar("shack", nil);
+					player:SetNetVar("shack", nil);
 					
 					if player:GetFaction() ~= "Holy Hierarchy" then
 						Clockwork.player:TakeSpawnWeapon(player, "cw_keys");
 					end
 					
 					if v.coowners then
-						for _, v2 in ipairs(_player.GetAll()) do
+						for _, v2 in _player.Iterator() do
 							if v2:HasInitialized() and v2:GetFaction() ~= "Holy Hierarchy" then
 								local characterKey = v2:GetCharacterKey();
 								
@@ -168,8 +168,8 @@ function cwShacks:ShackSold(player, shack)
 						v.coowners = nil;
 					end
 					
-					self:NetworkShackData(_player.GetAll());
-					self:SaveShackData();
+					self:NetworkShackData(PlayerCache or _player.GetAll());
+					--self:SaveShackData();
 					
 					Schema:EasyText(player, "olivedrab", "You have sold your property for "..Clockwork.kernel:FormatCash(price, nil, true).."!");
 					Clockwork.kernel:PrintLog(LOGTYPE_GENERIC, player:Name().." has sold the property '"..k.."' for "..price.." coin! The treasury now sits at "..Schema.towerTreasury..".");
@@ -189,7 +189,7 @@ function cwShacks:ShackForeclosed(player, shack)
 			v.stashCash = nil;
 			
 			if IsValid(player) then
-				player:SetSharedVar("shack", nil);
+				player:SetNetVar("shack", nil);
 				
 				if player:GetFaction() ~= "Holy Hierarchy" then
 					Clockwork.player:TakeSpawnWeapon(player, "cw_keys");
@@ -197,7 +197,7 @@ function cwShacks:ShackForeclosed(player, shack)
 			end
 			
 			if v.coowners then
-				for _, v2 in ipairs(_player.GetAll()) do
+				for _, v2 in _player.Iterator() do
 					if v2:HasInitialized() and v2:GetFaction() ~= "Holy Hierarchy" then
 						local characterKey = v2:GetCharacterKey();
 						
@@ -214,8 +214,8 @@ function cwShacks:ShackForeclosed(player, shack)
 			
 			Clockwork.entity:ClearProperty(v.doorEnt);
 			
-			self:NetworkShackData(_player.GetAll());
-			self:SaveShackData();
+			self:NetworkShackData(PlayerCache or _player.GetAll());
+			--self:SaveShackData();
 			return;
 		end
 	end
@@ -238,7 +238,7 @@ function cwShacks:ShackStashOpen(player)
 	for k, v in pairs(self.shacks) do
 		if playerPos:WithinAABox(v.pos1, v.pos2) then
 			if v.owner then
-				if k == player:GetSharedVar("shack") or player:IsAdmin() or v.coowners[characterKey] then
+				if k == player:GetNetVar("shack") or player:IsAdmin() or v.coowners[characterKey] then
 					--[[if IsValid(v.stashEnt) then
 						v.stashEnt:Remove();
 					end]]--
@@ -284,7 +284,7 @@ function cwShacks:ShackStashOpen(player)
 								
 									timer.Simple(0.5, function()
 										if IsValid(entity) then
-											for i, v in ipairs(_player.GetAll()) do
+											for _, v in _player.Iterator() do
 												if v.cwStorageTab then
 													if v.cwStorageTab.entity == entity then
 														return;
@@ -337,6 +337,7 @@ function cwShacks:GetPropertyInfo(player, shack)
 		
 		if shack then
 			local charactersTable = config.Get("mysql_characters_table"):Get();
+			local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 			local items = 0;
 			
 			if shack.owner then
@@ -357,10 +358,12 @@ function cwShacks:GetPropertyInfo(player, shack)
 									
 									local coowners = {};
 									
-									for k, v in pairs(shack.coowners) do
-										table.insert(coowners, v);
+									if shack.coowners then
+										for k, v in pairs(shack.coowners) do
+											table.insert(coowners, v);
+										end
 									end
-									
+										
 									local timeLastPlayed = tostring(os.time() - tonumber(v._LastPlayed));
 									
 									if player:IsAdmin() then
@@ -385,6 +388,7 @@ function cwShacks:GetPropertyInfo(player, shack)
 						end
 					end);
 					
+					queryObj:Where("_Schema", schemaFolder)
 					queryObj:Where("_Key", shack.owner)
 				queryObj:Execute()
 			else
@@ -410,7 +414,7 @@ function cwShacks:PlayerInsideShack(player, shack)
 end
 
 function cwShacks:PlayerCanOpenContainer(player, container)
-	if container.shack and container.shack ~= player:GetSharedVar("shack") and !player:IsAdmin() then
+	if container.shack and container.shack ~= player:GetNetVar("shack") and !player:IsAdmin() then
 		return false;
 	end
 end
@@ -420,7 +424,7 @@ function playerMeta:InsideShack(shack)
 end
 
 function playerMeta:InsideOwnedShack()
-	local ownedShack = self:GetSharedVar("shack");
+	local ownedShack = self:GetNetVar("shack");
 	
 	if ownedShack then
 		return cwShacks:PlayerInsideShack(self, ownedShack);
@@ -470,7 +474,7 @@ function cwShacks:NetworkShackData(player)
 		shackInfo[k].coowners = v.coowners;
 	end
 
-	Clockwork.datastream:Start(player, "ShackInfo", shackInfo);
+	netstream.Start(player, "ShackInfo", shackInfo);
 end
 
 -- A function to load the shack owners.
@@ -529,6 +533,7 @@ function cwShacks:LoadShackData()
 		self.shackData = Clockwork.kernel:RestoreSchemaData("plugins/shacks/"..game.GetMap()) or {};
 		
 		local charactersTable = config.Get("mysql_characters_table"):Get()
+		local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 		
 		for k, v in pairs(self.shackData) do
 			if v.owner == "" then v.owner = nil end;
@@ -616,6 +621,7 @@ function cwShacks:LoadShackData()
 					end
 				end);
 				
+				queryObj:Where("_Schema", schemaFolder)
 				queryObj:Where("_Key", v.owner)
 			queryObj:Execute()
 		end
@@ -681,7 +687,7 @@ function cwShacks:PlayerLoadout(player)
 			if characterKey == v.owner then
 				Clockwork.player:GiveDoor(player, v.doorEnt);
 				
-				player:SetSharedVar("shack", k);
+				player:SetNetVar("shack", k);
 				
 				Clockwork.player:GiveSpawnWeapon(player, "cw_keys");
 				
@@ -699,8 +705,8 @@ function cwShacks:PlayerLoadout(player)
 	end
 
 	if !ownedShackFound then
-		if player:GetSharedVar("shack") then
-			player:SetSharedVar("shack", nil);
+		if player:GetNetVar("shack") then
+			player:SetNetVar("shack", nil);
 		end
 		
 		if faction ~= "Holy Hierarchy" then

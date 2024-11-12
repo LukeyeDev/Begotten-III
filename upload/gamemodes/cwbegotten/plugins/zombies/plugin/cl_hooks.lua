@@ -5,8 +5,8 @@
 
 -- Called when Clockwork is initialized.
 function cwZombies:ClockworkInitialized()
-	CW_CONVAR_ZOMBIEESP = Clockwork.kernel:CreateClientConVar("cwZombieESP", 1, false, true);
-	--CW_CONVAR_ZOMBIEMUSIC = Clockwork.kernel:CreateClientConVar("cwZombieMusic", 1, false, true);
+	Clockwork.ConVars.ZOMBIEESP = Clockwork.kernel:CreateClientConVar("cwZombieESP", 1, false, true);
+	--Clockwork.ConVars.ZOMBIEMUSIC = Clockwork.kernel:CreateClientConVar("cwZombieMusic", 1, false, true);
 end;
 
 -- Called every frame the local player is connected to the server.
@@ -85,7 +85,7 @@ end;
 							end;
 						end;
 						
-						if (Clockwork.Client:GetSharedVar("IsTarget") == true) then
+						if (Clockwork.Client:GetNetVar("IsTarget") == true) then
 							if (distance <= self.dangerDistance) then
 								dangerLevel = "Attack";
 							end;
@@ -332,11 +332,11 @@ end;]]--
 
 -- A function to get the admin ESP info.
 function cwZombies:GetAdminESPInfo(info)
-	if (CW_CONVAR_ZOMBIEESP:GetInt() == 1) then
+	if (Clockwork.ConVars.ZOMBIEESP:GetInt() == 1) then
 		for k, v in ipairs(ents.FindByClass("npc_bgt_*")) do
 			local class = v:GetClass();
 			
-			if (table.HasValue(self.zombieNPCS, class)) then
+			--if (table.HasValue(self.zombieNPCS, class)) then
 				local informationColor = Clockwork.option:GetColor("information");
 				local maxHealth = v:GetMaxHealth();
 				local health = v:Health();
@@ -348,10 +348,10 @@ function cwZombies:GetAdminESPInfo(info)
 						{text = "Health: ["..health.." / "..maxHealth.."]", color = informationColor}
 					}
 				};
-			end;
+			--end;
 		end;
 		
-		for k, v in ipairs(ents.FindByClass("npc_animal_*")) do
+		for k, v in ipairs(ents.FindByClass("npc_drg_animals_*")) do
 			local informationColor = Clockwork.option:GetColor("information");
 			local maxHealth = v:GetMaxHealth();
 			local health = v:Health();

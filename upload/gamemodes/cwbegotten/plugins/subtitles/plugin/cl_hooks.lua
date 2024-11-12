@@ -7,14 +7,14 @@
 
 -- Called when the client initializes.
 function cwCinematicText:Initialize()
-	CW_CONVAR_SHOWCINEMATICS = Clockwork.kernel:CreateClientConVar("cwShowCinematics", 1, true, true);
+	Clockwork.ConVars.SHOWCINEMATICS = Clockwork.kernel:CreateClientConVar("cwShowCinematics", 1, true, true);
 end;
 
 -- Called when the chat box info should be adjusted.
 function cwCinematicText:ChatBoxAdjustInfo(info)
 	if (Clockwork.Client:Alive()) then
 		if (info.shouldHear) then
-			if (CW_CONVAR_SHOWCINEMATICS:GetInt() == 1) then
+			if (Clockwork.ConVars.SHOWCINEMATICS:GetInt() == 1) then
 				local textColor = Color(255, 255, 255);
 				local goodClasses = {
 					"ic",
@@ -28,10 +28,16 @@ function cwCinematicText:ChatBoxAdjustInfo(info)
 				
 				if (info.filter == "ic" and table.HasValue(goodClasses, info.class)) then
 					local doesRecognise = Clockwork.player:DoesRecognise(info.speaker);
-					local nameText = info.name;
+					local nameText = Clockwork.player:GetName(info.speaker);
 					
 					if (!doesRecognise) then
-						nameText = "["..string.sub(Clockwork.player:GetPhysDesc(info.speaker), 0, 21).."...]";
+						local unrecognisedName, usedPhysDesc = Clockwork.player:GetUnrecognisedName(info.speaker);
+						
+						if (usedPhysDesc and string.utf8len(unrecognisedName) > 24) then
+							unrecognisedName = string.utf8sub(unrecognisedName, 1, 21).."...";
+						end;
+						
+						nameText = "["..unrecognisedName.."]";
 					end
 					
 					if (info.class == "yell") then

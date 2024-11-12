@@ -45,7 +45,8 @@ function cwMelee:HandleStability(player, amount, cooldown)
 	player:SetCharacterData("stability", math.Clamp(player:GetCharacterData("stability", player:GetMaxStability()) + amount, 0, player:GetMaxStability()));
 end;
 
-function playerMeta:TakePoise(amount)
+--function playerMeta:TakePoise(amount)
+function playerMeta:TakeStamina(amount)
 	if (Clockwork.player:HasFlags(self, "E")) then
 		return;
 	end
@@ -54,6 +55,7 @@ function playerMeta:TakePoise(amount)
 	local leftArm = Clockwork.limb:GetHealth(self, HITGROUP_LEFTARM, false)
 	local rightArm = Clockwork.limb:GetHealth(self, HITGROUP_RIGHTARM, false)
 	local armHealth = math.min(leftArm, rightArm)
+	local max_stamina = self:GetMaxStamina() or 100;
 	
 	if (armHealth <= 75) then
 		if armHealth > 50 then
@@ -71,32 +73,40 @@ function playerMeta:TakePoise(amount)
 		newAmount = 0 - newAmount;
 	end
 
-	self:SetNWInt("meleeStamina", math.Clamp(self:GetNWInt("meleeStamina", 90) + newAmount, 0, self:GetMaxPoise() or 90));
+	--self:SetNWInt("meleeStamina", math.Clamp(self:GetNWInt("meleeStamina", 90) + newAmount, 0, self:GetMaxPoise() or 90));
+	self:HandleStamina(newAmount);
 	
-	if self:GetNWInt("meleeStamina", 90) <= 0 and self:GetNWBool("Guardening", false) == true then
+	--[[if self:GetNWInt("meleeStamina", 90) <= 0 and self:GetNetVar("Guardening", false) == true then
 		self:CancelGuardening();
 		self.nextStas = CurTime() + 3;
-	end
+	end]]--
 end
 
-function playerMeta:GivePoise(amount)
-	self:SetNWInt("meleeStamina", math.Clamp(self:GetNWInt("meleeStamina", 90) + amount, 0, self:GetMaxPoise() or 90));
+--function playerMeta:GivePoise(amount)
+function playerMeta:GiveStamina(amount)
+	local max_stamina = self:GetMaxStamina() or 100;
+	
+	--self:SetNWInt("meleeStamina", math.Clamp(self:GetNWInt("meleeStamina", 90) + amount, 0, self:GetMaxPoise() or 90));
+	self:HandleStamina(math.Clamp(self:GetNWInt("Stamina", max_stamina) + amount, 0, max_stamina));
 end
 
 -- A function to take from a player's stability.
 function playerMeta:TakeStability(amount, cooldown, bNoMe)
 	--printp("Taking stability - Initial Amount: "..amount);
 	
-	if (Clockwork.player:HasFlags(self, "E") or !self:Alive()) then
+	if (Clockwork.player:HasFlags(self, "E") or !self:Alive() or self:IsRagdolled()) then
 		return;
 	end
 
 	if not self:IsInGodMode() and (!cwPowerArmor or (cwPowerArmor and --[[!self:IsWearingPowerArmor()]] !self.wearingPowerArmor)) then
-		if self:GetSharedVar("tied") ~= 0 then
+		if self:GetNetVar("tied") ~= 0 then
 			self.nextStability = CurTime() + 3;
 			
 			cwMelee:HandleStability(self, -100, cooldown);
-			cwMelee:PlayerStabilityFallover(self, 30);
+			
+			if !self:IsRagdolled() then
+				cwMelee:PlayerStabilityFallover(self, 30);
+			end
 			
 			return;
 		end
@@ -199,11 +209,11 @@ function playerMeta:AddFreeze(amount, attacker)
 	local model = self:GetModel();
 	
 	if IsValid(attacker) and (!cwPowerArmor or (cwPowerArmor and --[[!self:IsWearingPowerArmor()]] !self.wearingPowerArmor)) and !self.cloakBurningActive then
-		local freeze = self:GetNWInt("freeze", 0);
+		local freeze = self:GetNetVar("freeze", 0);
 		
-		self:SetNWInt("freeze", math.Clamp(math.Round(freeze + amount), 0, 100));
+		self:SetLocalVar("freeze", math.Clamp(math.Round(freeze + amount), 0, 100));
 		
-		if self:GetNWInt("freeze") >= 100 then
+		if self:GetNetVar("freeze") >= 100 then
 			cwMelee:DoFreezeEffect(self, attacker, 20);
 		end
 		
@@ -212,15 +222,15 @@ function playerMeta:AddFreeze(amount, attacker)
 end
 
 function playerMeta:TakeFreeze(amount)
-	local freeze = self:GetNWInt("freeze", 0);
+	local freeze = self:GetNetVar("freeze", 0);
 	
-	self:SetNWInt("freeze", math.Clamp(math.Round(freeze - amount), 0, 100));
+	self:SetLocalVar("freeze", math.Clamp(math.Round(freeze - amount), 0, 100));
 	
 	hook.Run("RunModifyPlayerSpeed", self, self.cwInfoTable, true);
 end
 
 -- A function to get a player's maximum poise.
-function playerMeta:GetMaxPoise()
+--[[function playerMeta:GetMaxPoise()
 	local max_poise = 90;
 	local subfaction = self:GetSubfaction();
 	
@@ -259,7 +269,7 @@ function playerMeta:GetMaxPoise()
 	end
 	
 	return max_poise;
-end;
+end;]]--
 
 -- A function to get a player's maximum stability.
 function playerMeta:GetMaxStability()

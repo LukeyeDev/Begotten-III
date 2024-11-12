@@ -211,8 +211,13 @@ end
 
 -- A function to get whether an inventory item instance.
 function Clockwork.inventory:HasItemInstance(inventory, itemTable)
-	local uniqueID = itemTable.uniqueID
-	return (inventory[uniqueID] and inventory[uniqueID][itemTable.itemID] != nil)
+	if itemTable then
+		local uniqueID = itemTable.uniqueID
+		
+		return (inventory[uniqueID] and inventory[uniqueID][itemTable.itemID] != nil)
+	end
+	
+	return false;
 end
 
 -- A function to get whether an inventory is empty.
@@ -455,6 +460,10 @@ if (CLIENT) then
 
 			Clockwork.inventory:Rebuild()
 			hook.Run("PlayerItemTaken", itemTable)
+			
+			if data[3] then
+				item.RemoveInstance(itemTable.itemID)
+			end
 		end
 	end)
 	
@@ -468,6 +477,8 @@ if (CLIENT) then
 				Clockwork.inventory:RemoveInstance(
 					Clockwork.inventory.client, itemTable
 				)
+				
+				item.RemoveInstance(itemTable.itemID)
 			end
 		end
 		
@@ -533,7 +544,7 @@ else
 	end
 	
 	function Clockwork.inventory:InventoryAction(player, itemAction, uniqueID, itemID, interactUniqueID, interactItemID)
-		if !player:Alive() or player:IsRagdolled() then
+		if !player:Alive() or player:IsRagdolled() or player:GetNetVar("tied") != 0 then
 			Clockwork.player:Notify(player, "You cannot use items right now!");
 			
 			return false;
@@ -595,8 +606,10 @@ else
 								if repairItemTable:GetCondition() <= 0 then
 									player:TakeItem(repairItemTable, true);
 									
+									player:EmitSound("generic_ui/randomize_0"..math.random(1, 2)..".wav")
 									Schema:EasyText(player, "olivedrab", "You have repaired your "..itemTable.name.." to "..tostring(math.Round(itemTable:GetCondition(), 2))..", using the last of the repair kit's parts in the process.");
 								else
+									player:EmitSound("generic_ui/randomize_0"..math.random(1, 2)..".wav")
 									Schema:EasyText(player, "green", "You have repaired your "..itemTable.name.." to "..tostring(math.Round(itemTable:GetCondition(), 2))..".");
 									Clockwork.inventory:Rebuild(player);
 								end
@@ -639,8 +652,22 @@ else
 											player:HandleXP(cwBeliefs.xpValues["meltdown"]);
 										end
 										
-										local coal = player:FindItemByID("charcoal");
-										player:TakeItem(coal);
+										local inventory = player:GetInventory();
+										local coal;
+										
+										for k, v in pairs(inventory) do
+											if k == "charcoal" then
+												for k2, v2 in pairs(v) do
+													if !coal or v2:GetCondition() < coal:GetCondition() then
+														coal = v2;
+													end
+												end
+											end
+										end
+										
+										if coal then
+											player:TakeItem(coal, true);
+										end
 										
 										player:TakeItem(itemTable, true);
 										smithy_found = true;
@@ -737,7 +764,7 @@ else
 				local itemCondition = itemTable:GetCondition();
 				local examineText = itemTable.description
 				local itemEngraving = itemTable:GetData("engraving");
-				local conditionTextCategories = {"Armor", "Firearms", "Helms", "Melee", "Shields", "Javelins"};
+				local conditionTextCategories = {"Armor", "Crossbows", "Firearms", "Helms", "Melee", "Shields", "Throwables"};
 
 				if (itemTable.GetEntityExamineText) then
 					examineText = itemTable:GetEntityExamineText(entity)

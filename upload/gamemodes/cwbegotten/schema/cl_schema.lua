@@ -3,8 +3,15 @@
 	written by: cash wednesday, DETrooper, gabs and alyousha35.
 --]]
 
-Clockwork.config:AddToSystem("Small intro text", "intro_text_small", "The small text displayed for the introduction.");
-Clockwork.config:AddToSystem("Big intro text", "intro_text_big", "The big text displayed for the introduction.");
+Clockwork.ConVars.NPCSPAWNESP = Clockwork.kernel:CreateClientConVar("cwNPCSpawnESP", 0, false, true)
+
+Clockwork.setting:AddCheckBox("Admin ESP - Spawn Points", "Show NPC spawn points.", "cwNPCSpawnESP", "Click to toggle the NPC spawn point ESP.", function() return Clockwork.player:IsAdmin(Clockwork.Client) end);
+
+--[[Clockwork.config:AddToSystem("Small intro text", "intro_text_small", "The small text displayed for the introduction.");
+Clockwork.config:AddToSystem("Big intro text", "intro_text_big", "The big text displayed for the introduction.");]]--
+Clockwork.config:AddToSystem("Coinslot Wages Interval", "coinslot_wages_interval", "The time that it takes for coinslot wages to be distributed (seconds).", 0, 7200);
+Clockwork.config:AddToSystem("Enable Famine", "enable_famine", "Enable famine mode. This will make food/drink spawns significantly more rare and will also prevent rations from being distributed at the Coinslot.");
+Clockwork.config:AddToSystem("Discord Invite URL", "discord_url", "The invite link for your community's discord.");
 
 local playerMeta = FindMetaTable("Player");
 
@@ -49,8 +56,8 @@ function Schema:DownloadMaterial(url, path)
 	end;
 end;
 
-Schema:AddTempTexture("http://begottendev.site.nfoservers.com/temp/black.vmt", "b3/black.vmt");
-Schema:AddTempTexture("http://begottendev.site.nfoservers.com/temp/black.vtf", "b3/black.vtf");
+--Schema:AddTempTexture("http://begottendev.site.nfoservers.com/temp/black.vmt", "b3/black.vmt");
+--Schema:AddTempTexture("http://begottendev.site.nfoservers.com/temp/black.vtf", "b3/black.vtf");
 
 -- A function to get whether a text entry is being used.
 function Schema:IsTextEntryBeingUsed()
@@ -247,25 +254,25 @@ end;
 
 -- A function to get a player's bounty.
 function playerMeta:GetBounty()
-	return self:GetSharedVar("bounty", 0);
+	return self:GetNetVar("bounty", 0);
 end;
 
 -- A function to get whether a player is wanted.
 function playerMeta:IsWanted()
-	return self:GetSharedVar("bounty", 0) > 0;
+	return self:GetNetVar("bounty", 0) > 0;
 end;
 
-Clockwork.datastream:Hook("ObjectPhysDesc", function(data)
+netstream.Hook("ObjectPhysDesc", function(data)
 	local entity = data;
 	
 	if (IsValid(entity)) then
 		Derma_StringRequest("Description", "What is the physical description of this object?", nil, function(text)
-			Clockwork.datastream:Start("ObjectPhysDesc", {text, entity});
+			netstream.Start("ObjectPhysDesc", {text, entity});
 		end);
 	end;
 end);
 
-Clockwork.datastream:Hook("Frequency", function(data)
+netstream.Hook("Frequency", function(data)
 	Derma_StringRequest("Frequency", "What would you like to set the frequency to?", data, function(text)
 		Clockwork.kernel:RunCommand("SetFreq", text);
 		
@@ -279,7 +286,7 @@ Clockwork.datastream:Hook("Frequency", function(data)
 	end;
 end);
 
-Clockwork.datastream:Hook("SetRadioState", function(data)
+netstream.Hook("SetRadioState", function(data)
 	if data == true then
 		Clockwork.kernel:RunCommand("SetRadioState", "false");
 	else
@@ -287,7 +294,7 @@ Clockwork.datastream:Hook("SetRadioState", function(data)
 	end
 end);
 
-Clockwork.datastream:Hook("SetECWJamming", function(data)
+netstream.Hook("SetECWJamming", function(data)
 	if data == true then
 		Clockwork.kernel:RunCommand("SetECWJamming", "true");
 	else
@@ -295,7 +302,7 @@ Clockwork.datastream:Hook("SetECWJamming", function(data)
 	end
 end);
 
-Clockwork.datastream:Hook("TriggerCrows", function()
+netstream.Hook("TriggerCrows", function()
 	Schema:TriggerCrows();
 end);
 

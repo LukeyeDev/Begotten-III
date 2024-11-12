@@ -55,6 +55,11 @@ SWEP.IronSightsAng = Vector (0.0186, -0.0547, 0)
  
 SWEP.VElements = {}
 SWEP.WElements = {}
+
+local rndr = render
+local mth = math
+local srface = surface
+local inpat = input
  
 function SWEP:Initialize()
 	self.Reloadaftershoot = 0                               -- Can't reload when firing
@@ -165,7 +170,7 @@ function SWEP:Initialize()
 end
  
 function SWEP:Equip()
-		self:SetHoldType(self.HoldType)
+	self:SetHoldType(self.HoldType)
 end
  
 function SWEP:Deploy()
@@ -175,13 +180,14 @@ function SWEP:Deploy()
 	
 	self:SetHoldType(self.HoldType)
 
-	self.Weapon:SetNWBool("Reloading", false)
+	--self.Weapon:SetNWBool("Reloading", false)
    
 	if !self.Owner:IsNPC() and self.Owner != nil then
-			if self.ResetSights and self.Owner:GetViewModel() != nil then
-					self.ResetSights = CurTime() + self.Owner:GetViewModel():SequenceDuration()
-			end
+		if self.ResetSights and self.Owner:GetViewModel() != nil then
+			self.ResetSights = CurTime() + self.Owner:GetViewModel():SequenceDuration()
+		end
 	end
+	
 	return true
 end
 
@@ -194,14 +200,24 @@ function SWEP:OnDrop()
 end
  
 function SWEP:Holster()
-	if CLIENT and IsValid(self.Owner) and self.Owner:IsPlayer() then
-		local vm = self.Owner:GetViewModel()
-		
-		if IsValid(vm) then
-			self:ResetBonePositions(vm)
+	if IsValid(self.Owner) and self.Owner:IsPlayer() then
+		if CLIENT then
+			local vm = self.Owner:GetViewModel()
+			
+			if IsValid(vm) then
+				self:ResetBonePositions(vm)
+			end
+		else
+			self.Owner:SetFOV(0, 0.5);
 		end
-		
-		self.Owner:SetFOV(0, 0.5);
+	end
+	
+	if self.OnHolster then
+		self:OnHolster();
+	end
+	
+	if CLIENT then
+		self:RemoveModels();
 	end
    
 	return true
@@ -209,10 +225,6 @@ end
  
 function SWEP:OnRemove()
 	self:Holster();
-	
-	if CLIENT then
-		self:RemoveModels();
-	end
 end
 
 function SWEP:RemoveModels()
@@ -265,62 +277,90 @@ function SWEP:AdjustFireBegotten()
 				local ammoType = ammo[1];
 				
 				if self.AmmoTypes[ammoType] then
-					if !self.noJam then
-						local hasPistolier = false;
+					if !self.notPowder then
+						local forceJam = false;
 					
-						if SERVER then
-							hasPistolier = cwBeliefs and self.Owner.HasBelief and self.Owner:HasBelief("pistolier");
-						elseif CLIENT then
-							hasPistolier = cwBeliefs and cwBeliefs.HasBelief and cwBeliefs:HasBelief("pistolier");
-						end
-						
-						local misfireChance = self.MisfireChance;
-						local itemCondition = itemTable:GetCondition();
-
-						if itemCondition < 90 then
-							misfireChance = misfireChance + math.Round(((100 - itemCondition) / 5));
-						end
-						
-						if hasPistolier then
-							misfireChance = math.Round(misfireChance / 5);
-						end
-					
-						--if math.random(1, 100) <= misfireChance then
-						if util.SharedRandom("misfire_"..self.Owner:EntIndex(), 1, 100) <= misfireChance then -- acceptable risk of people being able to hack this on the client
-							self:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
+						if cwRituals then
+							local ownerPos = self.Owner:GetPos();
 							
-							-- 10% chance on misfire for the gun to fucking explode.
-							if math.random(1, 100) <= 10 then
-								if SERVER then
-									local position = self.Owner:GetPos();
-									
-									Clockwork.chatBox:AddInTargetRadius(self.Owner, "me", "pulls the trigger on their "..self.PrintName.." and it suddenly explodes!", position, config.Get("talk_radius"):Get() * 2);
-								
-									local effectData = EffectData();
-									effectData:SetStart(position);
-									effectData:SetOrigin(position);
-									effectData:SetScale(256);
-									effectData:SetRadius(256);
-									effectData:SetMagnitude(50);
+							for _, v in _player.Iterator() do
+								if v:GetNetVar("powderheelActive") then
+									if v:GetPos():Distance(ownerPos) <= config.Get("talk_radius"):Get() then
+										forceJam = true;
+										
+										break;
+									end
+								end
+							end
+						end
+					
+						if !self.noJam or forceJam then
+							local hasPistolier = cwBeliefs and self.Owner.HasBelief and self.Owner:HasBelief("pistolier");
+							local hasFavored = self.Owner:GetNetVar("favored");
+							local hasMarked = self.Owner:GetNetVar("marked");
+							
+							local misfireChance = self.MisfireChance;
+							local itemCondition = itemTable:GetCondition();
 
-									util.Effect("Explosion", effectData, true, true);
-									util.BlastDamage(self, self, position, 300, 75);
-								end
-								
-								if itemTable.TakeCondition then
-									itemTable:Break();
-								end
-							else
-								if SERVER then
-									self.Owner:EmitSound("vj_weapons/dryfire_revolver.wav");
-									
-									Clockwork.chatBox:Add(self.Owner, nil, "it", "Your firearm was loaded with a dud round and misfires!")
-								end
-								
-								self:SetNextPrimaryFire(CurTime() + 2);
+							if itemCondition < 90 then
+								misfireChance = misfireChance + math.Round(((100 - itemCondition) / 5));
+							end
+							
+							if hasPistolier then
+								misfireChance = math.Round(misfireChance / 5);
+							end
+							
+							if hasFavored then
+								misfireChance = math.Round(misfireChance / 2);
+							end
+							
+							if hasMarked then
+								misfireChance = math.Round(misfireChance * 1.5);
 							end
 						
-							return false;
+							--if math.random(1, 100) <= misfireChance then
+							if forceJam or util.SharedRandom("misfire_"..self.Owner:EntIndex(), 1, 100) <= misfireChance then -- acceptable risk of people being able to hack this on the client
+								self:TakeAmmoBegotten(1); -- This should really only ever be 1 unless for some reason we have burst-fire guns or some shit, especially since we have different ammo types.
+								
+								-- 10% chance on misfire for the gun to fucking explode.
+								if !hasPistolier and !forceJam and ((!hasMarked and math.random(1, 100) <= 10) or (hasMarked and math.random(1, 100) <= 20)) then
+									if SERVER then
+										local position = self.Owner:GetPos();
+										
+										Clockwork.chatBox:AddInTargetRadius(self.Owner, "me", "pulls the trigger on their "..self.PrintName.." and it suddenly explodes!", position, config.Get("talk_radius"):Get() * 2);
+										
+										Schema:EasyText(Schema:GetAdmins(), "icon16/bomb.png", "tomato", self.Owner:Name().."'s "..self.PrintName.." exploded!");
+									
+										local effectData = EffectData();
+										effectData:SetStart(position);
+										effectData:SetOrigin(position);
+										effectData:SetScale(256);
+										effectData:SetRadius(256);
+										effectData:SetMagnitude(50);
+
+										util.Effect("Explosion", effectData, true, true);
+										util.BlastDamage(self, self, position, 300, 75);
+									end
+									
+									if itemTable.TakeCondition then
+										itemTable:Break();
+									end
+								else
+									if SERVER then
+										self.Owner:EmitSound("vj_weapons/dryfire_revolver.wav");
+										
+										if forceJam then
+											Clockwork.chatBox:Add(self.Owner, nil, "it", "Some magical force prevents your firearm from firing, jamming it in the process!")
+										else
+											Clockwork.chatBox:Add(self.Owner, nil, "it", "Your firearm was loaded with a dud round and misfires!")
+										end
+									end
+									
+									self:SetNextPrimaryFire(CurTime() + 2);
+								end
+							
+								return false;
+							end
 						end
 					end
 					
@@ -421,12 +461,14 @@ function SWEP:TakeAmmoBegotten(amount)
 			if itemTable.TakeCondition then
 				local conditionLoss = math.max((((1000 - self.Primary.RPM) / 1000) * amount), 0.5);
 				
-				if IsValid(self.Owner) and self.Owner:IsPlayer() then
-					if self.Owner.HasBelief then
-						if self.Owner:HasBelief("ingenuity_finisher") then
-							return;
-						elseif self.Owner:HasBelief("scour_the_rust") then
-							conditionLoss = conditionLoss / 2;
+				if !itemTable.unrepairable then
+					if IsValid(self.Owner) and self.Owner:IsPlayer() then
+						if self.Owner.HasBelief then
+							if self.Owner:HasBelief("ingenuity_finisher") then
+								return;
+							elseif self.Owner:HasBelief("scour_the_rust") then
+								conditionLoss = conditionLoss / 2;
+							end
 						end
 					end
 				end
@@ -665,7 +707,7 @@ function SWEP:RicochetCallback(bouncenum, attacker, tr, dmginfo)
 				self.MaxRicochet = 0
 		elseif self.Primary.Ammo == "smg1" then -- smgs
 				self.MaxRicochet = 0
-		elseif self.Primary.Ammo == "ar2" then -- assault rifles
+		elseif self.Primary.Ammo == "smg" then -- assault rifles
 				self.MaxRicochet = 0
 		elseif self.Primary.Ammo == "buckshot" then -- shotguns
 				self.MaxRicochet = 0
@@ -723,7 +765,7 @@ function SWEP:BulletPenetrate(bouncenum, attacker, tr, paininfo)
 				MaxPenetration = 12
 		elseif self.Primary.Ammo == "smg1" then -- smgs
 				MaxPenetration = 14
-		elseif self.Primary.Ammo == "ar2" then -- assault rifles
+		elseif self.Primary.Ammo == "smg" then -- assault rifles
 				MaxPenetration = 16
 		elseif self.Primary.Ammo == "buckshot" then -- shotguns
 				MaxPenetration = 5
@@ -759,7 +801,7 @@ function SWEP:BulletPenetrate(bouncenum, attacker, tr, paininfo)
 				self.MaxRicochet = 0
 		elseif self.Primary.Ammo == "smg1" then -- smgs
 				self.MaxRicochet = 0
-		elseif self.Primary.Ammo == "ar2" then -- assault rifles
+		elseif self.Primary.Ammo == "smg" then -- assault rifles
 				self.MaxRicochet = 0
 		elseif self.Primary.Ammo == "buckshot" then -- shotguns
 				self.MaxRicochet = 0
@@ -924,7 +966,11 @@ end
  
  
 function SWEP:SecondaryAttack()
-		return false
+	return false
+end
+
+function SWEP:Reload()
+	return false
 end
  
 --[[
@@ -1010,7 +1056,7 @@ function SWEP:IronSight()
 	if not IsValid(self) then return end
 	if not IsValid(self.Owner) then return end
 	
-	if !Clockwork.player:GetWeaponRaised(self.Owner) then
+	if !self.Owner:IsWeaponRaised(self) then
 		return;
 	end
 
@@ -1022,7 +1068,7 @@ function SWEP:IronSight()
 	
 	local bIron = self:GetIronsights();
    
-	if self.Owner:KeyPressed(IN_SPEED) and not (self.Weapon:GetNWBool("Reloading")) then
+	if self.Owner:KeyPressed(IN_SPEED) --[[and not (self.Weapon:GetNWBool("Reloading"))]] then
 		if self.Weapon:GetNextPrimaryFire() <= (CurTime()+0.3) then
 			self.Weapon:SetNextPrimaryFire(CurTime()+0.3)                           -- Make it so you can't shoot for another quarter second
 		end
@@ -1053,7 +1099,7 @@ function SWEP:IronSight()
 	end
 
 	if !self.Owner:KeyDown(IN_SPEED) then
-		if self.Owner:KeyPressed(IN_ATTACK2) and not (self.Weapon:GetNWBool("Reloading")) then
+		if self.Owner:KeyPressed(IN_ATTACK2) --[[and not (self.Weapon:GetNWBool("Reloading"))]] then
 			self.Owner:SetFOV(self.Secondary.IronFOV, 0.5);
 			self.IronSightsPos = self.SightsPos                                     -- Bring it up
 			self.IronSightsAng = self.SightsAng                                     -- Bring it up
@@ -1106,11 +1152,12 @@ Think
 function SWEP:Think()
 	if SERVER then
 		local curTime = CurTime();
+		local player = self.Owner;
 		
-		if !self.waterCheck or self.waterCheck <= curTime then
+		if !self.notPowder and (!self.waterCheck or self.waterCheck <= curTime) then
 			self.waterCheck = curTime + 0.5;
 			
-			if IsValid(self.Owner) then
+			if IsValid(player) and player:IsPlayer() then
 				if self.Owner:WaterLevel() >= 3 then
 					if !self.Owner.cwObserverMode then
 						if Clockwork then
@@ -1129,6 +1176,28 @@ function SWEP:Think()
 					end
 				end
 			end
+		end
+		
+		-- Last ditch effort to fix the clientside itemtable desync.
+		if !self.nextItemSend or self.nextItemSend <= curTime then
+			if IsValid(player) and player:IsPlayer() then
+				local itemTable = item.GetByWeapon(self);
+					
+				if itemTable then
+					netstream.Start(player, "WeaponItemData", {
+						definition = item.GetDefinition(itemTable, true),
+						weapon = self:EntIndex()
+					})
+
+					if self:GetNWInt("ItemID") ~= itemTable.itemID then
+						self:SetNWInt("ItemID", itemTable.itemID)
+					end
+					
+					self.cwItemTable = itemTable
+				end
+			end
+			
+			self.nextItemSend = curTime + math.random(1, 5);
 		end
 	--elseif CLIENT then
 		--self:IronSight();
@@ -1200,332 +1269,370 @@ function SWEP:GetIronsights()
 	return self.Weapon:GetNWBool("M9K_Ironsights")
 end
  
- 
 if CLIENT then
 		SWEP.vRenderOrder = nil
-		function SWEP:ViewModelDrawn()
-			   
-				if not IsValid(self) then return end 
-				if not IsValid(self.Owner) then return end
-				local vm = self.Owner:GetViewModel()
-				if !IsValid(vm) then return end
-			   
-				if (!self.VElements) then return end
-			   
-				self:UpdateBonePositions(vm)
- 
-				if (!self.vRenderOrder) then
-					   
-						-- // we build a render order because sprites need to be drawn after models
-						self.vRenderOrder = {}
- 
-						for k, v in pairs( self.VElements ) do
-								if (v.type == "Model") then
-										table.insert(self.vRenderOrder, 1, k)
-								elseif (v.type == "Sprite" or v.type == "Quad") then
-										table.insert(self.vRenderOrder, k)
-								end
-						end
-					   
+		function SWEP:ViewModelDrawn(vm)
+			local vm = self.Owner:GetViewModel()
+			self:UpdateBonePositions(vm)
+			
+			if !IsValid(vm) then return end
+			
+			if (!self.VElements) then return end
+
+			if (!self.vRenderOrder) then
+				self.vRenderOrder = {}
+
+				for k, v in pairs( self.VElements ) do
+					if (v.type == "Model") then
+						table.insert(self.vRenderOrder, 1, k)
+					elseif (v.type == "Sprite" or v.type == "Quad") then
+						table.insert(self.vRenderOrder, k)
+					end
 				end
- 
-				for k, name in ipairs( self.vRenderOrder ) do
-			   
-						local v = self.VElements[name]
-						if (!v) then self.vRenderOrder = nil break end
-						if (v.hide) then continue end
-					   
-						local model = v.modelEnt
-						local sprite = v.spriteMaterial
-					   
-						if (!v.bone) then continue end
-					   
-						local pos, ang = self:GetBoneOrientation( self.VElements, v, vm )
-					   
-						if (!pos) then continue end
-					   
-						if (v.type == "Model") then
-							if !IsValid(model) then
-								self:CreateModels(self.VElements);
-								
-								return;
+			end
+
+			for k, name in ipairs( self.vRenderOrder ) do
+				local v = self.VElements[name]
+				if (!v) then self.vRenderOrder = nil break end
+				
+				if (!v.bone) then continue end
+				
+				local pos, ang = self:GetBoneOrientation( self.VElements, v, vm )
+				
+				if (!pos) then continue end
+				
+				if (v.type == "Model") then
+					local model = v.modelEnt
+					
+					if !IsValid(model) then
+						self:CreateModels(self.VElements);
+						
+						return;
+					end
+
+					model:SetPos(pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z )
+					ang:RotateAroundAxis(ang:Up(), v.angle.y)
+					ang:RotateAroundAxis(ang:Right(), v.angle.p)
+					ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+
+					model:SetAngles(ang)
+					local matrix = Matrix()
+					matrix:Scale(v.size)
+					model:EnableMatrix( "RenderMultiply", matrix )
+					
+					if (v.material == "") then
+						model:SetMaterial("")
+					elseif (model:GetMaterial() != v.material) then
+						model:SetMaterial( v.material )
+					end
+					
+					if (v.skin and v.skin != model:GetSkin()) then
+						model:SetSkin(v.skin)
+					end
+					
+					if (v.bodygroup) then
+						for k, v in pairs( v.bodygroup ) do
+							if (model:GetBodygroup(k) != v) then
+								model:SetBodygroup(k, v)
 							end
- 
-								model:SetPos(pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z )
-								ang:RotateAroundAxis(ang:Up(), v.angle.y)
-								ang:RotateAroundAxis(ang:Right(), v.angle.p)
-								ang:RotateAroundAxis(ang:Forward(), v.angle.r)
- 
-								model:SetAngles(ang)
-								-- //model:SetModelScale(v.size)
-								local matrix = Matrix()
-								matrix:Scale(v.size)
-								model:EnableMatrix( "RenderMultiply", matrix )
-							   
-								if (v.material == "") then
-										model:SetMaterial("")
-								elseif (model:GetMaterial() != v.material) then
-										model:SetMaterial( v.material )
-								end
-							   
-								if (v.skin and v.skin != model:GetSkin()) then
-										model:SetSkin(v.skin)
-								end
-							   
-								if (v.bodygroup) then
-										for k, v in pairs( v.bodygroup ) do
-												if (model:GetBodygroup(k) != v) then
-														model:SetBodygroup(k, v)
-												end
-										end
-								end
-							   
-								if (v.surpresslightning) then
-										render.SuppressEngineLighting(true)
-								end
-							   
-								render.SetColorModulation(v.color.r/255, v.color.g/255, v.color.b/255)
-								render.SetBlend(v.color.a/255)
-								model:DrawModel()
-								render.SetBlend(1)
-								render.SetColorModulation(1, 1, 1)
-							   
-								if (v.surpresslightning) then
-										render.SuppressEngineLighting(false)
-								end
-							   
-						elseif (v.type == "Sprite" and sprite) then
-							   
-								local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
-								render.SetMaterial(sprite)
-								render.DrawSprite(drawpos, v.size.x, v.size.y, v.color)
-							   
-						elseif (v.type == "Quad" and v.draw_func) then
-							   
-								local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
-								ang:RotateAroundAxis(ang:Up(), v.angle.y)
-								ang:RotateAroundAxis(ang:Right(), v.angle.p)
-								ang:RotateAroundAxis(ang:Forward(), v.angle.r)
-							   
-								cam.Start3D2D(drawpos, ang, v.size)
-										v.draw_func( self )
-								cam.End3D2D()
- 
 						end
-					   
+					end
+					
+					if (v.surpresslightning) then
+						rndr.SuppressEngineLighting(true)
+					end
+					
+					local color = v.color;
+					
+					if color then
+						rndr.SetColorModulation(color.r/255, color.g/255, color.b/255)
+						rndr.SetBlend(color.a/255)
+						model:DrawModel()
+						rndr.SetBlend(1)
+						rndr.SetColorModulation(1, 1, 1)
+					else
+						model:DrawModel()
+					end
+					
+					if (v.surpresslightning) then
+						rndr.SuppressEngineLighting(false)
+					end
+				elseif (v.type == "Sprite" and sprite) then
+					local sprite = v.spriteMaterial
+					local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
+					rndr.SetMaterial(sprite)
+					rndr.DrawSprite(drawpos, v.size.x, v.size.y, v.color)
+					
+				elseif (v.type == "Quad" and v.draw_func) then
+					
+					local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
+					ang:RotateAroundAxis(ang:Up(), v.angle.y)
+					ang:RotateAroundAxis(ang:Right(), v.angle.p)
+					ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+					
+					cam.Start3D2D(drawpos, ang, v.size)
+						v.draw_func( self )
+					cam.End3D2D()
 				end
-			   
+			end
 		end
- 
+
 		SWEP.wRenderOrder = nil
 		function SWEP:DrawWorldModel()
-			   
-				if (self.ShowWorldModel == nil or self.ShowWorldModel) then
-						self:DrawModel()
+			local wepTab = self:GetTable()
+
+			if (wepTab.ShowWorldModel ~= false) then
+				self:DrawModel()
+			end
+			
+			if (!wepTab.WElements) then return end
+			
+			if (!wepTab.wRenderOrder) or table.IsEmpty(wepTab.wRenderOrder) then
+				wepTab.wRenderOrder = {}
+
+				for k, v in pairs(wepTab.WElements) do
+					if (v.type == "Model") then
+						table.insert(wepTab.wRenderOrder, 1, k)
+					elseif (v.type == "Sprite" or v.type == "Quad") then
+						table.insert(wepTab.wRenderOrder, k)
+					end
 				end
-			   
-				if (!self.WElements) then return end
-			   
-				if (!self.wRenderOrder) or table.IsEmpty(self.wRenderOrder) then
- 
-						self.wRenderOrder = {}
- 
-						for k, v in pairs( self.WElements ) do
-								if (v.type == "Model") then
-										table.insert(self.wRenderOrder, 1, k)
-								elseif (v.type == "Sprite" or v.type == "Quad") then
-										table.insert(self.wRenderOrder, k)
-								end
-						end
- 
-				end
-			   
-				if (IsValid(self.Owner)) then
-						bone_ent = self.Owner
-				else
-						-- // when the weapon is dropped
-						bone_ent = self
-				end
-			   
-				for k, name in pairs( self.wRenderOrder ) do
-			   
-						local v = self.WElements[name]
-						if (!v) then self.wRenderOrder = nil break end
-						if (v.hide) then continue end
-					   
-						local pos, ang
-					   
-						if (v.bone) then
-								pos, ang = self:GetBoneOrientation( self.WElements, v, bone_ent )
-						else
-								pos, ang = self:GetBoneOrientation( self.WElements, v, bone_ent, "ValveBiped.Bip01_R_Hand" )
-						end
-					   
-						if (!pos) then continue end
-					   
-						local model = v.modelEnt
-						local sprite = v.spriteMaterial
-					   
-						if (v.type == "Model") then
-							if !IsValid(model) then
-								self:CreateModels(self.WElements);
-								
-								return;
+			end
+			
+			for k, name in pairs(wepTab.wRenderOrder) do
+				local v = wepTab.WElements[name]
+				
+				if (!v) then wepTab.wRenderOrder = nil break end
+				
+				if (v.type == "Model") then
+					local model = v.modelEnt
+					
+					if !IsValid(model) or model:GetParent() ~= self.Owner and IsValid(self.Owner) then
+						self:CreateModels(wepTab.WElements);
+						
+						return;
+					end
+				
+					--[[ang:RotateAroundAxis(ang:Up(), v.angle.y)
+					ang:RotateAroundAxis(ang:Right(), v.angle.p)
+					ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+				
+					model:SetPos(pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z )
+					model:SetAngles(ang)
+					
+					if v.size then
+						local matrix = Matrix()
+						matrix:Scale(v.size)
+						model:EnableMatrix( "RenderMultiply", matrix )
+					end
+					
+					if (v.material and model:GetMaterial() != v.material) then
+						model:SetMaterial( v.material )
+					end
+					
+					if (v.skin and v.skin != model:GetSkin()) then
+						model:SetSkin(v.skin)
+					end
+					
+					if (v.bodygroup) then
+						for k, v in pairs( v.bodygroup ) do
+							if (model:GetBodygroup(k) != v) then
+								model:SetBodygroup(k, v)
 							end
- 
-								model:SetPos(pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z )
-								ang:RotateAroundAxis(ang:Up(), v.angle.y)
-								ang:RotateAroundAxis(ang:Right(), v.angle.p)
-								ang:RotateAroundAxis(ang:Forward(), v.angle.r)
- 
-								model:SetAngles(ang)
-								-- //model:SetModelScale(v.size)
-								local matrix = Matrix()
-								matrix:Scale(v.size)
-								model:EnableMatrix( "RenderMultiply", matrix )
-							   
-								if (v.material == "") then
-										model:SetMaterial("")
-								elseif (model:GetMaterial() != v.material) then
-										model:SetMaterial( v.material )
-								end
-							   
-								if (v.skin and v.skin != model:GetSkin()) then
-										model:SetSkin(v.skin)
-								end
-							   
-								if (v.bodygroup) then
-										for k, v in pairs( v.bodygroup ) do
-												if (model:GetBodygroup(k) != v) then
-														model:SetBodygroup(k, v)
-												end
-										end
-								end
-							   
-								if (v.surpresslightning) then
-										render.SuppressEngineLighting(true)
-								end
-							   
-								render.SetColorModulation(v.color.r/255, v.color.g/255, v.color.b/255)
-								render.SetBlend(v.color.a/255)
-								model:DrawModel()
-								render.SetBlend(1)
-								render.SetColorModulation(1, 1, 1)
-							   
-								if (v.surpresslightning) then
-										render.SuppressEngineLighting(false)
-								end
-							   
-						elseif (v.type == "Sprite" and sprite) then
-							   
-								local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
-								render.SetMaterial(sprite)
-								render.DrawSprite(drawpos, v.size.x, v.size.y, v.color)
-							   
-						elseif (v.type == "Quad" and v.draw_func) then
-							   
-								local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
-								ang:RotateAroundAxis(ang:Up(), v.angle.y)
-								ang:RotateAroundAxis(ang:Right(), v.angle.p)
-								ang:RotateAroundAxis(ang:Forward(), v.angle.r)
-							   
-								cam.Start3D2D(drawpos, ang, v.size)
-										v.draw_func( self )
-								cam.End3D2D()
- 
 						end
-					   
+					end]]--
+					
+					if (v.surpresslightning) then
+						rndr.SuppressEngineLighting(true)
+					end
+					
+					local color = v.color;
+					
+					if color then
+						rndr.SetColorModulation(color.r/255, color.g/255, color.b/255)
+						rndr.SetBlend(color.a/255)
+						model:DrawModel()
+						rndr.SetBlend(1)
+						rndr.SetColorModulation(1, 1, 1)
+					else
+						model:DrawModel()
+					end
+					
+					if (v.surpresslightning) then
+						rndr.SuppressEngineLighting(false)
+					end
+				elseif (v.type == "Sprite" and sprite) then
+					local sprite = v.spriteMaterial
+					local pos, ang
+					
+					if (v.bone) then
+						pos, ang = self:GetBoneOrientation(wepTab.WElements, v, self.Owner or self)
+					else
+						pos, ang = self:GetBoneOrientation(wepTab.WElements, v, self.Owner or self, "ValveBiped.Bip01_R_Hand")
+					end
+					
+					if (!pos) then continue end
+					
+					local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
+					rndr.SetMaterial(sprite)
+					rndr.DrawSprite(drawpos, v.size.x, v.size.y, v.color)
+				elseif (v.type == "Quad" and v.draw_func) then
+					local pos, ang
+					
+					if (v.bone) then
+						pos, ang = self:GetBoneOrientation(wepTab.WElements, v, self.Owner or self)
+					else
+						pos, ang = self:GetBoneOrientation(wepTab.WElements, v, self.Owner or self, "ValveBiped.Bip01_R_Hand")
+					end
+					
+					if (!pos) then continue end
+					
+					local drawpos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
+					ang:RotateAroundAxis(ang:Up(), v.angle.y)
+					ang:RotateAroundAxis(ang:Right(), v.angle.p)
+					ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+					
+					cam.Start3D2D(drawpos, ang, v.size)
+						v.draw_func( self )
+					cam.End3D2D()
 				end
-			   
+			end
 		end
  
 		function SWEP:GetBoneOrientation( basetab, tab, ent, bone_override )
-			   
-				local bone, pos, ang
-				if (tab.rel and tab.rel != "") then
-					   
-						local v = basetab[tab.rel]
-					   
-						if (!v) then return end
-					   
-						-- // Technically, if there exists an element with the same name as a bone
-						-- // you can get in an infinite loop. Let's just hope nobody's that stupid.
-						pos, ang = self:GetBoneOrientation( basetab, v, ent )
-					   
-						if (!pos) then return end
-					   
-						pos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
-						ang:RotateAroundAxis(ang:Up(), v.angle.y)
-						ang:RotateAroundAxis(ang:Right(), v.angle.p)
-						ang:RotateAroundAxis(ang:Forward(), v.angle.r)
-							   
-				else
-			   
-						bone = ent:LookupBone(bone_override or tab.bone)
- 
-						if (!bone) then return end
-						
-						local m = ent:GetBoneMatrix(bone)
-						
-						if (m) then
-							pos, ang = m:GetTranslation(), m:GetAngles()
-						else
-							pos = ent:GetPos();
-							ang = Angle(0, 0, 0);
-						end
-					   
-						if (IsValid(self.Owner) and self.Owner:IsPlayer() and
-								ent == self.Owner:GetViewModel() and self.ViewModelFlip) then
-								ang.r = -ang.r --// Fixes mirrored models
-						end
-			   
+			local bone, pos, ang
+			
+			if (tab.rel and tab.rel != "") then
+				local v = basetab[tab.rel]
+				
+				if (!v) then return end
+
+				pos, ang = self:GetBoneOrientation( basetab, v, ent )
+				
+				if (!pos) then return end
+				
+				pos = pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z
+				ang:RotateAroundAxis(ang:Up(), v.angle.y)
+				ang:RotateAroundAxis(ang:Right(), v.angle.p)
+				ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+			else
+				bone = ent:LookupBone(bone_override or tab.bone)
+
+				if (!bone) then return end
+				
+				if basetab == self.VElements then
+					local m = ent:GetBoneMatrix(bone)
+					
+					if (m) then
+						pos, ang = m:GetTranslation(), m:GetAngles();
+					end
 				end
-			   
-				return pos, ang
+
+				if !pos and !ang then
+					pos = ent:GetPos();
+					ang = ent:GetAngles();
+				end
+				
+				if (IsValid(self.Owner) and self.Owner:IsPlayer() and ent == self.Owner:GetViewModel()) then
+					if self.ViewModelFlip then
+						ang.r = -ang.r 
+					end
+				end
+			end
+			
+			return pos, ang, bone;
 		end
- 
+
 		function SWEP:CreateModels( tab )
- 
-				if (!tab) then return end
- 
-				-- // Create the clientside models here because Garry says we can't do it in the render hook
-				for k, v in pairs( tab ) do
-						if (v.type == "Model" and v.model and v.model != "" and (!IsValid(v.modelEnt) or v.createdModel != v.model) and
-										string.find(v.model, ".mdl") and file.Exists (v.model, "GAME") ) then
-							   
-								v.modelEnt = ClientsideModel(v.model, RENDER_GROUP_VIEW_MODEL_OPAQUE)
-								if (IsValid(v.modelEnt)) then
-										v.modelEnt:SetPos(self:GetPos())
-										v.modelEnt:SetAngles(self:GetAngles())
-										v.modelEnt:SetParent(self)
-										v.modelEnt:SetNoDraw(true)
-										v.createdModel = v.model
-								else
-										v.modelEnt = nil
-								end
-							   
-						elseif (v.type == "Sprite" and v.sprite and v.sprite != "" and (!v.spriteMaterial or v.createdSprite != v.sprite)
-								and file.Exists ("materials/"..v.sprite..".vmt", "GAME")) then
-							   
-								local name = v.sprite.."-"
-								local params = { ["$basetexture"] = v.sprite }
-								-- // make sure we create a unique name based on the selected options
-								local tocheck = { "nocull", "additive", "vertexalpha", "vertexcolor", "ignorez" }
-								for i, j in pairs( tocheck ) do
-										if (v[j]) then
-												params["$"..j] = 1
-												name = name.."1"
-										else
-												name = name.."0"
-										end
-								end
- 
-								v.createdSprite = v.sprite
-								v.spriteMaterial = CreateMaterial(name,"UnlitGeneric",params)
-							   
-						end
+			if (!tab) then return end
+
+			for k, v in pairs( tab ) do
+				if IsValid(v.modelEnt) then
+					v.modelEnt:Remove();
 				end
-			   
+			
+				if (v.type == "Model" and v.model and v.model != "" and !IsValid(v.modelEnt) and 
+					string.find(v.model, ".mdl") and file.Exists(v.model, "GAME")) then
+					
+					local modelEnt = ClientsideModel(v.model, RENDER_GROUP_VIEW_MODEL_OPAQUE)
+					
+					if (IsValid(modelEnt)) then
+						--[[modelEnt:SetPos(self:GetPos())
+						modelEnt:SetAngles(self:GetAngles())
+						modelEnt:SetParent(self)]]--
+						modelEnt:SetNoDraw(true)
+						
+						local pos, ang, bone;
+						
+						if tab == self.VElements then
+							pos, ang, bone = self:GetBoneOrientation(tab, v, self.Owner:GetViewModel())
+						else
+							if (v.bone) then
+								pos, ang, bone = self:GetBoneOrientation(tab, v, self.Owner or self)
+							else
+								pos, ang, bone = self:GetBoneOrientation(tab, v, self.Owner or self, "ValveBiped.Bip01_R_Hand")
+							end
+						end
+						
+						if pos and ang and bone then
+							modelEnt:SetPos(pos + ang:Forward() * v.pos.x + ang:Right() * v.pos.y + ang:Up() * v.pos.z);
+							ang:RotateAroundAxis(ang:Up(), v.angle.y)
+							ang:RotateAroundAxis(ang:Right(), v.angle.p)
+							ang:RotateAroundAxis(ang:Forward(), v.angle.r)
+							modelEnt:SetAngles(ang)
+							
+							if tab == self.VElements then
+								--modelEnt:FollowBone(self.Owner:GetViewModel(), bone);
+							else
+								modelEnt:FollowBone(self.Owner, bone);
+							end
+							
+							if v.size then
+								local matrix = Matrix()
+								matrix:Scale(v.size)
+								modelEnt:EnableMatrix( "RenderMultiply", matrix )
+							end
+							
+							if (v.material and modelEnt:GetMaterial() != v.material) then
+								modelEnt:SetMaterial(v.material)
+							end
+							
+							if (v.skin and v.skin != modelEnt:GetSkin()) then
+								modelEnt:SetSkin(v.skin)
+							end
+							
+							if (v.bodygroup) then
+								for k, v in pairs( v.bodygroup ) do
+									if (modelEnt:GetBodygroup(k) != v) then
+										modelEnt:SetBodygroup(k, v)
+									end
+								end
+							end
+						end
+						
+						v.modelEnt = modelEnt;
+					else
+						v.modelEnt = nil
+					end
+				elseif (v.type == "Sprite" and v.sprite and v.sprite != "" and (!v.spriteMaterial or v.createdSprite != v.sprite) 
+					and file.Exists ("materials/"..v.sprite..".vmt", "GAME")) then
+					
+					local name = v.sprite.."-"
+					local params = { ["$basetexture"] = v.sprite }
+					local tocheck = { "nocull", "additive", "vertexalpha", "vertexcolor", "ignorez" }
+					for i, j in pairs( tocheck ) do
+						if (v[j]) then
+							params["$"..j] = 1
+							name = name.."1"
+						else
+							name = name.."0"
+						end
+					end
+
+					v.createdSprite = v.sprite
+					v.spriteMaterial = CreateMaterial(name,"UnlitGeneric",params)
+				end
+			end
 		end
 	   
 		local allbones

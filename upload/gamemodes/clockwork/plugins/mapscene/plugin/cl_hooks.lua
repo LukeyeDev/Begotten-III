@@ -543,7 +543,7 @@ function cwMapScene:CalcView(player, origin, angles, fov)
 		local faction = Clockwork.Client.SelectedFaction;
 		local subfaction = Clockwork.Client.SelectedSubfaction;
 
-		if faction then
+		if faction and camTable[faction] then
 			local model_path = "";
 			local head_path;
 			
@@ -552,6 +552,21 @@ function cwMapScene:CalcView(player, origin, angles, fov)
 				
 				if istable(charModel) then
 					model_path = charModel.clothes;
+					
+					if subfaction then
+						local factionTable = Clockwork.faction:FindByID(faction);
+						
+						if factionTable and factionTable.subfactions then
+							for i, v in ipairs(factionTable.subfactions) do
+								if v.name == subfaction and v.models then
+									model_path = v.models[string.lower(player:GetGender())].clothes;
+								
+									break;
+								end
+							end
+						end
+					end
+					
 					head_path = Clockwork.Client.SelectedModel;
 				else
 					model_path = charModel;
@@ -611,6 +626,12 @@ function cwMapScene:CalcView(player, origin, angles, fov)
 				end
 				
 				if (!Clockwork.Client.ModelSelectionOpen) then
+					if modelEnt.HeadModel then
+						modelEnt.HeadModel:SetSkin(0);
+					else
+						modelEnt:SetSkin(0);
+					end
+				
 					if subfaction and subfactionCamTable[subfaction] and subfactionCamTable[subfaction].charBodygroup then
 						if modelEnt.HeadModel then
 							modelEnt.HeadModel:SetBodygroup(subfactionCamTable[subfaction].charBodygroup[1], subfactionCamTable[subfaction].charBodygroup[2]);
@@ -640,16 +661,32 @@ function cwMapScene:CalcView(player, origin, angles, fov)
 				modelEnt:SetAngles(camTable[faction].charAngles);
 				modelEnt:ResetSequence(modelEnt:LookupSequence("idle_subtle"));
 				
+				local panel = Clockwork.character:GetActivePanel();
+
 				if head_path then
 					modelEnt.HeadModel = ClientsideModel(head_path, RENDERGROUP_OPAQUE);
 				
 					modelEnt.HeadModel:SetParent(modelEnt);
 					modelEnt.HeadModel:AddEffects(EF_BONEMERGE);
+					
+					if panel.info and panel.info.traits and table.HasValue(panel.info.traits, "leper") and faction ~= "Goreic Warrior" then
+						modelEnt.HeadModel:SetSkin(modelEnt.HeadModel:SkinCount() - 1);
+					end
 				else
 					modelEnt:SetEyeTarget(camTable[faction].camVector);
+					
+					if panel.info and panel.info.traits and table.HasValue(panel.info.traits, "leper") and faction ~= "Goreic Warrior" then
+						modelEnt:SetSkin(modelEnt:SkinCount() - 1);
+					end
 				end
 				
 				if (!Clockwork.Client.ModelSelectionOpen) then
+					if modelEnt.HeadModel then
+						modelEnt.HeadModel:SetSkin(0);
+					else
+						modelEnt:SetSkin(0);
+					end
+				
 					if subfaction and subfactionCamTable[subfaction] and subfactionCamTable[subfaction].charBodygroup then
 						if modelEnt.HeadModel then
 							modelEnt.HeadModel:SetBodygroup(subfactionCamTable[subfaction].charBodygroup[1], subfactionCamTable[subfaction].charBodygroup[2]);
@@ -664,7 +701,7 @@ function cwMapScene:CalcView(player, origin, angles, fov)
 						end
 					end
 				end
-				
+
 				Clockwork.Client.CharSelectionModel = modelEnt;
 			end;
 			

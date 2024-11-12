@@ -108,10 +108,17 @@ function PANEL:Paint()
 	local width, height = self:GetWide(), self:GetTall()
 	local x, y = 0, 0
 	
-	local beliefs = self.player:GetBeliefs() or self.beliefTable;
-	local level = self.player:GetNetVar("level", 1) or self.level;
-	local experience = self.player:GetNetVar("experience", 0) or self.experience;
-	local points = self.player:GetNetVar("points", 0) or self.points;
+	local beliefs;
+	
+	if self.player == Clockwork.Client then
+		beliefs = self.player:GetBeliefs() or self.beliefTable or {};
+	else
+		beliefs = self.beliefTable or {};
+	end
+	
+	local level = self.player:GetNetVar("level") or self.level or 1;
+	local experience = self.player:GetNetVar("experience") or self.experience or 0;
+	local points = self.player:GetNetVar("points") or self.points or 0;
 	
 	if (!IsValid(self.closeButton)) then
 		return
@@ -149,7 +156,7 @@ function PANEL:Paint()
 		self.localLevelCap = self.localLevelCap + 5;
 	end
 	
-	if self.player:GetSharedVar("subfaction") == "Rekh-khet-sa" then
+	if self.player:GetNetVar("subfaction") == "Rekh-khet-sa" then
 		self.localLevelCap = self.localLevelCap + 666;
 	end
 
@@ -192,19 +199,35 @@ function PANEL:Paint()
 	draw.SimpleText("SACRAMENT LEVEL: "..self.levelNumeral, "Civ5Tooltip1", self.barX + 8, self.barY + 4, Color(200, 0, 0))
 	draw.SimpleText("SACRAMENT LEVEL: "..self.levelNumeral, "Civ5Tooltip1", self.barX + 10, self.barY + 6, Color(0, 0, 0, 150))
 	
-	if (points <= 0) then
-		draw.SimpleText("YOU HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
-		draw.SimpleText("YOU HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
-	else
-		local epiphany = "EPIPHANY"
-		
-		if (points > 1) then
-			epiphany = "EPIPHANIES"
-		end
+	if self.player == Clockwork.Client then
+		if (points <= 0) then
+			draw.SimpleText("YOU HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
+			draw.SimpleText("YOU HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
+		else
+			local epiphany = "EPIPHANY"
+			
+			if (points > 1) then
+				epiphany = "EPIPHANIES"
+			end
 
-		draw.SimpleText("YOU HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
-		draw.SimpleText("YOU HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
-	end	
+			draw.SimpleText("YOU HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
+			draw.SimpleText("YOU HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
+		end
+	else
+		if (points <= 0) then
+			draw.SimpleText("THEY HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
+			draw.SimpleText("THEY HAVE NO EPIPHANIES!", "Civ5Tooltip1", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
+		else
+			local epiphany = "EPIPHANY"
+			
+			if (points > 1) then
+				epiphany = "EPIPHANIES"
+			end
+
+			draw.SimpleText("THEY HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 6, ((self.barY) + 4) + 1 + 32, Color(200, 0, 0))
+			draw.SimpleText("THEY HAVE "..points.." "..epiphany.." TO INVEST!", "Civ5ToolTi3", (self.barX) + 4, ((self.barY) + 4) - 1 + 32, Color(0, 0, 0, 150))
+		end
+	end
 	
 	self.sacramentCost = cwBeliefs.sacramentCosts[level + 1] or 666;
 
@@ -215,8 +238,24 @@ function PANEL:Paint()
 		draw.SimpleText("Faith Required For Next Epiphany: "..self.sacramentCost, "Civ5Tooltip1", (self.barX) + 4 + 16 + 512, ((self.barY) + 4 + 32), Color(200, 0, 0, 255))
 		draw.SimpleText("Faith Required For Next Epiphany: "..self.sacramentCost, "Civ5Tooltip1", (self.barX) + 6 + 16 + 512, ((self.barY) + 6 + 32), Color(0, 0, 0, 127))
 	else
-		draw.SimpleText("You Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 4 + 16 + 512, ((self.barY) + 4 + 32), Color(200, 0, 0, 255))
-		draw.SimpleText("You Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 6 + 16 + 512, ((self.barY) + 6 + 32), Color(0, 0, 0, 127))
+		if self.player == Clockwork.Client then
+			draw.SimpleText("You Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 4 + 16 + 512, ((self.barY) + 4 + 32), Color(200, 0, 0, 255))
+			draw.SimpleText("You Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 6 + 16 + 512, ((self.barY) + 6 + 32), Color(0, 0, 0, 127))
+		else
+			draw.SimpleText("They Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 4 + 16 + 512, ((self.barY) + 4 + 32), Color(200, 0, 0, 255))
+			draw.SimpleText("They Are At The Maximum Sacrament Level!", "Civ5Tooltip1", (self.barX) + 6 + 16 + 512, ((self.barY) + 6 + 32), Color(0, 0, 0, 127))
+		end
+	end
+end
+
+function PANEL:PaintOver(width, height)
+	if self.highlightAlpha then
+		if self.highlightAlpha < 220 then
+			self.highlightAlpha = math.max(0, self.highlightAlpha - (FrameTime() * 200));
+		end
+	
+		surface.SetDrawColor(10, 10, 10, self.highlightAlpha);
+		surface.DrawRect(4, 4, width - 8, (height - 96) - 8);
 	end
 end
 
@@ -281,8 +320,14 @@ function PANEL:AddIcon(iconData)
 	
 	-- Called when the button is clicked.
 	function icon.DoClick()
-		local subfaction = Clockwork.Client:GetSharedVar("subfaction");
-		local subfaith = Clockwork.Client:GetSharedVar("subfaith");
+		local beliefPanel = Clockwork.Client.cwBeliefPanel;
+		
+		if beliefPanel.player ~= Clockwork.Client then
+			return;
+		end
+		
+		local subfaction = Clockwork.Client:GetNetVar("subfaction");
+		local subfaith = Clockwork.Client:GetNetVar("subfaith");
 		local faction = Clockwork.Client:GetFaction();
 		local traits = Clockwork.Client.cwTraits;
 		local points = Clockwork.Client:GetNetVar("points", 0);
@@ -369,8 +414,15 @@ function PANEL:AddIcon(iconData)
 			local canTakeColor = selectedGood;
 			local canUnlock = true
 			
-			local beliefs = Clockwork.Client:GetBeliefs();
-			local points = Clockwork.Client:GetNetVar("points", 0);
+			local beliefPanel = Clockwork.Client.cwBeliefPanel;
+			local points = beliefPanel.player:GetNetVar("points") or beliefPanel.points or 0;
+			local beliefs;
+
+			if beliefPanel.player == Clockwork.Client then
+				beliefs = beliefPanel.player:GetBeliefs() or beliefPanel.beliefTable or {};
+			else
+				beliefs = beliefPanel.beliefTable or {};
+			end
 			
 			if (beliefs[icon.uniqueID]) then
 				canTake = "You already follow this belief!"
@@ -444,23 +496,23 @@ function PANEL:AddIcon(iconData)
 						icon:SetColor(HardLocked)
 						canTake = "This belief is locked due to a belief you took!"
 						canTakeColor = selectedBad;
-					elseif parent.lockedSubfactions and table.HasValue(parent.lockedSubfactions, Clockwork.Client:GetSharedVar("subfaction")) then
+					elseif parent.lockedSubfactions and table.HasValue(parent.lockedSubfactions, beliefPanel.player:GetNetVar("subfaction")) then
 						icon:SetColor(HardLocked)
 						canTake = "This belief tree is locked due to the subfaction you took!"
 						canTakeColor = selectedBad;
-					elseif icon.lockedSubfactions and table.HasValue(icon.lockedSubfactions, Clockwork.Client:GetSharedVar("subfaction")) then
+					elseif icon.lockedSubfactions and table.HasValue(icon.lockedSubfactions, beliefPanel.player:GetNetVar("subfaction")) then
 						icon:SetColor(HardLocked)
 						canTake = "This belief is locked due to the subfaction you took!"
 						canTakeColor = selectedBad;
-					elseif parent.lockedFactions and table.HasValue(parent.lockedFactions, Clockwork.Client:GetFaction()) then
+					elseif parent.lockedFactions and table.HasValue(parent.lockedFactions, beliefPanel.player:GetFaction()) then
 						icon:SetColor(HardLocked)
 						canTake = "This belief tree locked due to the faction you took!"
 						canTakeColor = selectedBad;
-					elseif icon.lockedFactions and table.HasValue(icon.lockedFactions, Clockwork.Client:GetFaction()) then
+					elseif icon.lockedFactions and table.HasValue(icon.lockedFactions, beliefPanel.player:GetFaction()) then
 						icon:SetColor(HardLocked)
 						canTake = "This belief is locked due to the faction you took!"
 						canTakeColor = selectedBad;
-					elseif icon.subfaith and Clockwork.Client:GetSharedVar("subfaith") and Clockwork.Client:GetSharedVar("subfaith") ~= "" and Clockwork.Client:GetSharedVar("subfaith") ~= "N/A" and icon.subfaith ~= Clockwork.Client:GetSharedVar("subfaith") then
+					elseif icon.subfaith and beliefPanel.player:GetNetVar("subfaith") and beliefPanel.player:GetNetVar("subfaith") ~= "" and beliefPanel.player:GetNetVar("subfaith") ~= "N/A" and icon.subfaith ~= beliefPanel.player:GetNetVar("subfaith") then
 						icon:SetColor(HardLocked)
 						canTake = "You have already selected a subfaith!"
 						canTakeColor = selectedBad;
@@ -583,7 +635,7 @@ function PANEL:AddHeader(headerData)
 end
 
 -- A function to rebuild the panel.
-function PANEL:Rebuild(player, level, experience, beliefs, points, faith)
+function PANEL:Rebuild(player, level, experience, beliefs, points, faith, highlightBelief)
 	--cwBeliefs:RegisterBackgroundBlur(self, SysTime())
 
 	self.player = player;
@@ -603,7 +655,7 @@ function PANEL:Rebuild(player, level, experience, beliefs, points, faith)
 		self.localLevelCap = self.localLevelCap + 5;
 	end
 	
-	if player:GetSharedVar("subfaction") == "Rekh-khet-sa" then
+	if player:GetNetVar("subfaction") == "Rekh-khet-sa" then
 		self.localLevelCap = self.localLevelCap + 666;
 	end
 
@@ -658,6 +710,46 @@ function PANEL:Rebuild(player, level, experience, beliefs, points, faith)
 	end
 	
 	self:RebuildBeliefTrees();
+	
+	if highlightBelief then
+		for k, v in pairs(self.panelList:GetItems()) do
+			if v.buttons then
+				for k2, v2 in pairs(v.buttons) do
+					if v2.uniqueID == highlightBelief then
+						v2.highlightAlpha = 220;
+						v2:SetDrawOnTop(true);
+						Clockwork.Client.cwBeliefPanel.highlightAlpha = 220;
+					
+						v2.PaintOver = function(panel, w, h)
+							if panel.highlightAlpha < 220 then
+								panel.highlightAlpha = math.max(0, panel.highlightAlpha - (FrameTime() * 200));
+							end
+							
+							surface.SetDrawColor(Color(200, 150, 10, panel.highlightAlpha));
+							surface.DrawOutlinedRect(0, 0, w, h, 2);
+						end
+
+						timer.Simple(3, function()
+							if IsValid(v2) then
+								Clockwork.Client.cwBeliefPanel.highlightAlpha = Clockwork.Client.cwBeliefPanel.highlightAlpha - (FrameTime() * 200);
+								v2.highlightAlpha = (v2.highlightAlpha - (FrameTime() * 200));
+								
+								timer.Simple(2, function()
+									if IsValid(v2) then
+										Clockwork.Client.cwBeliefPanel.highlightAlpha = nil;
+										v2:SetDrawOnTop(false);
+										v2.PaintOver = nil;
+									end
+								end);
+							end	
+						end);
+					
+						break;
+					end
+				end
+			end
+		end
+	end	
 
 	self:ShowCloseButton(false)
 end
@@ -665,7 +757,7 @@ end
 function PANEL:RebuildBeliefTrees()
 	self.panelList:Clear();
 
-	local faith = self.player:GetSharedVar("faith");
+	local faith = self.player:GetNetVar("faith");
 
 	for k, v in SortedPairsByMemberValue(cwBeliefs:GetBeliefTrees(), "order") do
 		if v.requiredFaiths and !table.HasValue(v.requiredFaiths, faith) then

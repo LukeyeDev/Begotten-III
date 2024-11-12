@@ -33,7 +33,7 @@ end;
 
 function ENT:Use(activator, caller)
 	if IsValid(caller) and caller:IsPlayer() then
-		local faction = caller:GetFaction();
+		local faction = caller:GetNetVar("kinisgerOverride") or caller:GetFaction();
 		
 		if faction ~= "Goreic Warrior" then
 			local subfaction = caller:GetSubfaction();
@@ -46,11 +46,11 @@ function ENT:Use(activator, caller)
 					-- Inquisition/Knights can get salary from Coinslot the same as Gatekeepers.
 					state = "Gatekeeper";
 				end
-			elseif faction == "Gatekeeper" or caller:GetSharedVar("kinisgerOverride") == "Gatekeeper" then
+			elseif faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" then
 				state = "Gatekeeper";
 			end
 			
-			Clockwork.datastream:Start(caller, "OpenCoinslotMenu", state);
+			netstream.Start(caller, "OpenCoinslotMenu", state);
 		end;
 	end;
 end;

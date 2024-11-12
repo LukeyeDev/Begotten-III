@@ -6,7 +6,7 @@
 function Schema:CustomSoundPlaying(player)
 	if (player:IsPlayer() and player:HasInitialized()) then
 		player.HasCustomSoundRequested = true;
-		Clockwork.datastream:Start(player, "PlayerCustomSoundCheck");
+		netstream.Start(player, "PlayerCustomSoundCheck");
 		
 		timer.Create(player:EntIndex().."_soundcheckconfirm", FrameTime(), 60, function()
 			if (player.CustomSoundPlaying) then
@@ -20,13 +20,13 @@ function Schema:CustomSoundPlaying(player)
 	end;
 end;
 
-Clockwork.datastream:Hook("ConfirmCustomSoundCheck", function(player, data)
+netstream.Hook("ConfirmCustomSoundCheck", function(player, data)
 	if (player.HasCustomSoundRequested) then
 		player.HasCustomSoundRequested = nil;
 	else
 		player:Kick("Abusing datastreams. Your activity has been sent to admins for review.");
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (v:IsAdmin()) then
 				Clockwork.player:Notify(v, player:Name().." ("..player:SteamID()..") has been kicked for initiating an unauthorized datastream. This is evidence of lua cache decryption and clientside lua execution!");
 			end;
@@ -465,7 +465,7 @@ Clockwork.kernel:AddESPItem("faith", {
 	color = Color(150, 150, 150),
 	priority = 5,
 	NameFormat = function(self, tab, player)
-		local faith = player:GetSharedVar("Faith", "N/A");
+		local faith = player:GetNetVar("Faith", "N/A");
 		local color;
 		
 		if (!faith) then
@@ -489,7 +489,7 @@ Clockwork.kernel:AddESPItem("subfaction", {
 	color = Color(45, 115, 145),
 	priority = 6,
 	NameFormat = function(self, tab, player)
-		local subfaction = player:GetSharedVar("subfaction", "N/A");
+		local subfaction = player:GetNetVar("subfaction", "N/A");
 			if (!subfaction) then
 				return;
 			end;
@@ -654,8 +654,8 @@ local cwClient = Clockwork.Client;
 				if (isfunction(var)) then
 					var = var(v);
 				elseif (isstring(var)) then
-					if (v:GetSharedVar(var)) then
-						var = v:GetSharedVar(var);
+					if (v:GetNetVar(var)) then
+						var = v:GetNetVar(var);
 					elseif (v:GetNWInt(var, false) != false) then
 						var = v:GetNWInt(var);
 					end;
@@ -739,12 +739,8 @@ function Clockwork.kernel:DrawAdminESP()
 		self.nextRefresh = curTime + _CACHETIME;
 
 		local espItems = self.ESPItems;
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
 		
-		for i = 1, playerCount do
-			local player = players[i];
-			
+		for _, player in _player.Iterator() do
 			if (player == cwClient or !player:IsBot() or !player:HasInitialized()) then
 				continue;
 			end;
@@ -804,8 +800,8 @@ function Clockwork.kernel:DrawAdminESP()
 					if (isfunction(var)) then
 						var = var(player);
 					elseif (isstring(var)) then
-						if (player:GetSharedVar(var)) then
-							var = player:GetSharedVar(var);
+						if (player:GetNetVar(var)) then
+							var = player:GetNetVar(var);
 						elseif (player:GetNWInt(var, false) != false) then
 							var = player:GetNWInt(var);
 						end;
@@ -824,8 +820,8 @@ function Clockwork.kernel:DrawAdminESP()
 					if (isfunction(max)) then
 						max = max(player);
 					elseif (isstring(max)) then
-						if (player:GetSharedVar(max)) then
-							max = player:GetSharedVar(max);
+						if (player:GetNetVar(max)) then
+							max = player:GetNetVar(max);
 						elseif (player:GetNWInt(max, false) != false) then
 							max = player:GetNWInt(max);
 						end;
@@ -976,7 +972,7 @@ function Clockwork.kernel:DrawAdminESP()
 	--end;
 	
 	
-	for k, v in pairs (_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		local p = v:GetPos() + Vector(0, 0, 78);
 		local ts = p:ToScreen();
 		draw.SimpleText(v:Name(), "DermaDefaultBold", ts.x, ts.y, Color(255, 255, 0), 1, 1)

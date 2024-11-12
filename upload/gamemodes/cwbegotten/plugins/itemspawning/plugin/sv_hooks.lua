@@ -5,14 +5,14 @@
 
 -- Called when Clockwork has loaded all of the entities.
 function cwItemSpawner:ClockworkInitPostEntity()
-	self:LoadItemSpawns()
-	--self:SetupContainers(); -- Potentially glitched.
+	self:LoadContainerSpawns();
+	self:LoadItemSpawns();
+	self:LoadSupercrateSpawns();
+	
+	if config.GetVal("loot_spawner_enabled") then
+		--self:SetupContainers(); -- Potentially glitched.
+	end
 end
-
--- Called just after data should be saved.
---[[function cwItemSpawner:PostSaveData()
-	self:SaveItemSpawns()
-end]]--
 
 -- Called every tick.
 function cwItemSpawner:Think()
@@ -21,6 +21,10 @@ function cwItemSpawner:Think()
 	if (!self.nextContainerCheck or self.nextContainerCheck < curTime) then
 		self.nextContainerCheck = curTime + 8;
 		
+		if config.GetVal("loot_spawner_enabled") ~= true then
+			return;
+		end
+			
 		if !self.ContainerLocations then
 			return;
 		end;
@@ -123,8 +127,13 @@ function cwItemSpawner:Think()
 		
 		if self.Containers then
 			local numContainers = #self.Containers;
+			local maxContainers = config.GetVal("loot_max_containers");
+			
+			if config.GetVal("loot_population_scaling_enabled") then
+				maxContainers = Lerp(player.GetCount() / (game.MaxPlayers() * config.GetVal("loot_player_ratio")), config.GetVal("loot_min_containers"), maxContainers);
+			end
 
-			if numContainers < self.MaxContainers then
+			if numContainers < maxContainers then
 				local containerCategory = self.Categories[math.random(#self.Categories)];
 				local unoccupiedLocations = {};
 				
@@ -222,7 +231,7 @@ function cwItemSpawner:Think()
 							
 							local containerTable = {
 								container = container,
-								lifeTime = curTime + self.ContainerLifetime
+								lifeTime = curTime + config.GetVal("loot_container_lifetime")
 							};
 							
 							table.insert(self.Containers, containerTable);
@@ -251,16 +260,12 @@ function cwItemSpawner:Think()
 				self.nextSuperCrate = curTime + math.random(self.SuperCrateCooldown.min, self.SuperCrateCooldown.max);
 			end
 		end
-		
-		local playerCount = _player.GetCount();
-		local players = _player.GetAll();
 
-		for i = 1, playerCount do
-			local v, k = players[i], i;
-			if v:IsAdmin() then
-				if v.itemContainerSpawnESP then
-					if self.Containers then
-						Clockwork.datastream:Start(v, "ItemContsESPInfo",  {self.Containers, self.SuperCrate});
+		if self.Containers then
+			for _, v in _player.Iterator() do
+				if v:IsAdmin() then
+					if v.itemContainerSpawnESP then
+						netstream.Heavy(v, "ItemContsESPInfo",  {self.Containers, self.SuperCrate});
 					end
 				end
 			end
@@ -270,8 +275,8 @@ function cwItemSpawner:Think()
 	if (!self.nextItemSpawn or self.nextItemSpawn < curTime) then
 		self.nextItemSpawn = curTime + 5;
 		
-		if not self.ItemsSpawned then
-			self.ItemsSpawned = {};
+		if config.GetVal("loot_spawner_enabled") ~= true then
+			return;
 		end
 		
 		if not self.nextSuperCrate then
@@ -300,8 +305,21 @@ function cwItemSpawner:Think()
 			end
 		end
 		
-		if #self.ItemsSpawned < self.MaxGroundSpawns then
+		local maxGroundSpawns = config.GetVal("loot_max_ground_spawns");
+		
+		if config.GetVal("loot_population_scaling_enabled") then
+			maxGroundSpawns = Lerp(player.GetCount() / (game.MaxPlayers() * config.GetVal("loot_player_ratio")), config.GetVal("loot_min_ground_spawns"), maxGroundSpawns);
+		end
+		
+		if #self.ItemsSpawned < maxGroundSpawns then
 			local itemCategory = self.Categories[math.random(#self.Categories)];
+			
+			if cwWeather and cwWeather.weather == "bloodstorm" then
+				if math.random(1, 3) == 1 then
+					itemCategory = "rituals";
+				end
+			end
+			
 			local randomItem = self:SelectItem(itemCategory);
 
 			if (!randomItem) then
@@ -314,7 +332,7 @@ function cwItemSpawner:Think()
 				local entity = Clockwork.entity:CreateItem(nil, randomItem, Vector(spawnPosition.position.x, spawnPosition.position.y, spawnPosition.position.z + 16));
 				local itemTable = entity:GetItemTable();
 				
-				entity.lifeTime = CurTime() + self.ItemLifetime;
+				entity.lifeTime = CurTime() + config.GetVal("loot_item_lifetime");
 				
 				if itemTable.category == "Helms" or itemTable.category == "Armor" or itemTable.category == "Melee" then
 					-- 86% chance for these items to spawn with less than 100% condition.
@@ -334,7 +352,9 @@ end;
 -- Called just after a player spawns.
 function cwItemSpawner:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 	if (player:IsAdmin() or player:IsUserGroup("operator")) then
+		netstream.Heavy(player, "ContainerSpawnESPInfo", {self.ContainerLocations});
 		netstream.Heavy(player, "ItemSpawnESPInfo", {self.SpawnLocations});
+		netstream.Heavy(player, "SupercrateSpawnESPInfo", {self.SupercrateLocations});
 	end;
 end;
 
@@ -427,7 +447,7 @@ function cwItemSpawner:PreOpenedContainer(player, container)
 							if itemInstance.ammoMagazineSize and itemInstance.SetAmmoMagazine then
 								itemInstance:SetAmmoMagazine(itemInstance.ammoMagazineSize);
 							else
-								Clockwork.inventory:AddInstance(supercrate.cwInventory, itemInstance, math.random(4, 10));
+								Clockwork.inventory:AddInstance(container.cwInventory, itemInstance, math.random(4, 10));
 							end
 						end
 						
@@ -441,14 +461,14 @@ function cwItemSpawner:PreOpenedContainer(player, container)
 											subItem:SetAmmoMagazine(subItem.ammoMagazineSize);
 										end
 										
-										Clockwork.inventory:AddInstance(supercrate.cwInventory, subItem, 1);
+										Clockwork.inventory:AddInstance(container.cwInventory, subItem, 1);
 									end
 								end
 							end
 						end
 						
 						-- Fortune finisher items will have perfect condition.
-						Clockwork.inventory:AddInstance(supercrate.cwInventory, itemInstance, 1);
+						Clockwork.inventory:AddInstance(container.cwInventory, itemInstance, 1);
 						
 						Clockwork.kernel:PrintLog(LOGTYPE_MINOR, player:Name().." had a "..itemInstance.name.." added to their loot container from the 'Fortune' belief tree finisher bonus");
 					end
@@ -499,3 +519,40 @@ function cwItemSpawner:Breakdown(player, itemTable, toolItem)
 		toolItem:TakeCondition(math.random(1, 2));
 	end;
 end;
+
+-- Called when Clockwork config has changed.
+function cwItemSpawner:ClockworkConfigChanged(key, data, previousValue, newValue)
+	if key == "loot_spawner_enabled" and newValue == false then
+		for k, v in pairs (ents.FindByClass("cw_item")) do
+			if v.lifeTime then
+				v:Remove();
+			end
+		end;
+		
+		local containers = self.Containers;
+		
+		if containers then
+			for i = 1, #containers do
+				local containerTable = containers[i];
+				local container = containerTable.container;
+				
+				if IsValid(container) then
+					container:Remove();
+				end
+			end
+		end
+
+		for k, v in pairs(self.ContainerLocations) do
+			for i = 1, #v do
+				v[i].occupier = nil;
+			end
+		end
+		
+		self.Containers = {};
+		
+		if self.SuperCrate and IsValid(self.SuperCrate.supercrate) then
+			self.SuperCrate.supercrate:Remove();
+			self.SuperCrate = nil;
+		end
+	end
+end

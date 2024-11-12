@@ -7,7 +7,7 @@ local needTexts = {
 	["corruption"] = {"Untainted", "Tainted", "Corrupted", "No Hope Remains", "Corruption represents the effect of various demonic and unholy forces on your character. It is usually increased by partaking in unholy acts or through lack of prayer. Corruption negatively impacts faith gain, and high levels of corruption can lead to demonic possession or suspicion and execution by the clergy."},
 	["hunger"] = {"Sated", "Hungry", "Very Hungry", "Starved", "Hunger is a measure of your character's nourishment. To survive, you must acquire food on a regular basis. Hunger will also affect the rate of blood regeneration."},
 	["thirst"] = {"Sated", "Thirsty", "Very Thirsty", "Dehydrated", "Thirst is a measure of your character's hydration. To survive, you must acquire water on a regular basis. Thirst will also affect the rate of blood regeneration and will slow stamina regeneration when low."},
-	["sleep"] = {"Rested", "Drowsy", "Tired", "Exhausted", "Fatigue is a measure of your character's exhaustion, primarily accrued over time spent awake, although other factors can influence it. Fatigue can be reduced through sleeping or via certain consumables, and when low will adversely affect stamina and poise regeneration."},
+	["sleep"] = {"Rested", "Drowsy", "Tired", "Exhausted", "Fatigue is a measure of your character's exhaustion, primarily accrued over time spent awake, although other factors can influence it. Fatigue can be reduced through sleeping or via certain consumables, and when low will adversely affect stamina regeneration."},
 	["sleepVoltist"] = {"Fully Operational", "Operational", "Low Battery", "Systems Shutting Down", "For Voltists with the 'Yellow and Black' belief, fatigue is instead a measure of one's energy. It is decreased over time or by using exoskeleton abilities, and can be replenished by consuming tech or self-electrocuting."},
 };
 
@@ -16,10 +16,10 @@ local needsInverted = {"hunger", "thirst"};
 -- Called when the F1 Text is needed.
 function cwCharacterNeeds:PostMainMenuRebuild(menu)
 	if IsValid(menu) then
-		local hunger = tonumber(Clockwork.Client:GetSharedVar("hunger"));
-		local thirst = tonumber(Clockwork.Client:GetSharedVar("thirst"));
-		local corruption = tonumber(Clockwork.Client:GetSharedVar("corruption"));
-		local sleep = tonumber(Clockwork.Client:GetSharedVar("sleep"));
+		local hunger = tonumber(Clockwork.Client:GetNetVar("hunger"));
+		local thirst = tonumber(Clockwork.Client:GetNetVar("thirst"));
+		local corruption = tonumber(Clockwork.Client:GetNetVar("corruption"));
+		local sleep = tonumber(Clockwork.Client:GetNetVar("sleep"));
 
 		self.hunger = math.Round(hunger);
 		self.thirst = math.Round(thirst);
@@ -53,7 +53,7 @@ end
 
 -- A function to get a need's markup tooltip.
 function cwCharacterNeeds:BuildNeedTooltip(need, x, y, width, height, frame)
-	local needNumber = tonumber(Clockwork.Client:GetSharedVar(need));
+	local needNumber = tonumber(Clockwork.Client:GetNetVar(need));
 	local needTextTable = needTexts[need];
 	
 	if need == "sleep" and cwBeliefs and cwBeliefs:HasBelief("yellow_and_black") then
@@ -90,10 +90,10 @@ function cwCharacterNeeds:BuildNeedTooltip(need, x, y, width, height, frame)
 end;
 
 function cwCharacterNeeds:ModifyStatusEffects(tab)
-	local hunger = tonumber(Clockwork.Client:GetSharedVar("hunger"));
-	local thirst = tonumber(Clockwork.Client:GetSharedVar("thirst"));
-	local corruption = tonumber(Clockwork.Client:GetSharedVar("corruption"));
-	local sleep = tonumber(Clockwork.Client:GetSharedVar("sleep"));
+	local hunger = tonumber(Clockwork.Client:GetNetVar("hunger"));
+	local thirst = tonumber(Clockwork.Client:GetNetVar("thirst"));
+	local corruption = tonumber(Clockwork.Client:GetNetVar("corruption"));
+	local sleep = tonumber(Clockwork.Client:GetNetVar("sleep"));
 	
 	if hunger >= 75 then
 		table.insert(tab, {text = "(-) Starvation", color = Color(200, 40, 40)});
@@ -119,8 +119,8 @@ end
 -- Called when the screenspace effects are rendered.
 function cwCharacterNeeds:RenderScreenspaceEffects()
 	if Clockwork.Client:HasInitialized() then
-		local hunger = tonumber(Clockwork.Client:GetSharedVar("hunger", 0));
-		local thirst = tonumber(Clockwork.Client:GetSharedVar("thirst", 0));
+		local hunger = tonumber(Clockwork.Client:GetNetVar("hunger", 0));
+		local thirst = tonumber(Clockwork.Client:GetNetVar("thirst", 0));
 		
 		if hunger > 90 or thirst > 90 then
 			DrawMotionBlur(0.05, 1.5, 0.01)

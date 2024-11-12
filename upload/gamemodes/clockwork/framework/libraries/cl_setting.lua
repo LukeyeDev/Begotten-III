@@ -33,7 +33,7 @@ function Clockwork.setting:AddMultiChoice(category, text, conVar, options, toolT
 	local index = conVar
 
 	if (options) then
-		table.sort(options, function(a, b) return a < b; end)
+		table.sort(options, function(a, b) return a[1] < b[1]; end)
 	else
 		options = {}
 	end
@@ -161,13 +161,10 @@ function Clockwork.setting:AddSettings()
 	--Clockwork.setting:AddCheckBox("Framework", "Enable the hints system.", "cwShowHints", "Whether or not to show you any hints.");
 	--Clockwork.setting:AddCheckBox("Framework", "Enable Vignette.", "cwShowVignette", "Whether or not to draw the vignette.");
 	
+	Clockwork.setting:AddCheckBox("Framework", "Enable derma tooltips following the mouse.", "cwTooltipFollow", "Whether or not derma tooltips follow the mouse. Nested tooltips will freeze in their current position when the timer is up.");
 	Clockwork.setting:AddCheckBox("Framework", "Enable physical description inspect key.", "cwPhysdescKey", "Whether or not to enable physical description inspection.");
 
 	Clockwork.setting:AddCheckBox("Admin ESP", "Enable the admin ESP.", "cwAdminESP", "Whether or not to show the admin ESP.", function()
-		return Clockwork.player:IsAdmin(Clockwork.Client);
-	end);
-
-	Clockwork.setting:AddCheckBox("Admin ESP", "Draw ESP Bars.", "cwESPBars", "Whether or not to draw progress bars for certain values.", function()
 		return Clockwork.player:IsAdmin(Clockwork.Client);
 	end);
 
@@ -183,7 +180,7 @@ function Clockwork.setting:AddSettings()
 		return Clockwork.player:IsAdmin(Clockwork.Client);
 	end);
 	
-	Clockwork.setting:AddCheckBox("Admin ESP", "ESP Peek enabled", "cwESPPeek", "Whether or not ESP peek is enabled.", function()
+	Clockwork.setting:AddCheckBox("Admin ESP", "Enable ESP peek.", "cwESPPeek", "Whether or not ESP peek is enabled. Use the context menu to ESP peek.", function()
 		return Clockwork.player:IsAdmin(Clockwork.Client);
 	end);
 end

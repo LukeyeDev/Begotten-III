@@ -9,7 +9,7 @@ local voltistSounds = {
 };
 
 -- Called to do make fancy melee effects.
-function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, originalDamage, damageInfo)
+function cwMelee:DoMeleeHitEffects(entity, attacker, inflictor, position, originalDamage, damageInfo)
 	if (IsValid(entity) and IsValid(attacker)) then
 		if entity:IsPlayer() and (!entity:Alive() or entity.iFrames) or damageInfo:IsDamageType(DMG_CRUSH) then
 			return;
@@ -34,40 +34,42 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 
 			local entWeapon = entity:GetActiveWeapon();
 			
-			if IsValid(entWeapon) and (entWeapon.Base == "begotten_firearm_base" or entWeapon.isJavelin) then
-				local dropMessages = {" goes flying out of their hand!", " is knocked out of their hand!"};
-				local itemTable = Clockwork.item:GetByWeapon(entWeapon);
-				
-				if itemTable then
-					if entity.opponent then
-						if (itemTable:HasPlayerEquipped(entity)) then
-							itemTable:OnPlayerUnequipped(entity);
-							entity:RebuildInventory();
-							entity:SetWeaponRaised(false);
-						end
-						
-						Clockwork.chatBox:AddInTargetRadius(entity, "me", "'s "..itemTable.name..dropMessages[math.random(1, #dropMessages)], entity:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
-					else
-						local dropPos = entity:GetPos() + Vector(0, 0, 35) + entity:GetAngles():Forward() * 4;
-						local itemEntity = Clockwork.entity:CreateItem(entity, itemTable, dropPos);
-						
-						if (IsValid(itemEntity)) then
-							entity:TakeItem(itemTable, true);
-							entity:SelectWeapon("begotten_fists");
-							entity:StripWeapon(entWeapon:GetClass());
+			if IsValid(entWeapon) and (entWeapon.Base == "begotten_firearm_base" or entWeapon.isJavelin) and !entity:GetNetVar("Guardening") then
+				if !(entWeapon.isJavelin and cwBeliefs and entity:GetNetVar("ThrustStance") and entity:HasBelief("strength")) then
+					local dropMessages = {" goes flying out of their hand!", " is knocked out of their hand!"};
+					local itemTable = Clockwork.item:GetByWeapon(entWeapon);
+					
+					if itemTable then
+						if entity.opponent then
+							if (itemTable:HasPlayerEquipped(entity)) then
+								itemTable:OnPlayerUnequipped(entity);
+								entity:RebuildInventory();
+								entity:SetWeaponRaised(false);
+							end
 							
 							Clockwork.chatBox:AddInTargetRadius(entity, "me", "'s "..itemTable.name..dropMessages[math.random(1, #dropMessages)], entity:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
+						else
+							local dropPos = entity:GetPos() + Vector(0, 0, 35) + entity:GetAngles():Forward() * 4;
+							local itemEntity = Clockwork.entity:CreateItem(entity, itemTable, dropPos);
+							
+							if (IsValid(itemEntity)) then
+								entity:TakeItem(itemTable);
+								entity:SelectWeapon("begotten_fists");
+								entity:StripWeapon(entWeapon:GetClass());
+								
+								Clockwork.chatBox:AddInTargetRadius(entity, "me", "'s "..itemTable.name..dropMessages[math.random(1, #dropMessages)], entity:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
+							end
 						end
+					else
+						entity:SelectWeapon("begotten_fists");
+						entity:StripWeapon(entWeapon:GetClass());
+					
+						Clockwork.chatBox:AddInTargetRadius(entity, "me", "'s "..entWeapon.PrintName..dropMessages[math.random(1, #dropMessages)], entity:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
 					end
-				else
-					entity:SelectWeapon("begotten_fists");
-					entity:StripWeapon(entWeapon:GetClass());
-				
-					Clockwork.chatBox:AddInTargetRadius(entity, "me", "'s "..entWeapon.PrintName..dropMessages[math.random(1, #dropMessages)], entity:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
 				end
 			end
 		
-			if entity:GetNWBool("Guardening") then
+			if entity:GetNetVar("Guardening") then
 				if attacker:IsNPC() or attacker:IsNextBot() then
 					if IsValid(entWeapon) and entWeapon.BlockTable then
 						local blocktable = GetTable(entWeapon.BlockTable)
@@ -76,7 +78,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 							canblock = true;
 						end
 					end
-				elseif IsValid(activeWeapon) then
+				elseif IsValid(inflictor) then
 					if IsValid(entWeapon) and entWeapon.BlockTable then
 						local blocktable = GetTable(entWeapon.BlockTable)
 						
@@ -93,7 +95,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 			end
 		end
 		
-		if entity:IsNPC() or entity:IsNextBot() or (entity:IsPlayer() and (!entity:GetNWBool("Guardening") or (entity:GetNWBool("Guardening") and !canblock)) and (!entity:GetNWBool("Parry") == true)) or entity.isTrainingDummy then
+		if entity:IsNPC() or entity:IsNextBot() or (entity:IsPlayer() and (!entity:GetNetVar("Guardening") or (entity:GetNetVar("Guardening") and !canblock)) and (!entity:GetNetVar("Parry") == true)) or entity.isTrainingDummy then
 			local victimPosition = entity:GetPos();
 			local position = victimPosition;
 			
@@ -120,11 +122,11 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 			local didthrust = false;
 			local playlowdamage = false;
 
-			if activeWeapon and IsValid(activeWeapon) then
-				if (activeWeapon.AttackSoundTable) then
-					local attackSoundTable = GetSoundTable(activeWeapon.AttackSoundTable)
+			if inflictor and IsValid(inflictor) then
+				if (inflictor.AttackSoundTable) then
+					local attackSoundTable = GetSoundTable(inflictor.AttackSoundTable)
 					
-					if attacker:GetNWBool("ThrustStance") == true then
+					if attacker:GetNetVar("ThrustStance") == true then
 						didthrust = true;
 					end;
 					
@@ -159,11 +161,10 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 						
 						if attacker:IsPlayer() then
 							if (armorTable.attributes) and table.HasValue(armorTable.attributes, "electrified") then
-								if IsValid(activeWeapon) and activeWeapon.BlockTable then
+								if IsValid(inflictor) and inflictor.BlockTable then
 									local clothesItem = attacker:GetClothesEquipped();
-									local wepBlockTable = GetTable(activeWeapon.BlockTable);
 									
-									if (activeWeapon:GetClass() == "begotten_fists" and clothesItem and (clothesItem.type == "chainmail" or clothesItem.type == "plate")) or wepBlockTable["blockeffect"] == "MetalSpark" then
+									if (inflictor:GetClass() == "begotten_fists" and clothesItem and (clothesItem.type == "chainmail" or clothesItem.type == "plate")) or (inflictor.SoundMaterial == "Metal" or inflictor.SoundMaterial == "MetalPierce") then
 										local shockDamageInfo = DamageInfo();
 										
 										shockDamageInfo:SetDamage(10);
@@ -195,7 +196,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 			if (damage > 15) then
 				effectName = "bloodsplat";
 				
-				if didthrust and attacker:GetNWBool("Riposting") != true then
+				if didthrust and attacker:GetNetVar("Riposting") != true then
 					armorSound = althitbody;
 				else
 					armorSound = hitbody;
@@ -245,7 +246,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 							if (damage > 15) then
 								effectName = "bloodsplat";
 								
-								if didthrust and attacker:GetNWBool("Riposting") != true then
+								if didthrust and attacker:GetNetVar("Riposting") != true then
 									armorSound = althitbody;
 								else
 									armorSound = hitbody;
@@ -265,7 +266,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 								playlowdamage = false;
 							end;
 							
-							if didthrust and attacker:GetNWBool("Riposting") != true then
+							if didthrust and attacker:GetNetVar("Riposting") != true then
 								armorSound = althitbody
 							end
 						end
@@ -291,7 +292,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 						if (damage > 15) then
 							effectName = "bloodsplat";
 							
-							if didthrust and attacker:GetNWBool("Riposting") != true then
+							if didthrust and attacker:GetNetVar("Riposting") != true then
 								armorSound = althitbody;
 							else
 								armorSound = hitbody;
@@ -319,11 +320,11 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 			
 			--printp("\nSV HOOKS DISTANCE: "..tostring(distance));
 			
-			if activeWeapon and IsValid(activeWeapon) then
-				local class = activeWeapon:GetClass()
+			if inflictor and IsValid(inflictor) then
+				local class = inflictor:GetClass()
 				
 				if (string.find(class, "begotten_spear_")) then
-					if (distance > 65) or attacker:GetNWBool("Riposting") then
+					if (distance > 65) or attacker:GetNetVar("Riposting") then
 						entity:EmitSound(armorSound)
 						
 						if playlowdamage then
@@ -333,19 +334,19 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 						entity:EmitSound( "physics/body/body_medium_impact_hard"..math.random(2, 6)..".wav");
 					end;
 				elseif (string.find(class, "begotten_polearm_")) or (string.find(class, "begotten_scythe_")) then
-					if activeWeapon.ShortPolearm != true or didthrust then
+					if inflictor.ShortPolearm != true or didthrust then
 						if (distance >= 0 and distance <= 75) then -- Polearm
-							if attacker:GetNWBool("Riposting") then
+							if attacker:GetNetVar("Riposting") then
 								entity:EmitSound(armorSound);
-							elseif didthrust and activeWeapon.CanSwipeAttack then
+							elseif didthrust and inflictor.CanSwipeAttack then
 								entity:EmitSound(althitbody);
 							else
 								entity:EmitSound( "physics/body/body_medium_impact_hard"..math.random(2, 6)..".wav");
 							end
 						elseif (distance > 75) then
-							if attacker:GetNWBool("Riposting") then
+							if attacker:GetNetVar("Riposting") then
 								entity:EmitSound(hitbody);
-							elseif didthrust and activeWeapon.CanSwipeAttack then
+							elseif didthrust and inflictor.CanSwipeAttack then
 								entity:EmitSound(althitbody);
 							else
 								entity:EmitSound(armorSound)
@@ -353,7 +354,7 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 						end;
 					else
 						if (distance >= 0 and distance <= 70) then -- Short polearm
-							if attacker:GetNWBool("Riposting") then
+							if attacker:GetNetVar("Riposting") then
 								entity:EmitSound(armorSound);
 							else
 								entity:EmitSound( "physics/body/body_medium_impact_hard"..math.random(2, 6)..".wav");
@@ -385,43 +386,43 @@ function cwMelee:DoMeleeHitEffects(entity, attacker, activeWeapon, position, ori
 end;
 
 -- Called at an interval while a player is connected.
-function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
+function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
 	if !initialized then
 		return;
 	end
 	
 	--[[local inAttack2 = player:KeyDown(IN_ATTACK2);
-	local gardening = player:GetNWBool("Guardening", false);
+	local gardening = player:GetNetVar("Guardening", false);
 	
 	if (!inAttack2 and gardening) then
 		player:CancelGuardening();
 	end;]]--
 	
-	--[[if (!player.nextBlockCheck or curTime > player.nextBlockCheck) then
-		player.nextBlockCheck = curTime + 1;
+	--[[if (!plyTab.nextBlockCheck or curTime > plyTab.nextBlockCheck) then
+		plyTab.nextBlockCheck = curTime + 1;
 
 		if (gardening == true) then
 			local activeWeapon = player:GetActiveWeapon()
 			
-			if (IsValid(activeWeapon)) then
-				if (activeWeapon.IronSights == false) then
-					player:SetNWBool("Guardening", false)
-					player.beginBlockTransition = true;
+			if (activeWeapon:IsValid()) then
+				if (activeWeapon.realIronSights == false) then
+					player:SetLocalVar("Guardening", false)
+					plyTab.beginBlockTransition = true;
 				end
 			end;
 		end;
 	end;]]--
 
-	if (!player.nextStas or player.nextStas < curTime) then
+	--[[if (!plyTab.nextStas or plyTab.nextStas < curTime) then
 		local activeWeapon = player:GetActiveWeapon();
 		local max_poise = player:GetMaxPoise();
 		local poise = player:GetNWInt("meleeStamina", max_poise);
 		local gainedPoise = 5;
 		
-		if player.banners then
+		if plyTab.banners then
 			local playerFaction = player:GetFaction();
 			
-			for k, v in pairs(player.banners) do
+			for k, v in pairs(plyTab.banners) do
 				if v == "glazic" then
 					if playerFaction == "Gatekeeper" or playerFaction == "Holy Hierarchy" then
 						gainedPoise = 7;
@@ -432,25 +433,12 @@ function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
 			end
 		end
 		
-		if IsValid(activeWeapon) and activeWeapon.Base == "sword_swepbase" then
+		if activeWeapon:IsValid() and activeWeapon.Base == "sword_swepbase" then
 			if (poise != max_poise) then
-				if (!Clockwork.player:GetWeaponRaised(player) or (poise < max_poise) and --[[player.StaminaRegenDelay >= 135 and]] player:GetNWBool( "Guardening" ) == false) then
-					--local curTime = CurTime();
-					
-					--if (!player.nextRegens or player.nextRegens < curTime) then
-						--player.nextRegens = curTime + (activeWeapon.RegenDelay or 0.1);
-						player:SetNWInt("meleeStamina", math.Clamp(poise + gainedPoise, 0, max_poise))
-					--end;
+				if !Clockwork.player:GetWeaponRaised(player) or (poise < max_poise) and !player:GetNetVar("Guardening") then
+					player:SetNWInt("meleeStamina", math.Clamp(poise + gainedPoise, 0, max_poise))
 				end
 			end;
-		
-			--[[if player:GetNWBool( "Guardening" ) == false then
-				player.StaminaRegenDelay = player.StaminaRegenDelay + 1
-			end
-		
-			if player.StaminaRegenDelay > 135 then 
-				player.StaminaRegenDelay = 135
-			end]]--
 		else
 			if poise != max_poise then
 				player:SetNWInt("meleeStamina", math.Clamp(poise + gainedPoise, 0, max_poise));
@@ -459,14 +447,14 @@ function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
 		
 		player:SetLocalVar("maxMeleeStamina", max_poise);
 		
-		player.nextStas = curTime + 0.5;
-	end;
+		plyTab.nextStas = curTime + 0.5;
+	end;]]--
 	
-	if (!player.nextStability or player.nextStability < curTime) then
+	if (!plyTab.nextStability or plyTab.nextStability < curTime) then
 		local max_stability = player:GetMaxStability();
 		local stability = player:GetCharacterData("stability", max_stability);
 
-		if player:GetNWInt("freeze") > 0 and !player:GetNWBool("bliz_frozen") then
+		if player:GetNetVar("freeze") > 0 and !player:GetNWBool("bliz_frozen") then
 			if player:IsOnFire() then
 				player:TakeFreeze(20);
 			else
@@ -474,22 +462,22 @@ function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
 			end
 		end
 		
-		if (stability >= max_stability or (player.stabilityCooldown and player.stabilityCooldown > curTime)) then
-			player.nextStability = curTime + 1;
+		if (stability >= max_stability or (plyTab.stabilityCooldown and plyTab.stabilityCooldown > curTime)) then
+			plyTab.nextStability = curTime + 1;
 			return;
 		end;
 
 		local armorClass = player:GetArmorClass();
-		local stabilityDelay = 2.5;
-		local falloverTime = 3;
+		local stabilityDelay = 4;
+		local falloverTime = 4;
 		
 		--printp(armorClass);
 
 		if (armorClass == "Medium") then
 			stabilityDelay = 5;
-			falloverTime = 4;
+			falloverTime = 5;
 		elseif (armorClass == "Heavy") then
-			stabilityDelay = 7.5;
+			stabilityDelay = 6;
 			falloverTime = 6;
 		end;
 		
@@ -501,26 +489,29 @@ function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
 		end;
 		
 		player:SetCharacterData("stability", math.Clamp(stability + 5, 0, max_stability));
-		player.nextStability = curTime + stabilityDelay;
+		plyTab.nextStability = curTime + stabilityDelay;
 	end;
 	
 	-- this needs to be made clientside
 	
 	local playedBreathing = false;
 
-	if (!player.nextBreathingCheck or player.nextBreathingCheck < curTime) then
-		player.nextBreathingCheck = curTime + 0.6;
+	if (!plyTab.nextBreathingCheck or plyTab.nextBreathingCheck < curTime) then
+		plyTab.nextBreathingCheck = curTime + 0.6;
 	
-		if (alive) and !player.possessor then
-			local max_poise = player:GetMaxPoise();
-			local poise = player:GetNWInt("meleeStamina", max_poise);
+		if (alive) and !plyTab.possessor then
+			--local max_poise = player:GetMaxPoise();
+			--local poise = player:GetNWInt("meleeStamina", max_poise);
+			local max_stamina = player:GetMaxStamina();
+			local stamina = player:GetNWInt("Stamina", max_stamina);
 			
-			if (poise < max_poise * 0.8) then
-				if (!player.BreathingSoundsa) then
-					player.BreathingSoundsa = CreateSound(player, "breathing1.wav");
+			--if (poise < max_poise * 0.8) then
+			if (stamina < max_stamina * 0.6) then
+				if (!plyTab.BreathingSoundsa) then
+					plyTab.BreathingSoundsa = CreateSound(player, "breathing1.wav");
 				end
 				
-				if (!player.nextBreathing or curTime >= player.nextBreathing) then
+				if (!plyTab.nextBreathing or curTime >= plyTab.nextBreathing) then
 					local gender = player:GetGender();
 					local pitch = 90;
 					
@@ -528,22 +519,24 @@ function cwMelee:PlayerThink(player, curTime, infoTable, alive, initialized)
 						pitch = 125;
 					end;
 					
-					player.nextBreathing = curTime + (0.50 + ((1.25 / max_poise) * poise));
-					player.BreathingSoundsa:PlayEx(0.15 - ((0.15 / max_poise) * poise), pitch);
+					--plyTab.nextBreathing = curTime + (0.50 + ((1.25 / max_poise) * poise));
+					--plyTab.BreathingSoundsa:PlayEx(0.15 - ((0.15 / max_poise) * poise), pitch);
+					plyTab.nextBreathing = curTime + (0.50 + ((1.25 / max_stamina) * stamina));
+					plyTab.BreathingSoundsa:PlayEx(0.15 - ((0.15 / max_stamina) * stamina), pitch);
 				end;
 				
 				playedBreathing = true;
 			end;
 		else
-			if player.BreathingSoundsa then
-				player.BreathingSoundsa:Stop();
-				player.BreathingSoundsa = nil;
+			if plyTab.BreathingSoundsa then
+				plyTab.BreathingSoundsa:Stop();
+				plyTab.BreathingSoundsa = nil;
 			end
 		end;
 		
-		if (!playedBreathing and player.BreathingSoundsa) then
-			player.BreathingSoundsa:FadeOut(2);
-			player.BreathingSoundsa = nil;
+		if (!playedBreathing and plyTab.BreathingSoundsa) then
+			plyTab.BreathingSoundsa:FadeOut(2);
+			plyTab.BreathingSoundsa = nil;
 		end;
 	end;
 end;
@@ -593,7 +586,7 @@ function cwMelee:PlayerStabilityFallover(player, falloverTime, bNoBoogie, bNoTex
 		}
 		
 		local phrase = randomPhrases[math.random(1, #randomPhrases)];
-		local faction = (player:GetSharedVar("kinisgerOverride") or player:GetFaction())
+		local faction = (player:GetNetVar("kinisgerOverride") or player:GetFaction())
 		local pitch = 100;
 		
 		phrase = string.gsub(phrase, "#HIS", gender);
@@ -614,13 +607,7 @@ function cwMelee:PlayerStabilityFallover(player, falloverTime, bNoBoogie, bNoTex
 		if player:GetSubfaith() == "Voltism" and cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
 			player:EmitSound(voltistSounds["pain"][math.random(1, #voltistSounds["pain"])], 90, 150);
 		else
-			if (faction == "Wanderer") then
-				if (gender == "his") then
-					player:EmitSound("voice/man3/man3_stun0"..math.random(1, 4)..".wav", 90, pitch)
-				else
-					player:EmitSound("voice/female2/female2_stun0"..math.random(1, 4)..".wav", 90, pitch)
-				end
-			elseif (faction == "Gatekeeper") then
+			if (faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers") then
 				if (gender == "his") then
 					player:EmitSound("voice/man2/man2_stun0"..math.random(1, 4)..".wav", 90, pitch)
 				else
@@ -650,11 +637,11 @@ function cwMelee:PlayerStabilityFallover(player, falloverTime, bNoBoogie, bNoTex
 				else
 					player:EmitSound("voice/female2/female2_stun0"..math.random(1, 4)..".wav", 90, pitch)
 				end
-			elseif (faction == "Children of Satan") then
+			else
 				if (gender == "his") then
-					player:EmitSound("voice/man4/man4_stun0"..math.random(1, 4)..".wav", 90, pitch)
+					player:EmitSound("voice/man3/man3_stun0"..math.random(1, 4)..".wav", 90, pitch)
 				else
-					player:EmitSound("voice/female1/female1_stun0"..math.random(1, 4)..".wav", 90, pitch)
+					player:EmitSound("voice/female2/female2_stun0"..math.random(1, 4)..".wav", 90, pitch)
 				end
 			end
 		end
@@ -705,16 +692,16 @@ function cwMelee:PlayerRestoreCharacterData(player, data)
 		data["maxMeleeStamina"] = player:GetMaxPoise();
 	end;]]--
 	
-	if (!data["meleeStamina"]) then
+	--[[if (!data["meleeStamina"]) then
 		data["meleeStamina"] = player:GetMaxPoise();
-	end;
+	end;]]--
 end;
 
 -- Called just after the player spawns in.
 function cwMelee:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 	if (!lightSpawn) then
 		local max_stability = player:GetMaxStability();
-		local max_poise = player:GetMaxPoise();
+		--local max_poise = player:GetMaxPoise();
 	
 		if (!firstSpawn) then
 			player:SetNWInt("stability", max_stability);
@@ -723,23 +710,23 @@ function cwMelee:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 		end
 		
 		player:SetLocalVar("maxStability", max_stability);
-		player:SetLocalVar("maxMeleeStamina", max_poise);
-		player:SetNWInt("meleeStamina", max_poise);
-		player:SetNWInt("freeze", 0);
+		--player:SetLocalVar("maxMeleeStamina", max_poise);
+		--player:SetNWInt("meleeStamina", max_poise);
+		player:SetLocalVar("freeze", 0);
 	end;
 end;
 
 -- Called just after the player dies.
 function cwMelee:PostPlayerDeath(player)
 	local max_stability = player:GetMaxStability();
-	local max_poise = player:GetMaxPoise();
+	--local max_poise = player:GetMaxPoise();
 	
 	player:SetCharacterData("stability", max_stability);
 	player:SetNWInt("stability", max_stability);
 	player:SetLocalVar("maxStability", max_stability);
-	player:SetLocalVar("maxMeleeStamina", max_poise);
-	player:SetNWInt("meleeStamina", max_poise);
-	player:SetNWInt("freeze", 0);
+	--player:SetLocalVar("maxMeleeStamina", max_poise);
+	--player:SetNWInt("meleeStamina", max_poise);
+	player:SetLocalVar("freeze", 0);
 end;
 
 -- Called every half second.
@@ -763,6 +750,8 @@ end;
 
 -- Called when a player switches their weapon. 
 function cwMelee:PlayerSwitchWeapon(player, oldWeapon, newWeapon)
+	hook.Run("PrePlayerLowerWeapon", player, oldWeapon, newWeapon);
+
 	if (player:IsWeaponRaised()) then
 		if IsValid(oldWeapon) and oldWeapon.IsABegottenMelee then
 			if oldWeapon:GetNextPrimaryFire() > CurTime() then 
@@ -797,15 +786,29 @@ function cwMelee:EntityTakeDamageAfter(entity, damageInfo)
 		end
 		
 		if IsValid(attacker) then
-			if attacker:IsPlayer() and attacker:IsRunning() then
-				local attackerWeapon = attacker:GetActiveWeapon();
+			if attacker:IsPlayer() then
+				local attackerWeapon = damageInfo:GetInflictor();
+				
+				if !IsValid(attackerWeapon) or !attackerWeapon:IsWeapon() then
+					attackerWeapon = attacker:GetActiveWeapon();
+				end
 			
 				if IsValid(attackerWeapon) then
-					local weaponClass = attackerWeapon:GetClass();
+					local weaponItemTable = item.GetByWeapon(attackerWeapon);
 					
-					if string.find(weaponClass, "begotten_spear") or string.find(weaponClass, "begotten_scythe") or string.find(weaponClass, "begotten_polearm") then
-						if weaponClass ~= "begotten_polearm_quarterstaff" then
+					if weaponItemTable and weaponItemTable.attributes and table.HasValue(weaponItemTable.attributes, "grounded") then
+						if attacker:IsRunning() then
 							damageInfo:ScaleDamage(0.4);
+						end
+						
+						if entity:IsPlayer() and (!attacker:GetNetVar("Parried") and !attacker:GetNetVar("Deflected")) then
+							entity:SetNetVar("runningDisabled", true);
+							
+							timer.Create("GroundedSprintTimer_"..tostring(entity:EntIndex()), 3, 1, function()
+								if IsValid(entity) then
+									entity:SetNetVar("runningDisabled", nil);
+								end
+							end);
 						end
 					end
 				end
@@ -830,12 +833,12 @@ end
 
 function cwMelee:ModifyPlayerSpeed(player, infoTable)
 	if IsValid(player) and player:HasInitialized() then
-		local freeze = player:GetNWInt("freeze", 0);
+		local freeze = player:GetNetVar("freeze", 0);
 
 		infoTable.runSpeed = infoTable.runSpeed * (1 - (freeze / 200));
 		infoTable.walkSpeed = infoTable.walkSpeed * (1 - (freeze / 200));
 		
-		if player:GetNWBool("Parried", false) then
+		if player:GetNetVar("Parried", false) then
 			infoTable.runSpeed = infoTable.runSpeed * 0.8;
 			infoTable.walkSpeed = infoTable.walkSpeed * 0.8;
 		end
@@ -844,8 +847,8 @@ end
 
 -- Called when a player's pain sound should be played.
 function cwMelee:PlayerPlayPainSound(player, gender, damageInfo, hitGroup)
-	if player:Alive() then
-		local faction = (player:GetSharedVar("kinisgerOverride") or player:GetFaction())
+	if player:Alive() and !Clockwork.player:HasFlags(player, "M") and player:WaterLevel() < 3 then
+		local faction = (player:GetNetVar("kinisgerOverride") or player:GetFaction())
 		local pitch = 100;
 		
 		if IsValid(player.possessor) then
@@ -856,54 +859,44 @@ function cwMelee:PlayerPlayPainSound(player, gender, damageInfo, hitGroup)
 			pitch = math.random(100, 115);
 		end
 		
-		if !Clockwork.player:HasFlags(player, "M") then
-			if (!player.nextPainSound or player.nextPainSound < CurTime()) then
-				if player:GetSubfaith() == "Voltism" and cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
-					player:EmitSound(voltistSounds["pain"][math.random(1, #voltistSounds["pain"])], 90, 150);
-					player.nextPainSound = CurTime() + 0.5;
-					return;
+		if (!player.nextPainSound or player.nextPainSound < CurTime()) then
+			if player:GetSubfaith() == "Voltism" and cwBeliefs and (player:HasBelief("the_storm") or player:HasBelief("the_paradox_riddle_equation")) then
+				player:EmitSound(voltistSounds["pain"][math.random(1, #voltistSounds["pain"])], 90, 150);
+				player.nextPainSound = CurTime() + 0.5;
+				return;
+			end
+		
+			if faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" then
+				if gender == "Male" then
+					player:EmitSound("voice/man2/man2_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				else
+					player:EmitSound("voice/female1/female1_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
 				end
-			
-				if faction == "Wanderer" then
-					if gender == "Male" then
-						player:EmitSound("voice/man3/man3_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					else
-						player:EmitSound("voice/female2/female2_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					end
-				elseif faction == "Gatekeeper" then
-					if gender == "Male" then
-						player:EmitSound("voice/man2/man2_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					else
-						player:EmitSound("voice/female1/female1_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					end
-				elseif faction == "Holy Hierarchy" then
-					if gender == "Male" then
-						player:EmitSound("voice/man4/man4_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					else
-						player:EmitSound("voice/female1/female1_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					end
-				elseif faction == "Goreic Warrior" then
-					if gender == "Male" then
-						player:EmitSound("voice/man1/man1_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					else
-						player:EmitSound("voice/female2/female2_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					end
-				elseif faction == "Children of Satan" then
-					if gender == "Male" then
-						player:EmitSound("voice/man4/man4_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					else
-						player:EmitSound("voice/female1/female1_pain0"..math.random(1, 6)..".wav", 90, pitch)
-						player.nextPainSound = CurTime()+0.5
-					end
+			elseif faction == "Holy Hierarchy" then
+				if gender == "Male" then
+					player:EmitSound("voice/man4/man4_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				else
+					player:EmitSound("voice/female1/female1_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				end
+			elseif faction == "Goreic Warrior" then
+				if gender == "Male" then
+					player:EmitSound("voice/man1/man1_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				else
+					player:EmitSound("voice/female2/female2_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				end
+			else
+				if gender == "Male" then
+					player:EmitSound("voice/man3/man3_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
+				else
+					player:EmitSound("voice/female2/female2_pain0"..math.random(1, 6)..".wav", 90, pitch)
+					player.nextPainSound = CurTime()+0.5
 				end
 			end
 		end
@@ -912,11 +905,11 @@ end
 
 -- Called when a player's death sound should be played.
 function GM:PlayerPlayDeathSound(player, gender)
-	if player.drowned or player.suffocating then
+	if player.drowned or player.suffocating or player:WaterLevel() >= 3 then
 		return;
 	end
 
-	local faction = (player:GetSharedVar("kinisgerOverride") or player:GetFaction())
+	local faction = (player:GetNetVar("kinisgerOverride") or player:GetFaction())
 	local pitch = 100;
 	
 	if IsValid(player.possessor) then
@@ -937,14 +930,8 @@ function GM:PlayerPlayDeathSound(player, gender)
 			player:EmitSound(voltistSounds["death"][math.random(1, #voltistSounds["death"])], 90, 150);
 			return;
 		end
-	
-		if faction == "Wanderer" then
-			if gender == "Male" then
-				player:EmitSound("voice/man3/man3_death0"..math.random(1, 9)..".wav", 90, pitch)
-			else
-				player:EmitSound("voice/female2/female2_death0"..math.random(1, 9)..".wav", 90, pitch)
-			end
-		elseif faction == "Gatekeeper" then
+
+		if faction == "Gatekeeper" or faction == "Pope Adyssa's Gatekeepers" then
 			if gender == "Male" then
 				player:EmitSound("voice/man2/man2_death0"..math.random(1, 9)..".wav", 90, pitch)
 			else
@@ -974,13 +961,39 @@ function GM:PlayerPlayDeathSound(player, gender)
 			else
 				player:EmitSound("voice/female2/female2_death0"..math.random(1, 9)..".wav", 90, pitch)
 			end
-		elseif faction == "Children of Satan" then
+		else
 			if gender == "Male" then
-				player:EmitSound("voice/man4/man4_death0"..math.random(1, 9)..".wav", 90, pitch)
+				player:EmitSound("voice/man3/man3_death0"..math.random(1, 9)..".wav", 90, pitch)
 			else
-				player:EmitSound("voice/female1/female1_death0"..math.random(1, 9)..".wav", 90, pitch)
+				player:EmitSound("voice/female2/female2_death0"..math.random(1, 9)..".wav", 90, pitch)
 			end
 		end
+	end
+end
+
+function cwMelee:PostPlayerEnteredDuel(player)
+	if player.duelData then
+		for i, v in ipairs(player:GetWeaponsEquipped()) do
+			if v.category == "Throwables" then
+				if !player.duelData.javelins then
+					player.duelData.javelins = {};
+				end
+				
+				player.duelData.javelins[v.uniqueID] = table.Count(player:GetItemsByID(v.uniqueID));
+			end
+		end
+	end
+end
+
+function cwMelee:PlayerExitedDuel(player)
+	for i, v in ipairs(player:GetWeaponsEquipped()) do
+		if v.category == "Throwables" then
+			player:Give(v.weaponClass or v.uniqueID);
+		end
+	end
+
+	if player.duelData then
+		player.duelData.javelins = nil;
 	end
 end
 

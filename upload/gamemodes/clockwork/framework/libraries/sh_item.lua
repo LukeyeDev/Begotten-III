@@ -232,6 +232,15 @@ end;
 
 -- A function to get data from the item.
 function CLASS_TABLE:GetData(dataName)
+	-- Ghetto code to fix copies of itemTables having desynced item data with the actual instance.
+	if self:IsInstance() then
+		local instance = item.FindInstance(self.itemID);
+		
+		if instance then
+			return instance.data[dataName];
+		end
+	end
+	
 	return self.data[dataName];
 end;
 
@@ -320,13 +329,38 @@ function CLASS_TABLE:OnTakeFromPlayer(player)
 	if (self.baseItem == "weapon_base" or self.baseItem == "firearm_base") then
 		local slots = {"Primary", "Secondary", "Tertiary"};
 		local weaponID = self.uniqueID;
+		local weapon = player:GetWeapon(weaponID);
 		
-		if IsValid(player:GetWeapon(weaponID)) then
+		if IsValid(weapon) then
 			for k, v in pairs(player.equipmentSlots) do
 				if v and v.category == "Shields" then
-					if player:GetWeapon(weaponID):GetNWString("activeShield") == v.uniqueID then
+					-- Old code for 1 weapon per shield.
+					--[[if weapon:GetNWString("activeShield") == v.uniqueID then
+						local weaponItemTable = item.GetByWeapon(weapon);
+						
+						if weaponItemTable and weaponItemTable:IsTheSameAs(self) then
+							Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
+						end
+						
+						break;
+					end]]--
+					
+					-- New code.
+					local other_melee_found = false;
+					
+					for k2, v2 in pairs(player.equipmentSlots) do
+						if v2.canUseShields and !v2:IsTheSameAs(v) then
+							other_melee_found = true;
+							
+							break;
+						end
+					end
+					
+					if !other_melee_found then
 						Clockwork.kernel:ForceUnequipItem(player, v.uniqueID, v.itemID);
 					end
+					
+					break;
 				end
 			end
 		end
@@ -361,18 +395,18 @@ function CLASS_TABLE:OnHandleUnequip(Callback)
 					
 					unequipMenu = menu:AddSubMenu("Unequip", function()
 						if offhandSlot then
-							Clockwork.datastream:Start("UnequipItem", {offhandSlot("uniqueID"), offhandSlot("itemID")});
+							netstream.Start("UnequipItem", {offhandSlot("uniqueID"), offhandSlot("itemID")});
 						end
 					
 						if mainSlot then
-							Clockwork.datastream:Start("UnequipItem", {mainSlot("uniqueID"), mainSlot("itemID")});
+							netstream.Start("UnequipItem", {mainSlot("uniqueID"), mainSlot("itemID")});
 						end
 					end)
 					
 					--[[if mainSlot then
 						unequipMenu:AddOption(mainSlot.name, function()
 							if mainSlot then
-								Clockwork.datastream:Start("UnequipItem", {mainSlot("uniqueID"), mainSlot("itemID")});
+								netstream.Start("UnequipItem", {mainSlot("uniqueID"), mainSlot("itemID")});
 							end
 						end)
 					end]]--
@@ -380,7 +414,7 @@ function CLASS_TABLE:OnHandleUnequip(Callback)
 					if offhandSlot then
 						unequipMenu:AddOption(offhandSlot.name.." (Offhand)", function()
 							if offhandSlot then
-								Clockwork.datastream:Start("UnequipItem", {offhandSlot("uniqueID"), offhandSlot("itemID")});
+								netstream.Start("UnequipItem", {offhandSlot("uniqueID"), offhandSlot("itemID")});
 							end
 						end)
 					end
@@ -395,7 +429,7 @@ function CLASS_TABLE:OnHandleUnequip(Callback)
 				end)
 			end
 
-			if self.category == "Firearms" then
+			if self.category == "Firearms" or self.category == "Crossbows" then
 				local ammo = self:GetData("Ammo");
 				
 				if ammo and #ammo > 0 then
@@ -441,12 +475,9 @@ end;
 if (SERVER) then
 	-- A function to get the player with the item in their inventory.
 	function CLASS_TABLE:GetHolder()
-		local players = _player.GetAll();
 		local holder = nil;
 		
-		for i = 1, _player.GetCount() do
-			local player = players[i];
-			
+		for _, player in _player.Iterator() do
 			if (IsValid(player) and player:HasInitialized()) then
 				local inventory = player:GetInventory();
 				
@@ -543,12 +574,9 @@ if (SERVER) then
 		
 		if (take) then
 			if (!IsValid(itemEntity)) then
-				local players = _player.GetAll();
 				local holder = nil;
 				
-				for i = 1, _player.GetCount() do
-					local player = players[i];
-					
+				for _, player in _player.Iterator() do
 					if (IsValid(player) and player:HasInitialized()) then
 						local inventory = player:GetInventory();
 						
@@ -571,7 +599,7 @@ if (SERVER) then
 						Clockwork.chatBox:AddInTargetRadius(holder, "me", "'s "..self.name..self.breakMessage, holder:GetPos(), Clockwork.config:Get("talk_radius"):Get() * 2);
 					end;
 					
-					holder:TakeItem(self);
+					holder:TakeItem(self, true);
 				end;
 			else
 				itemEntity:Explode()
@@ -579,12 +607,9 @@ if (SERVER) then
 			end;
 		else
 			if (!IsValid(itemEntity)) then
-				local players = _player.GetAll();
 				local holder = nil;
 				
-				for i = 1, _player.GetCount() do
-					local player = players[i];
-					
+				for _, player in _player.Iterator() do
 					if (IsValid(player) and player:HasInitialized()) then
 						local inventory = player:GetInventory();
 						
@@ -715,12 +740,27 @@ end;
 
 if (SERVER) then
 	function CLASS_TABLE:SetData(dataName, value)
-		if (self:IsInstance() and self.data[dataName] != nil and (self.data[dataName] != value or istable(self.data[dataName]) or dataName == "Ammo")) then
-			self.data[dataName] = value;
+		local itemTable = self;
+	
+		-- Ghetto code to fix copies of itemTables having desynced item data with the actual instance.
+		if self:IsInstance() then
+			local instance = item.FindInstance(self.itemID);
 			
-			if (self:IsDataNetworked(dataName)) then
-				self.networkQueue[dataName] = value;
-				self:NetworkData();
+			if instance then
+				itemTable = instance;
+			end
+		end
+		
+		if (itemTable:IsInstance() and itemTable.data[dataName] != nil and (itemTable.data[dataName] != value or istable(itemTable.data[dataName]) or dataName == "Ammo")) then
+			itemTable.data[dataName] = value;
+			
+			if itemTable ~= self then
+				self.data[dataName] = value;
+			end
+			
+			if (itemTable:IsDataNetworked(dataName)) then
+				itemTable.networkQueue[dataName] = value;
+				itemTable:NetworkData();
 			end;
 		end;
 	end;
@@ -784,6 +824,23 @@ function item.Register(itemTable)
 	item.stored[itemTable.uniqueID] = itemTable;
 	item.buffer[itemTable.index] = itemTable;
 	
+	-- Precache item materials and models.
+	if itemTable.iconoverride then
+		Material(itemTable.iconoverride);
+	end
+	
+	if itemTable.hasHelmet then
+		local helmetImage;
+		
+		if itemTable.helmetIconOverride then
+			helmetImage = itemTable.helmetIconOverride;
+		else
+			helmetImage = string.gsub(itemTable.iconoverride, ".png", "").."_helmet.png";
+		end
+		
+		Material(helmetImage);
+	end
+	
 	if (itemTable.model) then
 		util.PrecacheModel(itemTable.model);
 	end;
@@ -825,13 +882,49 @@ end;
 -- A function to get a weapon instance by its object.
 function item.GetByWeapon(weapon)
 	if (IsValid(weapon)) then
-		local itemID = tonumber(weapon:GetNetworkedString("ItemID"));
+		local itemID = weapon:GetNWInt("ItemID");
 		
 		if (itemID and itemID != 0) then
-			return item.FindInstance(itemID);
+			local itemInstance = item.FindInstance(itemID);
+			
+			if itemInstance then
+				return itemInstance;
+			end
+			
+			local cwItemTable = weapon.cwItemTable;
+			
+			if cwItemTable then
+				return item.CreateInstance(cwItemTable.uniqueID, cwItemTable.itemID, cwItemTable.data);
+			end
 		end;
+		
+		local owner = weapon.Owner;
+		
+		if IsValid(owner) and owner:IsPlayer() and owner.equipmentSlots then
+			for i, v in ipairs(weapon.Owner:GetWeaponsEquipped()) do
+				local weaponClass = weapon:GetClass();
+				
+				if v.weaponClass == weaponClass or v.uniqueID == weaponClass then
+					return item.CreateInstance(v.uniqueID, v.itemID, v.data);
+				end
+			end
+		end
 	end;
 end;
+
+local function ItemDataMerge(oldData, newData)
+	for k, v in pairs(newData) do
+		if (istable(v) and istable(oldData[k])) then
+			if table.IsEmpty(v) then
+				oldData[k] = {};
+			else
+				ItemDataMerge(oldData[k], v)
+			end
+		else
+			oldData[k] = v
+		end
+	end
+end
 
 -- A function to create an instance of an item.
 function item.CreateInstance(uniqueID, itemID, data, bNoGenerate)
@@ -853,14 +946,18 @@ function item.CreateInstance(uniqueID, itemID, data, bNoGenerate)
 		
 		--print("Item ID: "..itemID);
 		
-		if (!item.instances[itemID]) then
+		--[[if (!item.instances[itemID]) then
 			item.instances[itemID] = table.Copy(itemTable);
 				item.instances[itemID].itemID = itemID;
 			setmetatable(item.instances[itemID], CLASS_TABLE);
-		end;
+		end;]]--
+	
+		item.instances[itemID] = table.Copy(itemTable);
+			item.instances[itemID].itemID = itemID;
+		setmetatable(item.instances[itemID], CLASS_TABLE);
 		
 		if (data) then
-			table.Merge(item.instances[itemID].data, data);
+			ItemDataMerge(item.instances[itemID].data, data);
 		end;
 		
 		if generated then
@@ -894,7 +991,7 @@ function item.CreateInstance(uniqueID, itemID, data, bNoGenerate)
 			item.instances[itemID]:AddData("condition", item.instances[itemID]:GetData("condition"), true);
 		end
 		
-		if item.category == "Firearms" then
+		if item.category == "Firearms" or item.category == "Crossbows" then
 			if not item.instances[itemID]:GetData("Ammo") then
 				item.instances[itemID]:AddData("Ammo", {}, true);
 			else
@@ -915,6 +1012,28 @@ function item.CreateInstance(uniqueID, itemID, data, bNoGenerate)
 		return item.instances[itemID];
 	end;
 end;
+
+function item.RemoveInstance(itemID, bInstant)
+	if istable(itemID) then
+		itemID = itemID.itemID;
+	end
+	
+	--[[if CLIENT then
+		print("[CLIENT] Removing item instance: "..tostring(item.instances[itemID] or "NIL"));
+	else
+		print("[SERVER] Removing item instance: "..tostring(item.instances[itemID] or "NIL"));
+	end]]--
+	
+	if itemID then
+		if bInstant then
+			item.instances[itemID] = nil;
+		else
+			timer.Simple(FrameTime(), function()
+				item.instances[itemID] = nil;
+			end);
+		end
+	end
+end
 
 -- this is shit lol
 
@@ -1062,7 +1181,7 @@ if (SERVER) then
 				local onUse = itemTable:OnUse(player, itemEntity, interactItemTable);
 				
 				if (onUse == nil) then
-					player:TakeItem(itemTable);
+					player:TakeItem(itemTable, true);
 				elseif (onUse == false) then
 					return false;
 				end;
@@ -1160,7 +1279,7 @@ if (SERVER) then
 				return false;
 			end;
 			
-			player:TakeItem(itemTable);
+			player:TakeItem(itemTable, true);
 			
 			if (!bNoSound) then
 				if !player:IsNoClipping() and (!player.GetCharmEquipped or !player:GetCharmEquipped("urn_silence")) then

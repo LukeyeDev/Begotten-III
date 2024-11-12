@@ -7,8 +7,7 @@
 
 DEFINE_BASECLASS("gamemode_base")
 
-entsGetAllThisPlayerTick = {};
-playerGetAllThisPlayerTick = {};
+util.AddNetworkString("RequestCountryCode")
 
 --[[
 	@codebase Server
@@ -79,7 +78,7 @@ function GM:Initialize()
 		table.Merge(Clockwork.date, Clockwork.kernel:RestoreSchemaData("date"))
 	end
 
-	CW_CONVAR_LOG = Clockwork.kernel:CreateConVar("cwLog", 1)
+	Clockwork.ConVars.LOG = Clockwork.kernel:CreateConVar("cwLog", 1)
 
 	for k, v in pairs(config.stored) do
 		hook.Run("ClockworkConfigInitialized", k, v.value)
@@ -89,31 +88,53 @@ function GM:Initialize()
 end
 
 function GM:OnePlayerSecond(player, curTime, infoTable)
-	--local weaponClass = Clockwork.player:GetWeaponClass(player)
-	--local color = player:GetColor()
-	local isDrunk = Clockwork.player:GetDrunk(player)
+	local plyTab = player:GetTable();
+	local drunkTab = plyTab.cwDrunkTab;
 
 	--player:HandleAttributeProgress(curTime)
 	--player:HandleAttributeBoosts(curTime)
 
-	player:SetDTString(STRING_FLAGS, player:GetFlags())
-	player:SetNetVar("Model", player:GetDefaultModel())
-	player:SetDTString(STRING_NAME, player:Name())
-	player:SetNetVar("Cash", player:GetCash())
-	player:SetNetVar("CustomColor", player:GetCharacterData("CustomColor"));
-
-	if (player.cwDrunkTab) then
-		for k, v in pairs(player.cwDrunkTab) do
-			if (curTime >= v) then
-				table.remove(player.cwDrunkTab, k)
-			end
-		end
+	local model = player:GetDefaultModel();
+	local flags = player:GetFlags();
+	local name = player:Name(true);
+	local cash = player:GetCash();
+	
+	if model ~= player:GetNetVar("Model") then
+		player:SetNetVar("Model", model);
+	end
+	
+	if flags ~= player:GetDTString(STRING_FLAGS) then
+		player:SetDTString(STRING_FLAGS, flags);
+	end
+	
+	if name ~= player:GetDTString(STRING_NAME) then
+		player:SetDTString(STRING_NAME, name);
+	end
+	
+	if cash ~= player:GetNetVar("Cash") then
+		player:SetLocalVar("Cash", cash);
+	end
+	
+	if player:GetCharacterData("CustomColor") then
+		player:SetNetVar("CustomColor", player:GetCharacterData("CustomColor"));
+	elseif player:GetNetVar("CustomColor") then
+		player:SetNetVar("CustomColor", nil);
 	end
 
-	if (isDrunk) then
-		player:SetNetVar("IsDrunk", isDrunk)
-	else
-		player:SetNetVar("IsDrunk", 0)
+	if (drunkTab) then
+		for k, v in pairs(drunkTab) do
+			if (curTime >= v) then
+				table.remove(drunkTab, k)
+			end
+		end
+		
+		if table.Count(drunkTab) > 0 then
+			player:SetLocalVar("IsDrunk", table.Count(drunkTab));
+		else
+			player:SetLocalVar("IsDrunk", nil);
+		end
+	elseif player:GetNetVar("IsDrunk") then
+		player:SetLocalVar("IsDrunk", nil);
 	end
 
 	--[[if (!config.GetVal("cash_enabled")) then
@@ -123,7 +144,7 @@ function GM:OnePlayerSecond(player, curTime, infoTable)
 end
 
 -- Called at an interval while a player is connected.
-function GM:PlayerThink(player, curTime, infoTable)
+function GM:PlayerThink(player, curTime, infoTable, alive, initialized, plyTab)
 	--[[if (!player:InVehicle() and !player:IsRagdolled() and !player:IsBeingHeld() and player:Alive() and player:GetMoveType() == MOVETYPE_NOCLIP) then
 		local color = player:GetColor()
 			player:SetRenderMode(RENDERMODE_TRANSALPHA);
@@ -141,15 +162,15 @@ function GM:PlayerThink(player, curTime, infoTable)
 	local waterLevel = player:WaterLevel();
 	
 	if (waterLevel >= 3) then
-		player.submerged = true
-		player.waterStartTime = player.waterStartTime or curTime
+		plyTab.submerged = true
+		plyTab.waterStartTime = plyTab.waterStartTime or curTime
 		
 		if player:IsOnFire() then
 			player:Extinguish();
 		end
 	else
-		player.submerged = false
-		player.waterStartTime = nil
+		plyTab.submerged = false
+		plyTab.waterStartTime = nil
 		
 		if (waterLevel > 1) then
 			if player:IsOnFire() then
@@ -158,10 +179,10 @@ function GM:PlayerThink(player, curTime, infoTable)
 		end
 	end
 	
-	if !player.nextRagdollCheck or player.nextRagdollCheck < curTime then
-		player.nextRagdollCheck = curTime + 1;
+	if !plyTab.nextRagdollCheck or plyTab.nextRagdollCheck < curTime then
+		plyTab.nextRagdollCheck = curTime + 1;
 	
-		if (player:IsRagdolled() and !player.cwObserverMode) then
+		if (player:IsRagdolled() and !plyTab.cwObserverMode) then
 			player:SetMoveType(MOVETYPE_OBSERVER)
 			
 			if player:GetRagdollState() == RAGDOLL_KNOCKEDOUT then
@@ -171,6 +192,22 @@ function GM:PlayerThink(player, curTime, infoTable)
 					Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER);
 				end
 			end
+		end
+	end
+	
+	if plyTab.cwUseAction then
+		if IsValid(plyTab.cwUseActionEntity) then
+			local action = Clockwork.player:GetAction(player);
+			
+			if action == plyTab.cwUseAction then
+				if !alive or !player:KeyDown(IN_USE) or player:GetPos():DistToSqr(plyTab.cwUseActionEntity:GetPos()) > (128 * 128) then
+					Clockwork.player:SetAction(player, false);
+				end
+			else
+				Clockwork.player:SetAction(player, false);
+			end
+		else
+			Clockwork.player:SetAction(player, false);
 		end
 	end
 
@@ -199,18 +236,15 @@ function GM:PlayerThink(player, curTime, infoTable)
 		printp(infoTable.runSpeed)
 	end;]]--
 	
-	if !player.nextInvThink or player.nextInvThink > curTime then
-		local maxWeight = player:GetMaxWeight();
-
-		infoTable.inventoryWeight = maxWeight;
-		player.inventoryWeight = Clockwork.inventory:CalculateWeight(player:GetInventory());
-		player.maxWeight = maxWeight;
+	if !plyTab.nextInvThink or plyTab.nextInvThink > curTime then
+		infoTable.inventoryWeight = Clockwork.inventory:CalculateWeight(player:GetInventory());
+		infoTable.maxWeight = player:GetMaxWeight()
 		
-		player:SetNetVar("InvWeight", math.ceil(infoTable.inventoryWeight))
-		player:SetNetVar("InvSpace", math.ceil(infoTable.inventorySpace))
-		--player:SetNetVar("Wages", math.ceil(infoTable.wages or 0))
+		--player:SetLocalVar("InvWeight", math.ceil(infoTable.inventoryWeight))
+		--player:SetLocalVar("InvSpace", math.ceil(infoTable.inventorySpace))
+		--player:SetLocalVar("Wages", math.ceil(infoTable.wages or 0))
 		
-		player.nextInvThink = curTime + 2;
+		plyTab.nextInvThink = curTime + 2;
 	end
 	
 	--[[if !player.speedSetCooldown or player.speedSetCooldown < curTime then
@@ -255,7 +289,7 @@ function GM:PlayerDisconnected(player)
 		Clockwork.kernel:PrintLog(LOGTYPE_MINOR, player:Name().." ("..player:SteamID().." / "..player:IPAddress()..") has disconnected.")
 		--Clockwork.chatBox:Add(nil, nil, "disconnect", player:SteamName().." has disconnected from the server.");
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if v:IsAdmin() then
 				Clockwork.chatBox:Add(v, nil, "disconnect", player:SteamName().." has disconnected from the server.");
 			end
@@ -271,8 +305,8 @@ function GM:ClockworkInitialized()
 		Clockwork.command:SetHidden("StorageTakeCash", true)
 		Clockwork.command:SetHidden("StorageGiveCash", true)
 
-		config.Get("scale_prop_cost"):Set(0, nil, true, true)
-		config.Get("door_cost"):Set(0, nil, true, true)
+		--config.Get("scale_prop_cost"):Set(0, nil, true, true)
+		--config.Get("door_cost"):Set(0, nil, true, true)
 	end
 
 	if (config.GetVal("use_own_group_system")) then
@@ -303,9 +337,7 @@ function GM:DatabaseConnected()
 end
 
 -- Called when the Clockwork database connection fails.
-function GM:DatabaseConnectionFailed()
-	Clockwork.database:Error(errText)
-end
+function GM:DatabaseConnectionFailed(errorText) end
 
 -- Called when a player's saved inventory should be added to.
 function GM:PlayerAddToSavedInventory(player, character, Callback)
@@ -346,7 +378,7 @@ function GM:PlayerGetLockInfo(player, entity)
 end
 
 do
-	local meleeWeapons = {
+	--[[local meleeWeapons = {
 		["weapon_hl2axe"] = 10,
 		["weapon_hl2bottle"] = 5,
 		["weapon_hl2brokenbottle"] = 5,
@@ -357,7 +389,7 @@ do
 		["weapon_hl2pipe"] = 10,
 		["weapon_hl2pot"] = 10,
 		["weapon_hl2shovel"] = 15,
-	}
+	}]]--
 
 	-- Called when a player attempts to fire a weapon.
 	function GM:PlayerCanFireWeapon(player, bIsRaised, weapon, bIsSecondary)
@@ -365,11 +397,11 @@ do
 		local curTime = CurTime()
 		local weaponClass = weapon:GetClass()
 
-		if (meleeWeapons[weaponClass]) then
+		--[[if (meleeWeapons[weaponClass]) then
 			if (player:GetCharacterData("Stamina") < meleeWeapons[weaponClass]) then
 				return false
 			end
-		end
+		end]]
 
 		if (player:IsRunning() and config.GetVal("sprint_lowers_weapon")) then
 			return false
@@ -395,6 +427,15 @@ function GM:PlayerCanUseLoweredWeapon(player, weapon, secondary)
 		return weapon.NeverRaised or (weapon.Primary and weapon.Primary.NeverRaised)
 	end
 end
+
+-- Called when a player switches their weapon. 
+function GM:PlayerSwitchWeapon(player, oldWeapon, newWeapon)
+	timer.Simple(FrameTime(), function()
+		if IsValid(player) then
+			hook.Run("RunModifyPlayerSpeed", player, player.cwInfoTable, true);
+		end
+	end);
+end;
 
 -- Called when a player has been given flags.
 function GM:PlayerFlagsGiven(player, flags)
@@ -552,7 +593,7 @@ function GM:PlayerSwitchFlashlight(player, bIsOn)
 	if hook.Run("PlayerCanRaiseWeapon", player, activeWeapon) ~= false then
 		if (!player.cwNextRaise or player.cwNextRaise < curTime) then
 			if (player:Alive() and !player:IsRagdolled()) then
-				if (IsValid(activeWeapon)) then
+				if (activeWeapon:IsValid()) then
 					if (Clockwork.kernel:IsDefaultWeapon(activeWeapon)) then
 						return false;
 					elseif (activeWeapon:GetClass() == "cw_flashlight") then
@@ -561,7 +602,7 @@ function GM:PlayerSwitchFlashlight(player, bIsOn)
 					
 					local defaultTime = 1.25;
 					local ti = activeWeapon.RaiseSpeed;
-					local raised = player:IsWeaponRaised();
+					local raised = player:IsWeaponRaised(activeWeapon);
 					
 					if (!raised) then
 						ti = activeWeapon.LowerSpeed;
@@ -574,6 +615,7 @@ function GM:PlayerSwitchFlashlight(player, bIsOn)
 					player.cwNextRaise = curTime + (actionTime + 0.25);
 					
 					if (activeWeapon.InstantRaise) then
+						Clockwork.player:SetAction(player, false);
 						player:ToggleWeaponRaised();
 						return;
 					end;
@@ -592,7 +634,10 @@ function GM:PlayerSwitchFlashlight(player, bIsOn)
 					
 					Clockwork.player:SetAction(player, "raise", actionTime, 5, function()
 						player:ToggleWeaponRaised();
-						player:EmitSound(raiseSound, 70);
+						
+						if !player.cwObserverMode then
+							player:EmitSound(raiseSound, 70);
+						end
 					end);
 				end;
 			end;
@@ -645,7 +690,7 @@ end
 
 -- Called when Clockwork config has changed.
 function GM:ClockworkConfigChanged(key, data, previousValue, newValue)
-	local plyTable = _player.GetAll()
+	local plyTable = PlayerCache or _player.GetAll()
 
 	if (key == "default_flags") then
 		for k, v in ipairs(plyTable) do
@@ -756,51 +801,58 @@ end
 
 -- Called when a player's move data is set up.
 function GM:SetupMove(player, moveData)
+	local plyTable = player:GetTable();
+	
+	if (plyTable.disableMovement) then
+		moveData:SetVelocity(Vector(0, 0, 0));
+		return;
+	end;
+	
 	local isRunning = player:IsRunning();
 
-	if isRunning and !player.accelerationFinished then
+	if isRunning and !plyTable.accelerationFinished then
 		local curTime = CurTime();
 		local run_speed = player:GetTargetRunSpeed();
 		local walk_speed = player:GetWalkSpeed();
 		local final_speed = run_speed;
 		
-		if !player.startAcceleration then
-			player.startAcceleration = curTime;
+		if !plyTable.startAcceleration then
+			plyTable.startAcceleration = curTime;
 		end
 		
-		final_speed = Lerp(curTime - player.startAcceleration, walk_speed, run_speed);
+		final_speed = Lerp(curTime - plyTable.startAcceleration, walk_speed, run_speed);
 		
 		moveData:SetMaxClientSpeed(final_speed);
 		
 		if run_speed <= final_speed then
-			player.accelerationFinished = true;
-			player.startAcceleration = nil;
+			plyTable.accelerationFinished = true;
+			plyTable.startAcceleration = nil;
 		end
 		
-		player.decelerationFinished = false;
-		player.startDeceleration = nil;
+		plyTable.decelerationFinished = false;
+		plyTable.startDeceleration = nil;
 	elseif !isRunning then
-		if !player.decelerationFinished then
+		if plyTable.decelerationFinished == false then
 			local curTime = CurTime();
 			local run_speed = player:GetTargetRunSpeed();
 			local walk_speed = player:GetWalkSpeed();
 			local final_speed = walk_speed;
 			
-			if !player.startDeceleration then
-				player.startDeceleration = curTime;
+			if !plyTable.startDeceleration then
+				plyTable.startDeceleration = curTime;
 			end
 			
-			final_speed = Lerp(curTime - player.startDeceleration, run_speed, walk_speed);
+			final_speed = Lerp(curTime - plyTable.startDeceleration, run_speed, walk_speed);
 			
 			moveData:SetMaxClientSpeed(final_speed);
 			
 			if run_speed >= final_speed then
-				player.decelerationFinished = true;
-				player.startDeceleration = nil;
+				plyTable.decelerationFinished = true;
+				plyTable.startDeceleration = nil;
 			end
 			
-			player.accelerationFinished = false;
-			player.startAcceleration = nil;
+			plyTable.accelerationFinished = false;
+			plyTable.startAcceleration = nil;
 		else
 			moveData:SetMaxClientSpeed(player:GetWalkSpeed());
 		end
@@ -824,8 +876,6 @@ function GM:PlayerCanOrderShipment(player, itemTable)
 	if (player.cwNextOrderTime and curTime < player.cwNextOrderTime) then
 		return false
 	end
-
-	return true
 end
 
 -- Called when a player attempts to get up.
@@ -845,7 +895,11 @@ function GM:PlayerCanPunchKnockout(player, target, trace)
 end
 
 -- Called when a player attempts to bypass the faction limit.
-function GM:PlayerCanBypassFactionLimit(player, character) return false end
+function GM:PlayerCanBypassFactionLimit(player, character)
+	if player:IsAdmin() then return true end;
+
+	return false 
+end
 
 -- Called when a player attempts to bypass the class limit.
 function GM:PlayerCanBypassClassLimit(player, class) return false end
@@ -873,11 +927,13 @@ end--]]
 -- Called when a player has spawned.
 function GM:PlayerSpawn(player)
 	if (player:HasInitialized()) then
-		player.spawning = true;
+		local plyTab = player:GetTable();
+		
+		plyTab.spawning = true;
 		
 		player:ShouldDropWeapon(false)
 
-		if (!player.cwLightSpawn) then
+		if (!plyTab.cwLightSpawn) then
 			Clockwork.hint:Clear(player);
 		
 			local FACTION = Clockwork.faction:FindByID(player:GetFaction())
@@ -944,7 +1000,7 @@ function GM:PlayerSpawn(player)
 				end
 			end]]--
 
-			if (prevRelation) then
+			--[[if (prevRelation) then
 				for k, v in pairs(ents.GetAll()) do
 					if (v:IsNPC() or v:IsNextBot()) then
 						prevRelation[player:SteamID()] = prevRelation[player:SteamID()] or {}
@@ -983,9 +1039,9 @@ function GM:PlayerSpawn(player)
 						end
 					end
 				end
-			end
+			end]]--
 
-			if (player.cwFirstSpawn) then
+			if (plyTab.cwFirstSpawn) then
 				--[[local ammo = player:GetSavedAmmo()
 
 				for k, v in pairs(ammo) do
@@ -999,19 +1055,19 @@ function GM:PlayerSpawn(player)
 			end
 		end
 
-		if (player.cwLightSpawn and player.cwSpawnCallback) then
-			player.cwSpawnCallback(player, true)
-			player.cwSpawnCallback = nil
+		if (plyTab.cwLightSpawn and plyTab.cwSpawnCallback) then
+			plyTab.cwSpawnCallback(player, true)
+			plyTab.cwSpawnCallback = nil
 		end
 
-		hook.Run("PostPlayerSpawn", player, player.cwLightSpawn, player.cwChangeClass, player.cwFirstSpawn)
+		hook.Run("PostPlayerSpawn", player, plyTab.cwLightSpawn, plyTab.cwChangeClass, plyTab.cwFirstSpawn)
 		
 		Clockwork.player:SetRecognises(player, player, RECOGNISE_TOTAL)
 		
-		Clockwork.datastream:Start(player, "RadioState", player:GetCharacterData("radioState", false) or false);
+		netstream.Start(player, "RadioState", player:GetCharacterData("radioState", false) or false);
 		
-		player.cwChangeClass = false
-		player.cwLightSpawn = false
+		plyTab.cwChangeClass = false
+		plyTab.cwLightSpawn = false
 		
 		timer.Simple(0.5, function()
 			if IsValid(player) then
@@ -1041,11 +1097,11 @@ function GM:PlayerSetHandsModel(player, entity)
 				model = "models/begotten/"..clothesItem.group.."_"..string.lower(player:GetGender())..".mdl";
 			end
 		else
-			local faction = player:GetSharedVar("kinisgerOverride") or player:GetFaction();
+			local faction = player:GetNetVar("kinisgerOverride") or player:GetFaction();
 			local factionTable = Clockwork.faction:FindByID(faction);
 			
 			if factionTable then
-				local subfaction = player:GetSharedVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
+				local subfaction = player:GetNetVar("kinisgerOverrideSubfaction") or player:GetSubfaction();
 				
 				if subfaction and factionTable.subfactions then
 					for k, v in pairs(factionTable.subfactions) do
@@ -1134,12 +1190,11 @@ end
 
 -- Called when the Clockwork data is saved.
 function GM:SaveData()
-	-- changed here
-	local players = _player.GetAll();
-	
-	for k, v in pairs(players) do
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
-			v:SaveCharacter()
+			if hook.Run("CanSaveCharacter", v) ~= false then
+				v:SaveCharacter()
+			end
 		end
 	end;
 
@@ -1222,7 +1277,8 @@ function GM:BanExpired(steamID, ipAddress) end;
 -- Called when a player's data has loaded.
 function GM:PlayerDataLoaded(player)
 	player.CountryCodeRequested = true;
-	netstream.Start(player, "RequestCountryCode");
+	net.Start("RequestCountryCode")
+	net.Send(player)
 	if (player:IsBot()) then
 		local allcountries = Clockwork.kernel.countries;
 		local tab = {}
@@ -1248,7 +1304,7 @@ function GM:PlayerCountryAuthed(player, countryCode)
 		
 		Clockwork.kernel:PrintLog(LOGTYPE_MINOR, steamName.." ("..steamID.." / "..ipAddress..") has connected from "..countryName..".")
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if v:IsAdmin() then
 				Clockwork.chatBox:Add(v, nil, "connect_country", steamName.." has connected to the server from "..countryName..".", {countryIcon = string.upper(countryCode)});
 			end
@@ -1268,7 +1324,7 @@ concommand.Add("sexfunny", function(player)
 		
 		Clockwork.kernel:PrintLog(LOGTYPE_MINOR, steamName.." ("..steamID.." / "..ipAddress..") has connected from "..countryName..".")
 		
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if v:IsAdmin() then
 				Clockwork.chatBox:Add(v, nil, "connect_country", steamName.." has connected to the server from "..countryName..".", {countryIcon = string.upper(countryCode)});
 			end
@@ -1278,9 +1334,11 @@ end);
 
 -- Called when a player initially spawns.
 function GM:PlayerInitialSpawn(player)
-	player.cwCharacterList = player.cwCharacterList or {}
-	player.cwHasSpawned = true
-	player.cwSharedVars = player.cwSharedVars or {}
+	local plyTab = player:GetTable();
+	
+	plyTab.cwCharacterList = plyTab.cwCharacterList or {}
+	plyTab.cwHasSpawned = true
+	plyTab.cwSharedVars = plyTab.cwSharedVars or {}
 
 	if (IsValid(player)) then
 		player:KillSilent()
@@ -1296,10 +1354,6 @@ function GM:PlayerDeathThink(player)
 	--[[local action = Clockwork.player:GetAction(player)
 
 	if (!player:HasInitialized()) then
-		return true
-	end
-
-	if (player:IsCharacterMenuReset()) then
 		return true
 	end]]--
 
@@ -1407,9 +1461,11 @@ function GM:GetFallDamage(player, velocity)
 	if (damage > 30) and !player:IsRagdolled() then
 		if hook.Run("PlayerCanFallOverFromFallDamage", player) ~= false then
 			timer.Simple(0, function()
-				Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER, nil)
+				if IsValid(player) then
+					Clockwork.player:SetRagdollState(player, RAGDOLL_FALLENOVER, nil)
 
-				player:SetDTBool(BOOL_FALLENOVER, true)
+					player:SetDTBool(BOOL_FALLENOVER, true)
+				end
 			end);
 		end
 	end
@@ -1474,7 +1530,10 @@ function GM:PlayerDataStreamInfoSent(player)
 			if (whitelisted) then
 				for k, v in pairs(whitelisted) do
 					if (Clockwork.faction:GetStored()[v]) then
-						netstream.Start(player, "SetWhitelisted", {v, true})
+						net.Start("SetWhitelisted")
+							net.WriteString(v)
+							net.WriteBool(true)
+						net.Send(player)
 					else
 						whitelisted[k] = nil
 					end
@@ -1483,7 +1542,10 @@ function GM:PlayerDataStreamInfoSent(player)
 			
 			if (whitelistedSubfactions) then
 				for k, v in pairs(whitelistedSubfactions) do
-					netstream.Start(player, "SetWhitelistedSubfaction", {v, true})
+					net.Start("SetWhitelistedSubfaction")
+						net.WriteString(v)
+						net.WriteBool(true)
+					net.Send(player)
 				end
 			end
 
@@ -1558,15 +1620,11 @@ function GM:PlayerRestoreCharacterData(player, data)
 	Clockwork.player:RestoreCharacterData(player, data)
 end
 
-concommand.Add("save_char", function(player)
-	player:SaveCharacter();
-end);
-
 -- Called when a player's character data should be saved.
 function GM:PlayerSaveCharacterData(player, data)
-	if (config.Get("save_attribute_boosts"):Get()) then
+	--[[if (config.Get("save_attribute_boosts"):Get()) then
 		Clockwork.kernel:SavePlayerAttributeBoosts(player, data)
-	end
+	end]]--
 
 	data["Health"] = player:Health()
 	data["Armor"] = player:Armor()
@@ -1627,7 +1685,7 @@ function GM:OneSecond()
 		Clockwork.NextHint = curTime + config.Get("hint_interval"):Get()
 	end]]--
 
-	--[[if (!Clockwork.NextWagesTime or curTime >= Clockwork.NextWagesTime) then
+	if (!Clockwork.NextWagesTime or curTime >= Clockwork.NextWagesTime) then
 		Clockwork.kernel:DistributeWagesCash()
 
 		local info = {
@@ -1637,7 +1695,7 @@ function GM:OneSecond()
 		hook.Run("ModifyWagesInterval", info)
 
 		Clockwork.NextWagesTime = curTime + info.interval
-	end]]--
+	end
 
 	--[[if (!Clockwork.NextDateTimeThink or sysTime >= Clockwork.NextDateTimeThink) then
 		Clockwork.kernel:PerformDateTimeThink()
@@ -1645,10 +1703,7 @@ function GM:OneSecond()
 	end]]--
 
 	if (!Clockwork.NextSaveData or sysTime >= Clockwork.NextSaveData) then
-		hook.Run("PreSaveData")
-		hook.Run("SaveData")
-		hook.Run("PostSaveData")
-
+		Clockwork.kernel:ProcessSaveData(false, true);
 		Clockwork.NextSaveData = sysTime + config.Get("save_data_interval"):Get()
 	elseif (!Clockwork.NextSaveItemIDs or sysTime >= Clockwork.NextSaveItemIDs) then
 		-- This is too important not to save every few seconds, otherwise items can spawn with the item IDs of existing items and that's no good!
@@ -1672,74 +1727,44 @@ function GM:OneSecond()
 end
 
 do
-	local defaultInvWeight = config.GetVal("default_inv_weight")
-	local defaultInvSpace = config.GetVal("default_inv_weight")
-	local thinkRate = 0.2
 	local cwNextThink = 0
 	local cwNextSecond = 0
 	local cwNextHalfSecond = 0;
+	cwThinkRate = 0.2;
 
 	-- Called each tick.
 	function GM:Tick()
 		local curTime = CurTime()
 
 		if (curTime >= cwNextThink) then
-			local players = _player.GetAll();
-
-			entsGetAllThisPlayerTick = {};
-			playerGetAllThisPlayerTick = {};
-			
-			local allEnts = ents.GetAll();
-			local badMovetypes = {
-				[MOVETYPE_NOCLIP] = true,
-				[MOVETYPE_OBSERVER] = true,
-			}
-			
-			for i = 1, #allEnts do
-				local entity = allEnts[i];
-				local class = entity:GetClass();
-				local isPlayer = tobool(class == "Player");
-					
-				entsGetAllThisPlayerTick[i] = {entity = entity, class = class, bIsPlayer = bIsPlayer, position = entity:GetPos(), bIsNPC = (entity:IsNPC() or entity:IsNextBot())}
-			end;
-			
-			for i = 1, _player.GetCount() do
-				local v = players[i];
-				local position = v:GetPos();
-				local alive = v:Alive();
-					
-				playerGetAllThisPlayerTick[i] = {player = v, alive = alive, position = position};
-			end;
-
-			for k, v in pairs(players) do
-				local initialized = v:HasInitialized();
+			for _, player in _player.Iterator() do
+				local initialized = player:HasInitialized();
 
 				if (initialized) then
-					local alive = v:Alive();
-					local infoTable = v.cwInfoTable
+					local alive = player:Alive();
+					local plyTab = player:GetTable();
+					local infoTable = plyTab.cwInfoTable;
 
-					infoTable.inventoryWeight = defaultInvWeight
-					infoTable.inventorySpace = defaultInvSpace
-					infoTable.crouchedSpeed = v.cwCrouchedSpeed
-					infoTable.jumpPower = v.cwJumpPower
-					infoTable.walkSpeed = v.cwWalkSpeed
-					infoTable.isRunning = v:IsRunning()
-					infoTable.isJumping = v:IsJumping()
-					infoTable.runSpeed = v.cwRunSpeed
+					infoTable.crouchedSpeed = plyTab.cwCrouchedSpeed
+					infoTable.jumpPower = plyTab.cwJumpPower
+					infoTable.walkSpeed = plyTab.cwWalkSpeed
+					infoTable.isRunning = player:IsRunning()
+					infoTable.isJumping = player:IsJumping()
+					infoTable.runSpeed = plyTab.cwRunSpeed
 
-					hook.Run("PlayerThink", v, curTime, infoTable, alive, initialized)
+					hook.Run("PlayerThink", player, curTime, infoTable, alive, initialized, plyTab)
 
 					if (curTime >= cwNextSecond) then
-						hook.Run("OnePlayerSecond", v, curTime, infoTable, alive, initialized)
+						hook.Run("OnePlayerSecond", player, curTime, infoTable, alive, initialized, plyTab)
 					end
 					
 					if (curTime >= cwNextHalfSecond) then
-						hook.Run("OnePlayerHalfSecond", v, curTime, infoTable, alive, initialized)
+						hook.Run("OnePlayerHalfSecond", player, curTime, infoTable, alive, initialized, plyTab)
 					end
 				end
 			end
 
-			cwNextThink = curTime + thinkRate
+			cwNextThink = curTime + cwThinkRate
 
 			if (curTime >= cwNextSecond) then
 				cwNextSecond = curTime + 1
@@ -1841,19 +1866,22 @@ end
 function GM:PlayerCanHearPlayersVoice(listener, speaker)
 	if (!config.GetVal("voice_enabled")) then
 		return false
-	elseif (speaker:GetData("VoiceBan")) then
+	elseif (speaker:GetData("VoiceBan") or speaker:IsMuted()) then
 		return false
-	elseif (!Clockwork.player:HasFlags(speaker, "x")) then
-		return false
+	end
+	
+	if hook.Run("PlayerCanSpeak", speaker) == false then
+		return false;
 	end
 
 	if (config.Get("local_voice"):Get()) then
-		if (listener:IsRagdolled(RAGDOLL_KNOCKEDOUT) or !listener:Alive()) then
+		if (listener:IsRagdolled(RAGDOLL_KNOCKEDOUT) or (!listener:Alive() and !listener.cwObserverMode)) then
 			return false
 		elseif (speaker:IsRagdolled(RAGDOLL_KNOCKEDOUT) or !speaker:Alive()) then
 			return false
-		elseif (listener:GetPos():Distance(speaker:GetPos()) > config.Get("talk_radius"):Get()) then
-			return false
+		-- Extremely unoptimized.
+		--[[elseif (listener:GetPos():Distance(speaker:GetPos()) > (config.Get("talk_radius"):Get() * 2)) then
+			return false]]--
 		end
 	end
 
@@ -1865,9 +1893,7 @@ function GM:PlayerCanDeleteCharacter(player, character) end
 
 -- Called when a player attempts to switch to a character.
 function GM:PlayerCanSwitchCharacter(player, character)
-	--[[if (!player:Alive() and !player:IsCharacterMenuReset()) then
-		return "You cannot switch characters while being dead."
-	else]]if (player:GetRagdollState() == RAGDOLL_KNOCKEDOUT) then
+	if (player:GetRagdollState() == RAGDOLL_KNOCKEDOUT) then
 		return "You cannot switch characters while being unconscious."
 	end
 
@@ -1881,7 +1907,7 @@ function GM:PlayerCanUseCharacter(player, character)
 	local factionCount = 0
 	local rankCount = 0
 
-	for k, v in ipairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		if (v:HasInitialized()) then
 			if (v:GetFaction() == character.faction) then
 				if (player != v) then
@@ -1985,7 +2011,7 @@ end
 
 -- Called when a player attempts to drop a weapon.
 function GM:PlayerCanDropWeapon(player, itemTable, weapon, bNoMsg)
-	if (Clockwork.player:GetSpawnWeapon(player, itemTable:GetWeaponClass())) then
+	if itemTable.GetWeaponClass and (Clockwork.player:GetSpawnWeapon(player, itemTable:GetWeaponClass())) then
 		if (!bNoMsg) then
 			Schema:EasyText(player, "peru", "You cannot drop this weapon!")
 		end
@@ -2036,9 +2062,16 @@ function GM:PlayerCanDeathClearRecognisedNames(player, attacker, damageInfo) ret
 
 -- Called when a player's ragdoll attempts to take damage.
 function GM:PlayerRagdollCanTakeDamage(player, ragdoll, inflictor, attacker, hitGroup, damageInfo)
-	if (!attacker:IsPlayer() and player:GetRagdollTable().immunity) then
+	if (!IsValid(attacker) or !attacker:IsPlayer() and player:GetRagdollTable().immunity) then
 		if (CurTime() <= player:GetRagdollTable().immunity) then
 			return false
+		end
+	end
+	
+	-- Stop held players from taking damage from trigger hurts.
+	if (IsValid(attacker) and attacker:GetClass() == "trigger_hurt") then
+		if IsValid(ragdoll.cwHoldingGrab) then
+			return false;
 		end
 	end
 
@@ -2047,10 +2080,7 @@ end
 
 -- Called when the player attempts to be ragdolled.
 function GM:PlayerCanRagdoll(player, state, delay, decay, ragdoll)
-	if (IsValid(player.propellerengine)) then
-		return false
-	end;
-	return true
+
 end
 
 -- Called when the player attempts to be unragdolled.
@@ -2290,7 +2320,7 @@ function GM:ClockworkInitPostEntity() end
 
 -- Called when a player attempts to say something in-character.
 function GM:PlayerCanSayIC(player, text)
-	if ((!player:Alive() or player:IsRagdolled(RAGDOLL_FALLENOVER)) and !Clockwork.player:GetDeathCode(player, true)) then
+	if ((!player:Alive() or player:IsRagdolled(RAGDOLL_FALLENOVER)) and !Clockwork.player:GetDeathCode(player, true)) or player:IsMuted() then
 		Schema:EasyText(player, "peru", "You cannot do this action at the moment!")
 
 		return false
@@ -2300,10 +2330,30 @@ function GM:PlayerCanSayIC(player, text)
 end
 
 -- Called when a player attempts to say something out-of-character.
-function GM:PlayerCanSayOOC(player, text) return player:IsAdmin() end
+function GM:PlayerCanSayOOC(player, text)
+	if (!config.GetVal("global_ooc_enabled")) then
+		if player:IsAdmin() then 
+			return true;
+		end;
+		
+		return false;
+	end
+	
+	if player:IsMuted() then
+		return false;
+	end;
+	
+	return true;
+end
 
 -- Called when a player attempts to say something locally out-of-character.
-function GM:PlayerCanSayLOOC(player, text) return true end
+function GM:PlayerCanSayLOOC(player, text) 
+	if player:IsMuted() then
+		return false;
+	end;
+
+	return true;
+end
 
 -- Called when attempts to use a command.
 function GM:PlayerCanUseCommand(player, commandTable, arguments)
@@ -2330,11 +2380,11 @@ local function PlayerSayFunc(player, text)
 	local curTime = CurTime();
 
 	if (string.len(text) >= maxChatLength) then
-		text = string.sub(text, 0, maxChatLength);
+		text = string.utf8sub(text, 0, maxChatLength);
 	end;
 
-	if (string.sub(text, 1, 2) == "//") then
-		text = string.Trim(string.sub(text, 3));
+	if (string.utf8sub(text, 1, 2) == "//") then
+		text = string.Trim(string.utf8sub(text, 3));
 
 		if (text != "") then
 			if (hook.Run("PlayerCanSayOOC", player, text)) then
@@ -2348,16 +2398,16 @@ local function PlayerSayFunc(player, text)
 				end;
 			end;
 		end;
-	elseif (string.sub(text, 1, 3) == ".//" or string.sub(text, 1, 4) == ".///" or string.sub(text, 1, 2) == "[[" or string.sub(text, 1, 3) == "[[[") then
-		local adminText = string.sub(text, 1, 4) == ".///";
-		local adminTextAlt = string.sub(text, 1, 3) == "[[[";
+	elseif (string.utf8sub(text, 1, 3) == ".//" or string.utf8sub(text, 1, 4) == ".///" or string.utf8sub(text, 1, 2) == "[[" or string.utf8sub(text, 1, 3) == "[[[") then
+		local adminText = string.utf8sub(text, 1, 4) == ".///";
+		local adminTextAlt = string.utf8sub(text, 1, 3) == "[[[";
 		
 		if adminText then
-			text = string.Trim(string.sub(text, 5));
-		elseif adminTextAlt or (string.sub(text, 1, 3) == ".//") then
-			text = string.Trim(string.sub(text, 4));
+			text = string.Trim(string.utf8sub(text, 5));
+		elseif adminTextAlt or (string.utf8sub(text, 1, 3) == ".//") then
+			text = string.Trim(string.utf8sub(text, 4));
 		else
-			text = string.Trim(string.sub(text, 3));
+			text = string.Trim(string.utf8sub(text, 3));
 		end;
 
 		if (text != "") then
@@ -2371,14 +2421,14 @@ local function PlayerSayFunc(player, text)
 				end
 			end;
 		end;
-	elseif (string.sub(text, 1, 1) == prefix) then
+	elseif (string.utf8sub(text, 1, 1) == prefix) then
 		local prefixLength = string.len(prefix);
 		local arguments = Clockwork.kernel:ExplodeByTags(text, " ", "\"", "\"", true);
-		local command = string.sub(arguments[1], prefixLength + 1);
+		local command = string.utf8sub(arguments[1], prefixLength + 1);
 
 		if (Clockwork.command.stored[command] and Clockwork.command.stored[command].arguments < 2
 		and !Clockwork.command.stored[command].optionalArguments) then
-			text = string.sub(text, string.len(command) + prefixLength + 2);
+			text = string.gsub(string.utf8sub(text, string.len(command) + prefixLength + 2), "\"", "");
 
 			if (text != "") then
 				arguments = {command, text};
@@ -2738,6 +2788,7 @@ function GM:EntityHandleMenuOption(player, entity, option, arguments)
 
 				if (bDidPickupItem) then
 					if (!itemTable.OnPickup or itemTable:OnPickup(player, bQuickUse, entity) != false) then
+						entity.bRetainInstance = true;
 						entity:Remove()
 					end
 				end
@@ -2804,7 +2855,7 @@ function GM:EntityHandleMenuOption(player, entity, option, arguments)
 		local itemCondition = itemTable:GetCondition();
 		local itemEngraving = itemTable:GetData("engraving");
 		local examineText = itemTable.description
-		local conditionTextCategories = {"Armor", "Firearms", "Helms", "Melee", "Shields", "Javelins"};
+		local conditionTextCategories = {"Armor", "Crossbows", "Firearms", "Helms", "Melee", "Shields", "Throwables"};
 
 		if (itemTable.GetEntityExamineText) then
 			examineText = itemTable:GetEntityExamineText(entity)
@@ -3164,17 +3215,6 @@ function GM:CanTool(player, trace, tool)
 	end
 end
 
--- Called when a player attempts to use the property menu.
-function GM:CanProperty(player, property, entity)
-	local bIsAdmin = Clockwork.player:IsAdmin(player)
-
-	if (!player:Alive() or player:IsRagdolled() or !bIsAdmin) then
-		return false
-	end
-
-	return self.BaseClass:CanProperty(player, property, entity)
-end
-
 -- Called when a player attempts to use drive.
 function GM:CanDrive(player, entity)
 	local bIsAdmin = Clockwork.player:IsAdmin(player)
@@ -3286,25 +3326,28 @@ function GM:PlayerCharacterCreated(player, character)
 	-- For some reason the character key wasn't being given.
 
 	timer.Simple(5, function()
-		if IsValid(player) and character then
+		if IsValid(player) and !player:IsBot() and character then
 			local charactersTable = config.Get("mysql_characters_table"):Get();
+			local schemaFolder = Clockwork.kernel:GetSchemaFolder()
 			local key_found = false;
 			
 			local queryObj = Clockwork.database:Select(charactersTable)
 				queryObj:Callback(function(result)
-					for k, v in pairs(result) do
-						if v._Key then
-							if not character.data["Key"] then
-								character.data["Key"] = v._Key;
+					if result then
+						for k, v in pairs(result) do
+							if v._Key then
+								if not character.data["Key"] then
+									character.data["Key"] = v._Key;
+									
+									key_found = true;
+								end
 								
-								key_found = true;
+								if player:GetCharacterData("Key") and player:GetCharacterData("Key") ~= player:GetNetVar("Key") then 
+									player:SetNetVar("Key", player:GetCharacterData("Key"));
+								end
+								
+								break;
 							end
-							
-							if player:GetCharacterData("Key") and player:GetCharacterData("Key") ~= player:GetNetVar("Key") then 
-								player:SetNetVar("Key", player:GetCharacterData("Key"));
-							end
-							
-							break;
 						end
 					end
 					
@@ -3314,6 +3357,7 @@ function GM:PlayerCharacterCreated(player, character)
 					end
 				end);
 				
+				queryObj:Where("_Schema", schemaFolder)
 				queryObj:Where("_Name", character.name)
 			queryObj:Execute()
 		end
@@ -3327,32 +3371,46 @@ function GM:PlayerCharacterUnloaded(player)
 	Clockwork.player:SetRagdollState(player, RAGDOLL_RESET)
 	Clockwork.storage:Close(player, true)
 	player:SetTeam(TEAM_UNASSIGNED)
+	
+	--[[local itemList = Clockwork.inventory:GetItemsAsList(player:GetInventory());
+
+	for k, v in pairs(itemList) do
+		item.RemoveInstance(v.itemID);
+	end]]--
 end
 
 -- Called when a player's character has loaded.
 function GM:PlayerCharacterLoaded(player)
-	player:SetNetVar("InvWeight", config.Get("default_inv_weight"):Get())
-	player:SetNetVar("InvSpace", config.Get("default_inv_space"):Get())
-	player.cwCharLoadedTime = CurTime()
-	player.cwCrouchedSpeed = config.Get("crouched_speed"):Get()
-	player.cwInitialized = true
-	--player.cwAttrBoosts = player.cwAttrBoosts or {}
-	player.cwRagdollTab = player.cwRagdollTab or {}
-	player.cwSpawnWeps = player.cwSpawnWeps or {}
-	player.cwFirstSpawn = true
-	player.cwLightSpawn = false
-	player.cwChangeClass = false
-	player.cwInfoTable = player.cwInfoTable or {}
-	--player.cwSpawnAmmo = player.cwSpawnAmmo or {}
-	player.cwJumpPower = config.Get("jump_power"):Get()
-	player.cwWalkSpeed = config.Get("walk_speed"):Get()
-	player.cwRunSpeed = config.Get("run_speed"):Get()
+	local plyTab = player:GetTable();
 	
-	if player.maxHealthBoost then
-		player.maxHealthBoost = nil;
+	--player:SetLocalVar("InvWeight", config.Get("default_inv_weight"):Get())
+	--player:SetLocalVar("InvSpace", config.Get("default_inv_space"):Get())
+	plyTab.cwCharLoadedTime = CurTime()
+	plyTab.cwCrouchedSpeed = config.Get("crouched_speed"):Get()
+	plyTab.cwInitialized = true
+	--plyTab.cwAttrBoosts = plyTab.cwAttrBoosts or {}
+	plyTab.cwRagdollTab = plyTab.cwRagdollTab or {}
+	plyTab.cwSpawnWeps = plyTab.cwSpawnWeps or {}
+	plyTab.cwFirstSpawn = true
+	plyTab.cwLightSpawn = false
+	plyTab.cwChangeClass = false
+	plyTab.cwInfoTable = plyTab.cwInfoTable or {}
+	--plyTab.cwSpawnAmmo = plyTab.cwSpawnAmmo or {}
+	plyTab.cwJumpPower = config.Get("jump_power"):Get()
+	plyTab.cwWalkSpeed = config.Get("walk_speed"):Get()
+	plyTab.cwRunSpeed = config.Get("run_speed"):Get()
+	
+	if plyTab.maxHealthBoost then
+		plyTab.maxHealthBoost = nil;
 	end
 
 	hook.Run("PlayerRestoreCharacterData", player, player:QueryCharacter("Data"))
+	
+	--[[local itemList = Clockwork.inventory:GetItemsAsList(player:GetInventory());
+
+	for k, v in pairs(itemList) do
+		item.CreateInstance(v.uniqueID, v.itemID);
+	end]]--
 
 	Clockwork.player:SetCharacterMenuState(player, CHARACTER_MENU_CLOSE)
 
@@ -3362,7 +3420,7 @@ function GM:PlayerCharacterLoaded(player)
 	Clockwork.player:ReturnProperty(player)
 	Clockwork.player:SetInitialized(player, true)
 
-	player.cwFirstSpawn = false
+	plyTab.cwFirstSpawn = false
 	
 	player:SetNetVar("Faction", player:GetFaction());
 
@@ -3516,7 +3574,7 @@ end
 function GM:PostPlayerSpawn(player, lightSpawn, changeClass, firstSpawn)
 	local activeWeapon = player:GetActiveWeapon();
 	
-	if IsValid(activeWeapon) and activeWeapon:GetClass() == "begotten_fists" then
+	if activeWeapon:IsValid() and activeWeapon:GetClass() == "begotten_fists" then
 		if activeWeapon.OnDeploy then
 			activeWeapon:OnDeploy();
 		end
@@ -3529,7 +3587,7 @@ end
 function GM:PrePlayerTakeDamage(player, attacker, inflictor, damageInfo) end
 
 -- Called when a player should take damage.
-function GM:PlayerShouldTakeDamage(player, attacker, inflictor, damageInfo)
+function GM:PlayerShouldTakeDamage(player, attacker)
 	if Clockwork.player:IsNoClipping(player) then
 		return false;
 	end
@@ -3543,6 +3601,8 @@ end
 
 -- Called just before a player dies.
 function GM:DoPlayerDeath(player, attacker, damageInfo)
+	local plyTab = player:GetTable();
+	
 	Clockwork.player:SetAction(player, false)
 	Clockwork.player:SetDrunk(player, false)
 
@@ -3557,7 +3617,7 @@ function GM:DoPlayerDeath(player, attacker, damageInfo)
 	if hook.Run("DoPlayerDeathPreDeathSound", player, attacker, damageInfo) ~= false then
 		local deathSound = hook.Run("PlayerPlayDeathSound", player, player:GetGender())
 
-		if (deathSound) and !player.drowned then
+		if (deathSound) and !plyTab.drowned then
 			player:EmitSound("physics/flesh/flesh_impact_hard"..math.random(1, 5)..".wav", 150)
 
 			timer.Simple(FrameTime() * 25, function()
@@ -3582,10 +3642,10 @@ function GM:DoPlayerDeath(player, attacker, damageInfo)
 	player:UnLock()
 	
 	-- Check if player is in a duel.
-	if not player.opponent then
+	if not plyTab.opponent then
 		--player:SetCharacterData("Ammo", {}, true)
 		player:StripWeapons()
-		--player.cwSpawnAmmo = {}
+		--plyTab.cwSpawnAmmo = {}
 		player:StripAmmo()
 	end
 
@@ -3595,13 +3655,13 @@ function GM:DoPlayerDeath(player, attacker, damageInfo)
 		end
 	end
 	
-	if (player.cwDeathPosition or player.cwDeathAngles) then
-		player.cwDeathPosition = nil;
-		player.cwDeathAngles = nil;
+	if (plyTab.cwDeathPosition or plyTab.cwDeathAngles) then
+		plyTab.cwDeathPosition = nil;
+		plyTab.cwDeathAngles = nil;
 	end;
 	
-	player.cwDeathAngles = player:EyeAngles();
-	player.cwDeathPosition = player:GetPos();
+	plyTab.cwDeathAngles = player:EyeAngles();
+	plyTab.cwDeathPosition = player:GetPos();
 end
 
 -- Called when a player dies.
@@ -3623,7 +3683,7 @@ function GM:PlayerDeath(player, inflictor, attacker, damageInfo)
 		end
 		
 		player:SetCharacterData("Cash", 0, true);
-		player:SetSharedVar("Cash", 0);]]--
+		player:SetLocalVar("Cash", 0);]]--
 		
 		if (IsValid(inflictor) and inflictor:GetClass() == "prop_combine_ball") then
 			if (damageInfo) then
@@ -3634,13 +3694,17 @@ function GM:PlayerDeath(player, inflictor, attacker, damageInfo)
 		end
 	end
 	
+	if player:IsOnFire() then
+		player:ClockworkExtinguish();
+	end
+	
 	Clockwork.kernel:CalculateSpawnTime(player, inflictor, attacker, damageInfo);
 
 	if IsValid(attacker) then
 		if (attacker:IsPlayer() and damageInfo) then
 			local weapon = attacker:GetActiveWeapon();
 			
-			if IsValid(inflictor) and (inflictor:IsWeapon() or inflictor.isJavelin) then
+			if IsValid(inflictor) --[[and (inflictor:IsWeapon() or inflictor.isJavelin)]] then
 				if inflictor.GetPrintName then
 					inflictor = inflictor:GetPrintName();
 				end
@@ -3674,6 +3738,12 @@ function GM:PlayerDeath(player, inflictor, attacker, damageInfo)
 				Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, attacker:GetClass().." has dealt "..tostring(math.ceil(damageInfo:GetDamage())).." damage to "..player:Name()..", killing them!")
 			end
 		end
+	elseif IsValid(inflictor) then
+		Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, inflictor:GetClass().." has dealt "..tostring(math.ceil(damageInfo:GetDamage())).." damage to "..player:Name()..", killing them!")
+	elseif damageInfo:IsFallDamage() then
+		Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from fall damage, killing them!")
+	else
+		Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from an unknown source, killing them!")
 	end
 end
 
@@ -3760,17 +3830,7 @@ end
 -- Called when the server shuts down.
 function GM:ShutDown()
 	Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, "Server shutting down!");
-	
-	--plugin.Call("PreSaveData")
-	--plugin.Call("SaveData")
-	--plugin.Call("PostSaveData")
-	
-	hook.Run("PreSaveData")
-	hook.Run("SaveData")
-	hook.Run("PostSaveData")
-	
-	Clockwork.kernel:PrintLog(LOGTYPE_CRITICAL, "Data saved!");
-
+	Clockwork.kernel:ProcessSaveData(true);
 	Clockwork.ShuttingDown = true
 end
 
@@ -3803,11 +3863,8 @@ function GM:ShowTeam(ply)
 									entity = entity,
 									owner = owner
 								}
-								
-								--changed here
-								local players = _player.GetAll();
-								
-								for k, v in pairs(players) do
+
+								for _, v in _player.Iterator() do
 									if (v != ply and v != owner) then
 										if (Clockwork.player:HasDoorAccess(v, entity, DOOR_ACCESS_COMPLETE)) then
 											data.accessList[v] = DOOR_ACCESS_COMPLETE
@@ -3872,13 +3929,21 @@ end
 function GM:EntityTakeDamage(entity, damageInfo)
 	local class = entity:GetClass();
 	
-	if class == "prop_dynamic" or class == "cw_duelstatue" or class == "cw_hellportal" then
-		return true;
-	elseif entity.cwInventory then
+	if (class == "prop_dynamic" or class == "cw_duelstatue" or class == "cw_hellportal") or entity.cwInventory then
 		return true;
 	end
 	
-	if (entity:IsPlayer() and damageInfo:IsExplosionDamage() and !entity:IsRagdolled() and !entity:IsNoClipping()) then
+	local damage = damageInfo:GetDamage();
+	
+	if (damage == 0) then
+		return true;
+	end
+	
+	if (damageInfo:IsDamageType(DMG_CRUSH) and damage < 10) then
+		return true;
+	end
+	
+	if (entity:IsPlayer() and damageInfo:IsExplosionDamage() and damage >= 25 and !entity:IsRagdolled() and !entity:IsNoClipping()) then
 		if !Clockwork.player:HasFlags(entity, "E") and !Clockwork.player:HasFlags(entity, "K") then
 			if !cwBeliefs or (cwBeliefs and !entity:HasBelief("fortitude_finisher")) then
 				local data = {}
@@ -3896,21 +3961,8 @@ function GM:EntityTakeDamage(entity, damageInfo)
 		end
 	end
 	
-	if (damageInfo:IsDamageType(DMG_CRUSH) and damageInfo:GetDamage() < 10) then
-		damageInfo:SetDamage(0)
-	end
-	
-	if (Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)) then
-		return;
-	end
-	
-	if (damageInfo:GetDamage() == 0) then
-		return true;
-	end
-
 	local inflictor = damageInfo:GetInflictor()
 	local attacker = damageInfo:GetAttacker()
-	local amount = damageInfo:GetDamage()
 
 	if (config.Get("prop_kill_protection"):Get()) then
 		local curTime = CurTime()
@@ -3929,8 +3981,7 @@ function GM:EntityTakeDamage(entity, damageInfo)
 			return false
 		end
 
-		if ((IsValid(inflictor) and inflictor:IsBeingHeld())
-		or attacker:IsBeingHeld()) then
+		if ((IsValid(inflictor) and inflictor:IsBeingHeld()) or (IsValid(attacker) and attacker:IsBeingHeld())) then
 			damageInfo:SetDamage(0)
 			return false
 		end
@@ -3939,16 +3990,31 @@ function GM:EntityTakeDamage(entity, damageInfo)
 	if (entity:IsPlayer() and entity:InVehicle() and !IsValid(entity:GetVehicle():GetParent())) then
 		entity.cwLastHitGroup = Clockwork.kernel:GetRagdollHitBone(entity, damageInfo:GetDamagePosition(), HITGROUP_GEAR)
 
-		if (damageInfo:IsBulletDamage()) then
+		--[[if (damageInfo:IsBulletDamage()) then
 			if ((attacker:IsPlayer() or attacker:IsNPC() or attacker:IsNextBot()) and attacker != player) then
 				damageInfo:ScaleDamage(10000)
 			end
-		end
+		end]]--
 	end
 	
 	local isPlayerRagdoll = Clockwork.entity:IsPlayerRagdoll(entity);
 	local player = Clockwork.entity:GetPlayer(entity);
 	local lastHitGroup;
+	
+	if isPlayerRagdoll and !hook.Run("PlayerRagdollCanTakeDamage", player, entity, inflictor, attacker, hitGroup, damageInfo) then
+		damageInfo:SetDamage(0)
+		return false
+	end
+	
+	if (Clockwork.kernel:DoEntityTakeDamageHook(entity, damageInfo)) then
+		return;
+	end
+	
+	local amount = damageInfo:GetDamage();
+	
+	if (amount == 0) then
+		return true;
+	end
 
 	if (player and (entity:IsPlayer() or isPlayerRagdoll)) then
 		--if (damageInfo:IsFallDamage() or config.Get("damage_view_punch"):Get()) then
@@ -3963,7 +4029,7 @@ function GM:EntityTakeDamage(entity, damageInfo)
 			if IsValid(attacker) and attacker:IsPlayer() then
 				local activeWeapon = attacker:GetActiveWeapon();
 				
-				if IsValid(activeWeapon) and activeWeapon.Base == "sword_swepbase" then
+				if activeWeapon:IsValid() and activeWeapon.Base == "sword_swepbase" then
 					lastHitGroup = Clockwork.kernel:GetRagdollHitGroup(entity, damageInfo:GetDamagePosition());
 				end
 			end
@@ -4001,30 +4067,36 @@ function GM:EntityTakeDamage(entity, damageInfo)
 
 					if IsValid(attacker) then
 						if (attacker:IsPlayer()) then
-							local inflictor = damageInfo:GetInflictor();
-							
-							if IsValid(inflictor) and (inflictor:IsWeapon() or inflictor.isJavelin) then	
-								inflictor = inflictor.PrintName or inflictor:GetClass();
+							if damageInfo:IsDamageType(DMG_POISON) then
+								Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:Name().."'s poison, leaving them at "..player:Health().." health"..armor)
 							else
-								local activeWeapon = attacker:GetActiveWeapon();
-								
-								if IsValid(activeWeapon) then
-									if inflictor.GetPrintName then
-										inflictor = inflictor:GetPrintName();
-									end
-									
-									if !inflictor or !isstring(inflictor) then
-										inflictor = activeWeapon.PrintName or activeWeapon:GetClass();
-									end
+								if IsValid(inflictor) --[[and (inflictor:IsWeapon() or inflictor.isJavelin)]] then	
+									inflictor = inflictor.PrintName or inflictor:GetClass();
 								else
-									inflictor = "an unknown weapon";
+									local activeWeapon = attacker:GetActiveWeapon();
+									
+									if activeWeapon:IsValid() then
+										if inflictor.GetPrintName then
+											inflictor = inflictor:GetPrintName();
+										end
+										
+										if !inflictor or !isstring(inflictor) then
+											inflictor = activeWeapon.PrintName or activeWeapon:GetClass();
+										end
+									else
+										inflictor = "an unknown weapon";
+									end
 								end
+								
+								Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:Name().." with "..inflictor..", leaving them at "..player:Health().." health"..armor)
 							end
-							
-							Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:Name().." with "..inflictor..", leaving them at "..player:Health().." health"..armor)
 						else
 							Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:GetClass()..", leaving them at "..player:Health().." health"..armor)
 						end
+					elseif IsValid(inflictor) then
+						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..inflictor:GetClass()..", leaving them at "..player:Health().." health"..armor)
+					elseif damageInfo:IsFallDamage() then
+						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from fall damage, leaving them at "..player:Health().." health"..armor)
 					else
 						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from an unknown source, leaving them at "..player:Health().." health"..armor)
 					end
@@ -4039,49 +4111,49 @@ function GM:EntityTakeDamage(entity, damageInfo)
 
 			--self:ScaleDamageByHitGroup(player, attacker, hitGroup, damageInfo, amount)
 
-			if (hook.Run("PlayerRagdollCanTakeDamage", player, entity, inflictor, attacker, hitGroup, damageInfo) and damageInfo:GetDamage() > 0) then
-				local bAttackerValid = IsValid(attacker);
+			local bAttackerValid = IsValid(attacker);
+			
+			if !bAttackerValid or (!attacker:IsPlayer()) then
+				if (bAttackerValid and (attacker:GetClass() == "prop_ragdoll" or Clockwork.entity:IsDoor(attacker))) then
+					return;
+				end
+			end
+
+			--hook.Run("CalculatePlayerDamage", player, hitGroup, damageInfo);
+
+			if (player:Alive() and player:Health() == 1) then
+				player:SetFakingDeath(true)
+					player:GetRagdollTable().health = 0
+					player:GetRagdollTable().armor = 0
+
+					hook.Run("DoPlayerDeath", player, attacker, damageInfo)
+					hook.Run("PlayerDeath", player, inflictor, attacker, damageInfo)
+				player:SetFakingDeath(false, true)
+			elseif (player:Alive()) then
+				local bNoMsg = hook.Run("PlayerTakeDamage", player, inflictor, attacker, hitGroup, damageInfo)
+				local sound = hook.Run("PlayerPlayPainSound", player, player:GetGender(), damageInfo, hitGroup)
 				
-				if !bAttackerValid or (!attacker:IsPlayer()) then
-					if (bAttackerValid and (attacker:GetClass() == "prop_ragdoll" or Clockwork.entity:IsDoor(attacker))) then
-						return
-					end
+				if (sound and !bNoMsg) then
+					entity:EmitHitSound(sound)
 				end
 
-				--hook.Run("CalculatePlayerDamage", player, hitGroup, damageInfo);
+				local armor = "!"
 
-				if (player:Alive() and player:Health() == 1) then
-					player:SetFakingDeath(true)
-						player:GetRagdollTable().health = 0
-						player:GetRagdollTable().armor = 0
+				if (player:Armor() > 0) then
+					armor = " and "..player:Armor().." armor!"
+				end
 
-						hook.Run("DoPlayerDeath", player, attacker, damageInfo)
-						hook.Run("PlayerDeath", player, inflictor, attacker, damageInfo)
-					player:SetFakingDeath(false, true)
-				elseif (player:Alive()) then
-					local bNoMsg = hook.Run("PlayerTakeDamage", player, inflictor, attacker, hitGroup, damageInfo)
-					local sound = hook.Run("PlayerPlayPainSound", player, player:GetGender(), damageInfo, hitGroup)
-					
-					if (sound and !bNoMsg) then
-						entity:EmitHitSound(sound)
-					end
-
-					local armor = "!"
-
-					if (player:Armor() > 0) then
-						armor = " and "..player:Armor().." armor!"
-					end
-
-					if IsValid(attacker) then
-						if (attacker:IsPlayer()) then
-							local inflictor = damageInfo:GetInflictor();
-							
-							if IsValid(inflictor) and (inflictor:IsWeapon() or inflictor.isJavelin) then	
+				if IsValid(attacker) then
+					if (attacker:IsPlayer()) then
+						if damageInfo:IsDamageType(DMG_POISON) then
+							Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:Name().."'s poison, leaving them at "..player:Health().." health"..armor)
+						else
+							if IsValid(inflictor) --[[and (inflictor:IsWeapon() or inflictor.isJavelin)]] then	
 								inflictor = inflictor.PrintName or inflictor:GetClass();
 							else
 								local activeWeapon = attacker:GetActiveWeapon();
 								
-								if IsValid(activeWeapon) then
+								if activeWeapon:IsValid() then
 									if inflictor.GetPrintName then
 										inflictor = inflictor:GetPrintName();
 									end
@@ -4095,12 +4167,16 @@ function GM:EntityTakeDamage(entity, damageInfo)
 							end
 							
 							Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:Name().." with "..inflictor..", leaving them at "..player:Health().." health"..armor)
-						else
-							Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:GetClass()..", leaving them at "..player:Health().." health"..armor)
 						end
 					else
-						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from an unknown source, leaving them at "..player:Health().." health"..armor)
+						Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..attacker:GetClass()..", leaving them at "..player:Health().." health"..armor)
 					end
+				elseif IsValid(inflictor) then
+					Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from "..inflictor:GetClass()..", leaving them at "..player:Health().." health"..armor)
+				elseif damageInfo:IsFallDamage() then
+					Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from fall damage, leaving them at "..player:Health().." health"..armor)
+				else
+					Clockwork.kernel:PrintLog(LOGTYPE_MAJOR, player:Name().." has taken "..tostring(math.ceil(damageInfo:GetDamage())).." damage from an unknown source, leaving them at "..player:Health().." health"..armor)
 				end
 			end
 
@@ -4186,13 +4262,13 @@ end
 	@param Enum The button that was pressed.
 --]]
 function GM:PlayerButtonDown(player, button)
-	if (button == KEY_B) then
+	--[[if (button == KEY_B) then
 		if (config.Get("quick_raise_enabled"):GetBoolean()) then
 			if (hook.Run("PlayerCanQuickRaise", player, player:GetActiveWeapon())) then
 				Clockwork.player:ToggleWeaponRaised(player)
 			end
 		end
-	end
+	end]]--
 
 	return self.BaseClass:PlayerButtonDown(player, button)
 end
@@ -4225,7 +4301,7 @@ function GM:PlayerSpawnedNPC(player, npc)
 	prevRelation = prevRelation or {}
 	prevRelation[player:SteamID()] = prevRelation[player:SteamID()] or {}
 
-	for k, v in ipairs(_player.GetAll()) do
+	for _, v in _player.Iterator() do
 		faction = Clockwork.faction:FindByID(v:GetFaction())
 
 		if (faction) then
@@ -4260,9 +4336,9 @@ end
 	@param Table The attribute table of the attribute being progressed.
 	@param Number The amount that is being progressed for editing purposes.
 --]]
-function GM:OnAttributeProgress(player, attribute, amount)
+--[[function GM:OnAttributeProgress(player, attribute, amount)
 	amount = amount * config.Get("scale_attribute_progress"):Get()
-end
+end]]--
 
 --[[
 	@codebase Server
@@ -4312,18 +4388,18 @@ function GM:ScaleDamageByHitGroup(player, attacker, hitGroup, damageInfo, baseDa
 			end
 			
 			if IsValid(attacker) and attacker:IsPlayer() then
-				local attackerWeapon = attacker:GetActiveWeapon();
+				local inflictor = damageInfo:GetInflictor();
 				
-				if IsValid(attackerWeapon) and attackerWeapon.Base == "begotten_firearm_base" then
+				if IsValid(inflictor) and inflictor.Base == "begotten_firearm_base" then
 					if (player:GetPos():DistToSqr(attacker:GetPos()) <= massiveFuck) then
 						damageInfo:ScaleDamage(config.Get("scale_head_dmg"):Get());
 					end
 				end
 			end
 		elseif IsValid(attacker) and attacker:IsPlayer() then
-			local attackerWeapon = attacker:GetActiveWeapon();
+			local inflictor = damageInfo:GetInflictor();
 			
-			if IsValid(attackerWeapon) and attackerWeapon.Base == "begotten_firearm_base" then
+			if IsValid(inflictor) and inflictor.Base == "begotten_firearm_base" then
 				if (hitGroup == HITGROUP_CHEST or hitGroup == HITGROUP_GENERIC) then
 					damageInfo:ScaleDamage(config.Get("scale_chest_dmg"):Get());
 				elseif (hitGroup == HITGROUP_LEFTARM or hitGroup == HITGROUP_RIGHTARM or hitGroup == HITGROUP_LEFTLEG or hitGroup == HITGROUP_RIGHTLEG or hitGroup == HITGROUP_GEAR) then
@@ -4442,6 +4518,13 @@ function GM:RunModifyPlayerSpeed(player, infoTable, bIgnoreDelay)
 			player:SetRunSpeed(infoTable.runSpeed);
 		end;
 		
-		player.speedSetCooldown = curTime + 1;
+		player.speedSetCooldown = curTime + 0.1;
 	end;
+end
+
+function GM:ActionStopped(player, action)
+	if player.cwUseAction then
+		player.cwUseAction = nil;
+		player.cwUseActionEntity = nil;
+	end
 end

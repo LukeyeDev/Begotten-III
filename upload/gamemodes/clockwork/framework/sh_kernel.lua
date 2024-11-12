@@ -1551,8 +1551,9 @@ function Clockwork.kernel:ZeroNumberToDigits(number, digits)
 end
 
 -- A function to get a short CRC from a value.
+-- Converts the 32-bit value into a 15-bit value because Player:SetTeam() is now networked at 15 bits since the 2024.10.29 update
 function Clockwork.kernel:GetShortCRC(value)
-	return math.ceil(util.CRC(value) / 100000)
+	return math.ceil(util.CRC(value) / 131071)
 end
 
 -- A function to validate a table's keys.
@@ -1660,11 +1661,11 @@ function Clockwork.kernel:ParseData(text)
 	return config.Parse(text)
 end
 
-function Clockwork.kernel:SetSharedVar(key, val, sendTo)
+function Clockwork.kernel:SetNetVar(key, val, sendTo)
 	return netvars.SetNetVar(key, val, sendTo)
 end
 
-function Clockwork.kernel:GetSharedVar(key, default)
+function Clockwork.kernel:GetNetVar(key, default)
 	return netvars.GetNetVar(key, default)
 end
 
@@ -1720,3 +1721,35 @@ end)
 timer.Create("LazyTick", 0.125, 0, function()
 	hook.Run("LazyTick")
 end)
+
+-- Properties
+properties.Add("copy_name_to_clipboard", {
+	MenuLabel = "Copy name to clipboard",
+	Order = 1,
+	MenuIcon = "icon16/disk.png",
+	Filter = function(self, ent, ply)
+		if !IsValid(ent) or !IsValid(ply) or !ply:IsAdmin() then return false end
+		if !ent:IsPlayer() then
+			if Clockwork.entity:IsPlayerRagdoll(ent) then
+				ent = Clockwork.entity:GetPlayer(ent);
+			else
+				return false;
+			end
+		end
+
+		return true;
+	end,
+	Action = function(self, ent)
+		if IsValid(ent) then
+			if !ent:IsPlayer() then
+				if Clockwork.entity:IsPlayerRagdoll(ent) then
+					ent = Clockwork.entity:GetPlayer(ent);
+				else
+					return false;
+				end
+			end
+		
+			SetClipboardText(ent:Name());
+		end
+	end,
+});

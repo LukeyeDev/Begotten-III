@@ -13,7 +13,7 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 		{"Prowess", PROWESS.color, "Civ5ToolTip4"},
 		{"Prowess is a measure of your character's physical strength, primarily affecting your character's melee combat effectiveness, as well as inventory capacity.", Color(225, 200, 200)},
 		{"\n\"But then he visited the Dark Kingdom, and this was the point of no return. He felt in his wrist a tremble that manifested into a quake. His fibers were now thorns, his liquids boiled. He felt he would lose sight of the truth, and that he did...\"", Color(128, 90, 90, 240)},
-		{"\nBelief Tree Completion Bonus: +50% Inventory Capacity and +25% Melee Damage (Stacks w/ Other Buffs)", Color(50, 255, 50)}
+		{"\nBelief Tree Completion Bonus: +50% Inventory Capacity and +10% Melee Damage (Stacks w/ Other Buffs)", Color(50, 255, 50)}
 	};
 	PROWESS.columnPositions = {
 		[1] = (PROWESS.size.w - 4) * 0.1,
@@ -45,15 +45,15 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 			},
 			["blademaster"] = {
 				name = "Blademaster",
-				description = "All one handed slashing weapons and claws now deal 20% more damage.",
+				description = "All one handed slashing weapons and claws now deal 15% more damage. Unlocks the use of the 'Swordplay' attribute for longswords.",
 				iconOverride = "begotten/ui/belieficons/swordsman.png",
-				lockedSubfactions = {"Auxiliary"},
+				--lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "halfsword_sway"},
 				row = 3,
 			},
 			["billman"] = {
 				name = "Billman",
-				description = "Polearms, scythes, spears, rapiers, and javelins now deal 20% more armor piercing damage.",
+				description = "Polearms, spears, rapiers, crossbow bolts, and throwables now deal 20% more armor piercing damage.",
 				quote = "The honest soldier keeps his distance from the bloodthirsty fools who seek his demise.",
 				lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "halfsword_sway", "blademaster"},
@@ -69,8 +69,8 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 			},
 			["repulsive_riposte"] = {
 				name = "Repulsive Riposte",
-				description = "Riposte attack damage from successful parries is increased from 200% to 300%.";
-				lockedSubfactions = {"Auxiliary"},
+				description = "Unlocks the ability to chain-parry, extending your active parry window by 0.3 seconds every time you connect a parry, thus allowing you to parry multiple opponents with greater ease. Multi-parries will successively restore more stamina the more targets you parry. Riposte attack damage from successful parries is increased from 200% to 250%.";
+				--lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "parrying"},
 				row = 3,
 			},
@@ -78,7 +78,7 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 		[3] = {
 			["fighter"] = {
 				name = "Fighter",
-				description = "Maximum poise is now increased by 10 points.",
+				description = "Maximum stamina is now increased by 10 points.",
 				quote = "\"Pick up that spear, boy! You'll be fighting in the Lord's army now.\"",
 				row = 1,
 			},
@@ -91,14 +91,14 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 			},
 			["warrior"] = {
 				name = "Warrior",
-				description = "Maximum poise is now increased by an additional 10 points.",
-				lockedSubfactions = {"Auxiliary"},
+				description = "Maximum stamina is now increased by an additional 10 points.",
+				--lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "wrestle_subdue"},
 				row = 3,
 			},
 			["master_at_arms"] = {
 				name = "Master at Arms",
-				description = "Maximum poise is now increased by an additional 15 points.",
+				description = "Maximum stamina is now increased by an additional 15 points.",
 				lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "wrestle_subdue", "warrior"},
 				row = 4,
@@ -107,14 +107,14 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 		[4] = {
 			["deflection"] = {
 				name = "Deflection",
-				description = "Successful deflections (perfect blocks) now restore +15 additional points of poise and stability, as well as prevent enemy attacks for 1 second.",
+				description = "Successful deflections (perfect blocks) now restore +15 points of stamina and +5 points of stability, as well as prevent enemy attacks for a minimum of 1 second.",
 				requirements = {"fighter"},
 				row = 2,
 			},
 			["sidestep"] = {
 				name = "Sidestep",
-				description = "Successful deflections now restore +10 more points of poise and stability and prevents enemy attacks for an additional second.",
-				lockedSubfactions = {"Auxiliary"},
+				description = "Successful deflections now restore +10 more points of stamina and stability, and also prevents enemy attacks for an additional second. The cooldown before your next deflection is reduced by 20%, and succesful deflections will remove your deflection cooldown.",
+				--lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "deflection"},
 				row = 3,
 			},
@@ -122,21 +122,21 @@ local PROWESS = cwBeliefs.beliefTrees:New("prowess")
 		[5] = {
 			["strength"] = {
 				name = "Strength",
-				description = "Unlocks the ability to use great weapons.",
+				description = "Unlocks the ability to use great weapons. Prevents being disarmed when taking damage if using a throwable weapon in its melee stance. Also unlocks the ability to reload crossbows.",
 				requirements = {"fighter"},
 				row = 2,
 			},
 			["might"] = {
 				name = "Might",
-				description = "Increased inventory capacity by 50%. Fists and fisted weapons now deal 20% more damage.",
+				description = "Increased inventory capacity by 50%. Deal 15% more stability damage with all melee weapons. Fists and fisted weapons now deal 20% more damage.",
 				quote = "\"I smash you now!\"",
-				lockedSubfactions = {"Auxiliary"},
+				--lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "strength"},
 				row = 3,
 			},
 			["unrelenting"] = {
 				name = "Unrelenting",
-				description = "Great weapons, scythes, and two handed weapons now deal 10% more damage. All melee weapons now deal 25% more poise damage. Removes the damage penalty for hitting multiple targets with a single swing.",
+				description = "Great weapons, scythes, and two handed weapons now deal 10% more damage. All melee weapons now deal 25% more stamina damage. Removes the damage penalty for hitting multiple targets with a single swing.",
 				lockedSubfactions = {"Auxiliary"},
 				requirements = {"fighter", "strength", "might"},
 				row = 4,

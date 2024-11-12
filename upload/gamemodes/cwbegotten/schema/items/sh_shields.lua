@@ -10,6 +10,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(287.4, 360, 0);
 	ITEM.attachmentOffsetVector = Vector(0, 0, 4.95);
+	ITEM.bulletConditionScale = 0.4;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "wood", "wood", "wood"}};
 ITEM:Register();
@@ -25,9 +26,10 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(355.03, 229.72, 0.99);
 	ITEM.attachmentOffsetVector = Vector(0, 2.12, 5.66);
+	ITEM.bulletConditionScale = 0.25;
 	
 	ITEM.components = {breakdownType = "breakdown", items = {"scrap", "scrap", "scrap"}};
-	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 200, bNoSupercrate = true};
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 1600, bNoSupercrate = true};
 	ITEM.requiredbeliefs = {"defender"};	
 ITEM:Register();
 
@@ -36,15 +38,16 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.model = "models/begotten/weapons/goreroundshield.mdl";
 	ITEM.weight = 2;
 	ITEM.uniqueID = "shield14";
-	ITEM.description = "A sturdy shield made from abnormally strong wood from the Gore Forest. It is decorated in Goreic clan sigils.";
+	ITEM.description = "A sturdy shield made from abnormally strong wood from the Gore Forest. It is decorated and protected by Goreic clan sigils.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/clan_shield.png"
 	ITEM.isAttachment = true;
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(360, 309.28, 0);
 	ITEM.attachmentOffsetVector = Vector(0, 0, 0);
+	ITEM.bulletConditionScale = 0.3;
 	
 	ITEM.components = {breakdownType = "breakdown", items = {"iron_chunks", "wood", "wood", "wood"}};
-	ITEM.requireFaction = {"Goreic Warrior"};
+	ITEM.requireFaith = {"Faith of the Family"};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("shield_base");
@@ -58,6 +61,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90, 359.01, 0);
 	ITEM.attachmentOffsetVector = Vector(0, 2.12, -4.95);
+	ITEM.bulletConditionScale = 0.15;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks", "steel_chunks"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 800, supercrateOnly = true};
@@ -69,13 +73,14 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.model = "models/props/begotten/melee/twin_dragon_greatshield.mdl";
 	ITEM.weight = 5;
 	ITEM.uniqueID = "shield11";
-	ITEM.description = "A well-crafted Tower Shield bearing an inscribed depiction of the Glaze.";
+	ITEM.description = "A well-crafted tower shield bearing an inscribed depiction of the Glaze.";
 	ITEM.iconoverride = "materials/begotten/ui/itemicons/gatekeeper_shield.png"
 	ITEM.isAttachment = true;
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90, 0, 0);
 	ITEM.attachmentOffsetVector = Vector(0, 0, 0);
 	ITEM.excludeFactions = {"Goreic Warrior"};
+	ITEM.bulletConditionScale = 0.2;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "wood", "wood", "wood", "wood"}};
 ITEM:Register();
@@ -91,6 +96,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(88.51, 201.79, 268.11);
 	ITEM.attachmentOffsetVector = Vector(0, 0.71, -4.24);
+	ITEM.bulletConditionScale = 0.1;
 	
 	ITEM.attributes = {"unbreakable"};
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks"}};
@@ -110,9 +116,10 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(98.45, 181.99, 176.02);
 	ITEM.attachmentOffsetVector = Vector(0, -1.41, 0);
+	ITEM.bulletConditionScale = 0.3;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"iron_chunks", "iron_chunks", "iron_chunks", "wood"}};
-	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 900};
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 900, bNoSupercrate = true};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("shield_base");
@@ -126,9 +133,61 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90.5, 201.88, 269.5);
 	ITEM.attachmentOffsetVector = Vector(0, -0.71, 0);
+	ITEM.bulletConditionScale = 0.2;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks"}};
 	ITEM.requiredbeliefs = {"manifesto"};
+	ITEM.kinisgerOverride = true;
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Leather Shield";
+	ITEM.model = "models/props/begotten/melee/large_leather_shield.mdl";
+	ITEM.weight = 2.5;
+	ITEM.uniqueID = "shield17";
+	ITEM.description = "A circular shield of wooden construction, its face covered with leather.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/leather_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(270, 0, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 1.6, 0);
+	ITEM.bulletConditionScale = 0.45;
+	
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 750, bNoSupercrate = true};
+	ITEM.components = {breakdownType = "breakdown", items = {"wood", "wood", "wood", "leather", "leather"}};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Old Soldier Shield";
+	ITEM.model = "models/begotten/thralls/skellyshield.mdl";
+	ITEM.weight = 2.5;
+	ITEM.uniqueID = "shield20";
+	ITEM.description = "Formerly used by the foot soldiers of the Empire of Light's armies, these shields now serve a more sinister purpose.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/old_soldier_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 180, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 2, 0);
+	ITEM.bulletConditionScale = 0.25;
+	
+	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks"}};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Rusted Kite Shield";
+	ITEM.model = "models/props/begotten/melee/red_rust_shield.mdl";
+	ITEM.weight = 2.5;
+	ITEM.uniqueID = "shield19";
+	ITEM.description = "A battered and rusted shield that has obviously seen extensive use. A previous owner has tallied their kills on its face.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/rusted_kite_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 180, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 2, 0);
+	ITEM.bulletConditionScale = 0.25;
+	
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 2500};
+	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks", "leather"}};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("shield_base");
@@ -142,6 +201,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90, 275, 180.15);
 	ITEM.attachmentOffsetVector = Vector(0, 3, -1);
+	ITEM.bulletConditionScale = 0.4;
 	
 	ITEM.components = {breakdownType = "breakdown", items = {"scrap", "scrap", "scrap", "scrap"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 600, bNoSupercrate = true};
@@ -158,6 +218,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(114.36, 183.98, 181.99);
 	ITEM.attachmentOffsetVector = Vector(0, 0.71, 4.24);
+	ITEM.bulletConditionScale = 0.6;
 	
 	ITEM.components = {breakdownType = "breakdown", items = {"wood"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 80};
@@ -174,6 +235,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90.5, 158.12, 88.51);
 	ITEM.attachmentOffsetVector = Vector(0, -1.41, 0);
+	ITEM.bulletConditionScale = 0.1;
 	
 	ITEM.attributes = {"unbreakable"};
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks"}};
@@ -193,10 +255,45 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(74.59, 183.98, 360);
 	ITEM.attachmentOffsetVector = Vector(0, 0.34, 0);
+	ITEM.bulletConditionScale = 0.2;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks", "steel_chunks"}};
 	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 800, supercrateOnly = true};
 	ITEM.requireFaith = {"Faith of the Dark"};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Steel Gatekeeper Shield";
+	ITEM.model = "models/props/begotten/melee/tower_shield.mdl";
+	ITEM.weight = 8;
+	ITEM.uniqueID = "shield18";
+	ITEM.description = "A masterfully-crafted steel greatshield bearing a personification of the Glaze.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/steel_gatekeeper_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 180, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 2, 0);
+	ITEM.excludeFactions = {"Goreic Warrior"};
+	ITEM.bulletConditionScale = 0.2;
+	
+	ITEM.requiredbeliefs = {"defender"};
+	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks", "steel_chunks", "steel_chunks"}};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Steel Tower Shield";
+	ITEM.model = "models/props/begotten/melee/pate_shield.mdl";
+	ITEM.weight = 6;
+	ITEM.uniqueID = "shield16";
+	ITEM.description = "A tall wooden shield plated with blackened steel plates; its design incorporates elements commonly found in Darklander equipment.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/steel_tower_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 180, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 2, -1);
+	ITEM.bulletConditionScale = 0.2;
+	
+	ITEM.components = {breakdownType = "meltdown", items = {"steel_chunks", "steel_chunks", "steel_chunks", "wood", "wood", "wood"}};
 ITEM:Register();
 
 local ITEM = Clockwork.item:New("shield_base");
@@ -210,6 +307,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90, 275, 180.15);
 	ITEM.attachmentOffsetVector = Vector(0, 9, -4.95);
+	ITEM.bulletConditionScale = 0.4;
 	
 	ITEM.attributes = {"electrified"};
 	ITEM.components = {breakdownType = "breakdown", items = {"scrap", "scrap", "scrap", "scrap", "tech"}}; -- use "breakdown" for other type
@@ -227,6 +325,7 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(90, 0, 0);
 	ITEM.attachmentOffsetVector = Vector(0, 0, 0);
+	ITEM.bulletConditionScale = 0.1;
 	
 	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "iron_chunks", "iron_chunks"}};
 	ITEM.requireFaction = {"Goreic Warrior"};
@@ -243,7 +342,28 @@ local ITEM = Clockwork.item:New("shield_base");
 	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
 	ITEM.attachmentOffsetAngles = Angle(273.48, 360, 90);
 	ITEM.attachmentOffsetVector = Vector(0, 1.6, 0);
+	ITEM.bulletConditionScale = 0.5;
 	
-	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 650, bNoSupercrate = true};
-	ITEM.components = {breakdownType = "breakdown", items = {"wood", "wood", "wood", "wood"}};
+	ITEM.itemSpawnerInfo = {category = "Melee", rarity = 600, bNoSupercrate = true};
+	ITEM.components = {breakdownType = "breakdown", items = {"wood", "wood", "wood"}};
+ITEM:Register();
+
+local ITEM = Clockwork.item:New("shield_base");
+	ITEM.name = "Red Wolf Shield";
+	ITEM.model = "models/begotten/weapons/uniquegoreshield.mdl";
+	ITEM.weight = 9;
+	ITEM.uniqueID = "shieldunique1";
+	ITEM.description = "An unholy wall of black steel forged in the fires of hell. It is adorned with the dried flesh of flayed victims. A shield meant for the Red Wolves, a twisted warrior lodge of Clan Reaver.";
+	ITEM.iconoverride = "materials/begotten/ui/itemicons/red_wolf_shield.png"
+	ITEM.isAttachment = true;
+	ITEM.isUnique = true;
+	ITEM.attachmentBone = "ValveBiped.Bip01_Spine2";
+	ITEM.attachmentOffsetAngles = Angle(90, 360, 0);
+	ITEM.attachmentOffsetVector = Vector(0, 4.24, -4.95);
+
+	ITEM.components = {breakdownType = "meltdown", items = {"fine_steel_chunks", "fine_steel_chunks", "fine_steel_chunks"}};
+	ITEM.attributes = {"unbreakable"};
+	ITEM.requiredbeliefs = {"defender"};
+	ITEM.requireFaction = {"Goreic Warrior"};
+	ITEM.requireSubfaction = {"Clan Reaver"};
 ITEM:Register();

@@ -177,6 +177,8 @@ local COMMAND = Clockwork.command:New("PlyBan");
 		
 		if (!Clockwork.player:IsProtected(arguments[1])) then
 			if (duration) then
+				duration = math.max(duration, 0);
+				
 				Clockwork.bans:Add(arguments[1], duration * 60, reason, function(steamName, duration, reason)
 					if (IsValid(player)) then
 						if (steamName) then
@@ -243,6 +245,86 @@ local COMMAND = Clockwork.command:New("PlyGiveFlags");
 	end;
 COMMAND:Register();
 
+local COMMAND = Clockwork.command:New("PlyMute");
+	COMMAND.tip = "Mute a player.";
+	COMMAND.text = "<string Name>";
+	COMMAND.access = "o";
+	COMMAND.arguments = 1;
+	COMMAND.alias = {"CharMute", "Mute", "Gag", "PlyGag", "CharGag"};
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local target = Clockwork.player:FindByID(arguments[1])
+		
+		if (target) then
+			local name = target:Name();
+			
+			target:SetMuted(true);
+			
+			Clockwork.player:NotifyAdmins("operator", player:Name().." has muted "..name..".");
+		else
+			Clockwork.player:Notify(player, arguments[1].." is not a valid character!");
+		end;
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("PlyUnmute");
+	COMMAND.tip = "Unmute a player.";
+	COMMAND.text = "<string Name>";
+	COMMAND.access = "o";
+	COMMAND.arguments = 1;
+	COMMAND.alias = {"CharUnmute", "Unmute", "Ungag", "PlyUngag", "CharUngag"};
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		local target = Clockwork.player:FindByID(arguments[1])
+		
+		if (target) then
+			local name = target:Name();
+			
+			target:SetMuted(false);
+			
+			Clockwork.player:NotifyAdmins("operator", player:Name().." has unmuted "..name..".");
+		else
+			Clockwork.player:Notify(player, arguments[1].." is not a valid character!");
+		end;
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("PlyMuteAll");
+	COMMAND.tip = "Mute a player.";
+	COMMAND.access = "s";
+	COMMAND.alias = {"CharMuteAll", "MuteAll", "GagAll", "PlyGagAll", "CharGagAll"};
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		for _, v in _player.Iterator() do
+			if (!Clockwork.player:IsAdmin(v)) then
+				v:SetMuted(true);
+			end;
+		end;
+		
+		Clockwork.player:NotifyAdmins("operator", player:Name().." has muted all players.");
+	end;
+COMMAND:Register();
+
+local COMMAND = Clockwork.command:New("PlyUnmuteAll");
+	COMMAND.tip = "Unmute a player.";
+	COMMAND.access = "s";
+	COMMAND.alias = {"CharUnmuteAll", "UnmuteAll", "UngagAll", "PlyUngagAll", "CharUngagAll"};
+
+	-- Called when the command has been run.
+	function COMMAND:OnRun(player, arguments)
+		for _, v in _player.Iterator() do
+			if (!Clockwork.player:IsAdmin(v)) then
+				v:SetMuted(false);
+			end;
+		end;
+		
+		Clockwork.player:NotifyAdmins("operator", player:Name().." has unmuted all players.");
+	end;
+COMMAND:Register();
+
 local COMMAND = Clockwork.command:New("PlyFreeze");
 	COMMAND.tip = "Toggle freeze a player.";
 	COMMAND.text = "<string Name> [bool Freeze 0-1] [bool Force 0-1]";
@@ -305,7 +387,7 @@ local COMMAND = Clockwork.command:New("FreezeAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (!Clockwork.player:IsAdmin(v)) then
 				v:Freeze(true);
 			end;
@@ -322,7 +404,7 @@ local COMMAND = Clockwork.command:New("UnFreezeAll");
 
 	-- Called when the command has been run.
 	function COMMAND:OnRun(player, arguments)
-		for k, v in pairs (_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (!Clockwork.player:IsAdmin(v)) then
 				v:Freeze(false);
 			end;
@@ -481,7 +563,7 @@ local COMMAND = Clockwork.command:New("PlyRespawnStayAll");
 			end;
 		end;
 		
-		for i, v in ipairs(_player.GetAll()) do
+		for _, v in _player.Iterator() do
 			if (exempt[v] or v:Alive() or !v.cwDeathPosition) then
 				continue;
 			end;
@@ -500,7 +582,7 @@ local COMMAND = Clockwork.command:New("PlyRespawnStayAll");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("GetFlags");
-	COMMAND.tip = "Get all flags. You may specify the name of a player to give these flags to. Second argument makes flags persist across characters.";
+	COMMAND.tip = "Get the important flags (petcrnCW). You may specify the name of a player to give these flags to. Second argument makes flags persist across characters.";
 	COMMAND.text = "<string Name> <bool PlayerFlags>";
 	COMMAND.access = "s";
 	COMMAND.optionalArguments = 2;
@@ -531,11 +613,13 @@ local COMMAND = Clockwork.command:New("GetFlags");
 		
 		local playerName = player:Name();
 		local name = target:Name();
-		local flagString = "";
+		--local flagString = "";
 		
-		for k, v in pairs (Clockwork.flag.stored) do
+		--[[for k, v in pairs (Clockwork.flag.stored) do
 			flagString = flagString..k;
-		end;
+		end;]]--
+		
+		local flagString = "petcrnCW";
 		
 		if (string.len(flagString) > 0) then
 			player:RunClockworkCmd(command, name, flagString);
@@ -677,6 +761,10 @@ local COMMAND = Clockwork.command:New("PlyGoto");
 		local target = Clockwork.player:FindByID(arguments[1]);
 		
 		if (target) then
+			if cwPickupObjects then
+				cwPickupObjects:ForceDropEntity(player)
+			end
+		
 			Clockwork.player:SetSafePosition(player, target:GetPos());
 			Clockwork.player:NotifyAll(player:Name().." has gone to "..target:Name().."'s location.");
 		else
@@ -808,6 +896,12 @@ local COMMAND = Clockwork.command:New("PlyTeleport");
 		local target = Clockwork.player:FindByID(arguments[1]);
 		
 		if (target) then
+			if target:IsRagdolled() then
+				Clockwork.player:SetRagdollState(target, RAGDOLL_NONE);
+			elseif cwPickupObjects then
+				cwPickupObjects:ForceDropEntity(target)
+			end
+			
 			Clockwork.player:SetSafePosition(target, player:GetEyeTraceNoCursor().HitPos);
 			Clockwork.player:NotifyAll(player:Name().." has teleported "..target:Name().." to their target location.");
 		else
@@ -828,6 +922,12 @@ local COMMAND = Clockwork.command:New("PlyTeleportFreeze");
 		local target = Clockwork.player:FindByID(arguments[1]);
 		
 		if (target) then
+			if target:IsRagdolled() then
+				Clockwork.player:SetRagdollState(target, RAGDOLL_NONE);
+			elseif cwPickupObjects then
+				cwPickupObjects:ForceDropEntity(target)
+			end
+		
 			Clockwork.player:SetSafePosition(target, player:GetEyeTraceNoCursor().HitPos);
 			Clockwork.player:NotifyAll(player:Name().." has teleported "..target:Name().." to their target location.");
 			
@@ -950,7 +1050,7 @@ local COMMAND = Clockwork.command:New("PlyUnwhitelistSubfaction");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("PlyVoiceBan");
-	COMMAND.tip = "Ban a player from the server.";
+	COMMAND.tip = "Ban a player from using voice on the server.";
 	COMMAND.text = "<string Name|SteamID|IPAddress>";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.access = "o";
@@ -971,7 +1071,7 @@ local COMMAND = Clockwork.command:New("PlyVoiceBan");
 COMMAND:Register();
 
 local COMMAND = Clockwork.command:New("PlyVoiceUnban");
-	COMMAND.tip = "Ban a player from the server.";
+	COMMAND.tip = "Unban a player from using voice on the server.";
 	COMMAND.text = "<string Name|SteamID|IPAddress>";
 	COMMAND.flags = CMD_DEFAULT;
 	COMMAND.access = "o";
@@ -1075,3 +1175,126 @@ local COMMAND = Clockwork.command:New("PlyWhitelistSubfaction");
 		end;
 	end;
 COMMAND:Register();
+
+-- Properties
+properties.Add("ban", {
+	MenuLabel = "Ban",
+	Order = 50,
+	MenuIcon = "icon16/cancel.png",
+	Filter = function(self, ent, ply)
+		if !IsValid(ent) or !IsValid(ply) or !ply:IsAdmin() then return false end
+		if !ent:IsPlayer() then
+			if Clockwork.entity:IsPlayerRagdoll(ent) then
+				ent = Clockwork.entity:GetPlayer(ent);
+			else
+				return false;
+			end
+		end
+
+		return true
+	end,
+	Action = function(self, ent)
+		if IsValid(ent) then
+			if !ent:IsPlayer() then
+				if Clockwork.entity:IsPlayerRagdoll(ent) then
+					ent = Clockwork.entity:GetPlayer(ent);
+				else
+					return false;
+				end
+			end
+		
+			Derma_StringRequest(ent:Name(), "How many minutes would you like to ban them for?", nil, function(minutes)
+				if IsValid(ent) then
+					Derma_StringRequest(ent:Name(), "What is your reason for banning them?", nil, function(reason)
+						if IsValid(ent) then
+							Clockwork.kernel:RunCommand("PlyBan", ent:Name(), minutes, reason)
+						end
+					end)
+				end
+			end)
+		end
+	end,
+});
+
+properties.Add("freeze", {
+	MenuLabel = "Freeze",
+	Order = 60,
+	MenuIcon = "icon16/weather_snow.png",
+	Filter = function(self, ent, ply)
+		if !IsValid(ent) or !IsValid(ply) or !ply:IsAdmin() then return false end
+		if !ent:IsPlayer() then return false end
+
+		return true
+	end,
+	Action = function(self, ent)
+		if IsValid(ent) then
+			Clockwork.kernel:RunCommand("PlyFreeze", ent:Name())
+		end
+	end,
+});
+
+properties.Add("kick", {
+	MenuLabel = "Kick",
+	Order = 70,
+	MenuIcon = "icon16/disconnect.png",
+	Filter = function(self, ent, ply)
+		if !IsValid(ent) or !IsValid(ply) or !ply:IsAdmin() then return false end
+		if !ent:IsPlayer() then
+			if Clockwork.entity:IsPlayerRagdoll(ent) then
+				ent = Clockwork.entity:GetPlayer(ent);
+			else
+				return false;
+			end
+		end
+
+		return true
+	end,
+	Action = function(self, ent)
+		if IsValid(ent) then
+			if !ent:IsPlayer() then
+				if Clockwork.entity:IsPlayerRagdoll(ent) then
+					ent = Clockwork.entity:GetPlayer(ent);
+				else
+					return false;
+				end
+			end
+		
+			Derma_StringRequest(ent:Name(), "What is your reason for kicking them?", nil, function(reason)
+				if IsValid(ent) then
+					Clockwork.kernel:RunCommand("PlyKick", ent:Name(), reason)
+				end
+			end)
+		end
+	end,
+});
+
+properties.Add("search", {
+	MenuLabel = "Search",
+	Order = 80,
+	MenuIcon = "icon16/zoom.png",
+	Filter = function(self, ent, ply)
+		if !IsValid(ent) or !IsValid(ply) or !ply:IsAdmin() then return false end
+		if !ent:IsPlayer() then
+			if Clockwork.entity:IsPlayerRagdoll(ent) then
+				ent = Clockwork.entity:GetPlayer(ent);
+			else
+				return false;
+			end
+		end
+
+		return true
+	end,
+	Action = function(self, ent)
+		if IsValid(ent) then
+			if !ent:IsPlayer() then
+				if Clockwork.entity:IsPlayerRagdoll(ent) then
+					ent = Clockwork.entity:GetPlayer(ent);
+				else
+					return false;
+				end
+			end
+			
+			Clockwork.kernel:RunCommand("PlySearch", ent:Name())
+		end
+	end,
+});

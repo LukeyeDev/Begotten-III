@@ -11,8 +11,10 @@ Clockwork.kernel:IncludePrefixed("sv_plugin.lua");
 Clockwork.kernel:IncludePrefixed("sv_hooks.lua");
 
 function cwMelee:KeyPress(player, key)
+	if !IsFirstTimePredicted() then return end;
+
 	local bUse = (key == IN_USE)
-	local bAttack2 = (key == IN_ATTACK2)
+	local bAttack2 = (key == IN_ATTACK2);
 
 	if SERVER then
 		if (bUse or bAttack2) then
@@ -25,13 +27,13 @@ function cwMelee:KeyPress(player, key)
 			end;
 			
 			if (requiredKey) then
-				if (player:GetNWBool("MelAttacking") != false) then
+				if (player:GetNetVar("MelAttacking")) then
 					return;
 				end;
 				
 				local activeWeapon = player:GetActiveWeapon();
 				
-				if (!IsValid(activeWeapon)) then
+				if (!activeWeapon:IsValid()) then
 					return;
 				end;
 				
@@ -58,55 +60,66 @@ function cwMelee:KeyPress(player, key)
 									end
 								end
 							
-								if (player:GetNWBool("ThrustStance") == false) then
-									if (activeWeapon.CanSwipeAttack == true) then
-										player:SetNWBool("ThrustStance", true)
+								if !player:GetNetVar("ThrustStance") then
+									if (activeWeapon.isJavelin) then
+										player:PrintMessage(HUD_PRINTTALK, "*** Switched to melee stance.")
+										
+										if IsValid(player.possessor) then
+											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to melee stance.")
+										end
+									elseif (activeWeapon.CanSwipeAttack == true) then
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to swiping stance.")
 										
 										if IsValid(player.possessor) then
 											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to swiping stance.")
 										end
-										
-										player.StanceSwitchOn = curTime + 1;
 									elseif canThrust then
-										player:SetNWBool("ThrustStance", true)
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										
 										if IsValid(player.possessor) then
 											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										end
-										
-										player.StanceSwitchOn = curTime + 1;
 									end;
+									
+									player:SetLocalVar("ThrustStance", true)
+									player.StanceSwitchOn = curTime + 1;
+									
+									if activeWeapon.OnMeleeStanceChanged then
+										activeWeapon:OnMeleeStanceChanged("thrust_swing");
+									end
 								else
-									if (activeWeapon.CanSwipeAttack == true) and canThrust then
-										player:SetNWBool("ThrustStance", false)
+									if (activeWeapon.isJavelin) then
+										player:PrintMessage(HUD_PRINTTALK, "*** Switched to throwing stance.")
+										
+										if IsValid(player.possessor) then
+											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to throwing stance.")
+										end
+									elseif (activeWeapon.CanSwipeAttack == true) and canThrust then
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										
 										if IsValid(player.possessor) then
 											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to thrusting stance.")
 										end
-										
-										player.StanceSwitchOn = curTime + 1;
 									elseif (attackTable["dmgtype"] == 128) then
-										player:SetNWBool("ThrustStance", false)
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to bludgeoning stance.")
 										
 										if IsValid(player.possessor) then
 											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to bludgeoning stance.")
 										end
-										
-										player.StanceSwitchOn = curTime + 1;
 									else
-										player:SetNWBool("ThrustStance", false)
 										player:PrintMessage(HUD_PRINTTALK, "*** Switched to slashing stance.")
 										
 										if IsValid(player.possessor) then
 											player.possessor:PrintMessage(HUD_PRINTTALK, "*** Switched to slashing stance.")
 										end
-										
-										player.StanceSwitchOn = curTime + 1;
 									end;
+									
+									player:SetLocalVar("ThrustStance", false)
+									player.StanceSwitchOn = curTime + 1;
+									
+									if activeWeapon.OnMeleeStanceChanged then
+										activeWeapon:OnMeleeStanceChanged("reg_swing");
+									end
 								end;
 							end;
 						end;
@@ -118,31 +131,33 @@ function cwMelee:KeyPress(player, key)
 	
 	if (bAttack2) then
 		if (!player:KeyDown(IN_USE)) then
-			if (player:GetNWBool("MelAttacking") != false) then
+			if (player:GetNetVar("MelAttacking")) then
 				player:CancelGuardening()
 				return;
 			end;
 			
 			local activeWeapon = player:GetActiveWeapon();
 			
-			if (!IsValid(activeWeapon)) then
+			if (!activeWeapon:IsValid()) then
 				return;
 			end;
 			
 			if (activeWeapon.Base == "sword_swepbase") then
-				if (activeWeapon.IronSights == true) then
+				if (activeWeapon.realIronSights == true) then
 					local loweredParryDebug = activeWeapon:GetNextSecondaryFire();
 					local curTime = CurTime();
 					
 					if (loweredParryDebug < curTime) then
 						local blockTable = GetTable(activeWeapon.BlockTable);
 						
-						if (blockTable and player:GetNWInt("meleeStamina", 100) >= blockTable["guardblockamount"]) then
-							player:SetNWBool("Guardening", true);
-							player.beginBlockTransition = true;
-							player.StaminaRegenDelay = 0;
-							activeWeapon.Primary.Cone = activeWeapon.IronCone;
-							activeWeapon.Primary.Recoil = activeWeapon.Primary.IronRecoil;
+						--if (blockTable and player:GetNWInt("meleeStamina", 100) >= blockTable["guardblockamount"]) then
+						if (blockTable and player:GetNWInt("Stamina", 100) >= blockTable["guardblockamount"]) then
+							if !player:GetNetVar("Guardening") then
+								player:SetLocalVar("Guardening", true);
+								player.beginBlockTransition = true;
+								activeWeapon.Primary.Cone = activeWeapon.IronCone;
+								activeWeapon.Primary.Recoil = activeWeapon.Primary.IronRecoil;
+							end
 						else
 							player:CancelGuardening()
 						end;
@@ -151,7 +166,7 @@ function cwMelee:KeyPress(player, key)
 					player:CancelGuardening();
 				end;
 			end;
-		elseif (player:GetNWBool("Guardening", false) == true) then
+		elseif player:GetNetVar("Guardening") then
 			player:CancelGuardening()
 		end;
 	end;
@@ -160,11 +175,11 @@ function cwMelee:KeyPress(player, key)
 		if (key == IN_RELOAD) then
 			local activeWeapon = player:GetActiveWeapon();
 			
-			if (IsValid(activeWeapon)) then
+			if (activeWeapon:IsValid()) then
 				if (activeWeapon.Base == "sword_swepbase") then
-					local blockTable = GetTable(activeWeapon.BlockTable);
+					local blockTable = GetTable(activeWeapon.realBlockTable);
 
-					if (blockTable and blockTable["canparry"] == true) or (activeWeapon:GetClass() == "begotten_fists" and player.GetCharmEquipped and player:GetCharmEquipped("ring_pugilist")) then
+					if ((blockTable and blockTable["canparry"] == true) and activeWeapon.CanParry ~= false) or (activeWeapon:GetClass() == "begotten_fists" and player.GetCharmEquipped and player:GetCharmEquipped("ring_pugilist")) then
 						if (!player.HasBelief or player:HasBelief("parrying")) then
 							activeWeapon:SecondaryAttack();
 						end;
@@ -177,7 +192,7 @@ end;
 
 function cwMelee:KeyRelease(player, key)
 	if key == IN_ATTACK2 then
-		if (player:GetNWBool("Guardening", false) == true) then
+		if (player:GetNetVar("Guardening", false) == true) then
 			player:CancelGuardening();
 		end;
 	end
@@ -186,15 +201,18 @@ end
 local playerMeta = FindMetaTable("Player");
 
 function playerMeta:CancelGuardening()
-	local activeWeapon = self:GetActiveWeapon();
-	
-	if (IsValid(activeWeapon)) then
-		if (activeWeapon.Base == "sword_swepbase") then
-			activeWeapon.Primary.Cone = activeWeapon.DefaultCone;
-			activeWeapon.Primary.Recoil = activeWeapon.DefaultRecoil;
+	if self:GetNetVar("Guardening") then
+		local activeWeapon = self:GetActiveWeapon();
+		
+		if (activeWeapon:IsValid()) then
+			if (activeWeapon.Base == "sword_swepbase") then
+				activeWeapon.Primary.Cone = activeWeapon.DefaultCone;
+				activeWeapon.Primary.Recoil = activeWeapon.DefaultRecoil;
+			end;
 		end;
-	end;
+		
+		self:SetLocalVar("Guardening", false);
+	end
 	
-	self:SetNWBool("Guardening", false);
 	self.beginBlockTransition = true;
 end;
