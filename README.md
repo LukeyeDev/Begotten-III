@@ -2,6 +2,8 @@
 
 <i>A post-apocalyptic roleplay gamemode for Garry's Mod based on a heavily modified Clockwork framework, run officially from April 2021 to September 2021. Although starting as mostly the same gamemode as during the server finale, this version of Begotten III has received numerous updates and improvements.</i>
 
+<b>Supported Maps: [rp_begotten3](https://steamcommunity.com/sharedfiles/filedetails/?id=2442244710), [rp_district21](https://steamcommunity.com/sharedfiles/filedetails/?id=3126101449)</b>
+
 <b>Recommended Players: 60-80</b>
 
 <b>Recommended Tickrate: 22-33</b>
@@ -25,6 +27,8 @@ cash wednesday - Programmer
 
 alyousha35 - Programmer
 
+sky - Mapping (Scraptown)
+
 Minor code contributions by venty.
 
 ### Post-Release Contributors
@@ -33,7 +37,17 @@ filterfeeder - Models & Animations
 
 dave - Programming
 
-ObamasGrandpa - Exploit Reporting
+Vlad - Programming
+
+sprite - Programming
+
+robert - Models
+
+gus - Mapping (District 21)
+
+ObamasGrandpa - Exploit Reporting/Fixing
+
+Other [contributors](https://github.com/DETrooper/Begotten-III/graphs/contributors) who contribute pull requests.
 
 Various other people in the discord who report bugs.
 
@@ -57,3 +71,7 @@ Begotten III utilizes some modified external addons as well, so the lua is inclu
 [Darken217's SciFi Weapons](https://steamcommunity.com/sharedfiles/filedetails/?id=420970650)
 
 I also highly recommend [this addon](https://steamcommunity.com/sharedfiles/filedetails/?id=1907060869) to improve server performance.
+
+If your server is struggling to maintain performance or you have no need to use it, it is advised to disable PAC3.
+
+Visit us on [Discord](https://discord.gg/zJnWjcW) for any questions, comments, or concerns.
