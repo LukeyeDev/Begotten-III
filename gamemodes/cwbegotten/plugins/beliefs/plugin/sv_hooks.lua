@@ -312,9 +312,16 @@ function cwBeliefs:BeliefTaken(player, uniqueID, category)
 				if v3.lockedBeliefs then
 					for i, v4 in ipairs(v3.lockedBeliefs) do
 						if beliefs[k3] and beliefs[v4] then
-							lockedBeliefFound = true;
 							beliefs[k3] = false;
 							points = points + 1;
+							
+							if !lockedBeliefFound and v.hasFinisher then
+								if beliefs[v.uniqueID.."_finisher"] then
+									beliefs[v.uniqueID.."_finisher"] = false;
+								end
+							end
+							
+							lockedBeliefFound = true;
 						end
 					end
 				end
@@ -2322,7 +2329,7 @@ function cwBeliefs:PlayerDeath(player, inflictor, attacker, damageInfo)
 	if IsValid(attacker) and attacker:IsPlayer() and not player.opponent and not attacker.opponent then
 		if attacker:HasBelief("brutality_finisher") then
 			local playerLevel = player:GetCharacterData("level", 1);
-			local refundPerLevel = 0.03;
+			local refundPerLevel = 0.025;
 			local maxHealth = attacker:GetMaxHealth();
 			local maxStamina = attacker:GetMaxStamina();
 			--local maxPoise = attacker:GetMaxPoise();
